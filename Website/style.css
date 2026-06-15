@@ -615,3 +615,20 @@ footer {
     .hero-subtitle { margin: 0 auto 40px; }
     .features-split { flex-direction: column; }
 }
+
+/* Observer Banner */
+.observer-banner {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: rgba(255, 60, 0, 0.95);
+    color: #ffffff;
+    text-align: center;
+    padding: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    z-index: 9999;
+    box-shadow: 0 2px 15px rgba(255, 60, 0, 0.5);
+    text-transform: uppercase;
+}

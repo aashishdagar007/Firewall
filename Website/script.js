@@ -78,6 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.ok) {
                     const data = await res.json();
                     packetCounter.textContent = data.total.toLocaleString() + ' PKTS';
+                    
+                    if (data.enforcement_mode === false && !document.querySelector('.observer-banner')) {
+                        const banner = document.createElement('div');
+                        banner.className = 'observer-banner';
+                        banner.innerHTML = '<strong>OBSERVER MODE</strong> &nbsp;|&nbsp; Packets are not being blocked. (WinDivert missing)';
+                        document.body.prepend(banner);
+                    }
                 } else if (res.status === 401) {
                     packetCounter.textContent = 'AUTH ERROR';
                     sessionStorage.removeItem('fw_api_token');

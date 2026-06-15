@@ -200,6 +200,11 @@ std::string ApiServer::handle_stats() const {
       << "\"tcp\":"         << stats_.tcp.load()         << ","
       << "\"udp\":"         << stats_.udp.load()         << ","
       << "\"icmp\":"        << stats_.icmp.load()        << ","
+#if defined(HAVE_WINDIVERT) || defined(HAVE_NFQUEUE)
+      << "\"enforcement_mode\":true,"
+#else
+      << "\"enforcement_mode\":false,"
+#endif
       << "\"bytes_total\":" << stats_.bytes_total.load()
       << "}";
     return o.str();
