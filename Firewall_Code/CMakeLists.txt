@@ -1,0 +1,134 @@
+cmake_minimum_required(VERSION 3.20)
+project(Firewall VERSION 2.0 LANGUAGES CXX)
+
+# ── C++17 ──────────────────────────────────────────────────────────────────
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# ── Compiler warnings ──────────────────────────────────────────────────────
+if(MSVC)
+    add_compile_options(/W4 /WX- /utf-8 /permissive-)
+    # Suppress common warnings from third-party headers (httplib)
+    add_compile_options(/wd4996 /wd4267 /wd4244)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# ── Include paths ──────────────────────────────────────────────────────────
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
+# ── Source files ───────────────────────────────────────────────────────────
+set(SOURCES
+    src/main.cpp
+    src/packet.cpp
+    src/rule_engine.cpp
+    src/logger.cpp
+    src/config_parser.cpp
+    src/nfq_capture.cpp
+    src/api_server.cpp
+    src/process_monitor.cpp
+)
+
+# ── Executable ─────────────────────────────────────────────────────────────
+add_executable(firewall ${SOURCES})
+
+# ── Threads ────────────────────────────────────────────────────────────────
+find_package(Threads REQUIRED)
+target_link_libraries(firewall PRIVATE Threads::Threads)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Platform-specific configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+if(WIN32)
+    # ── Windows ─────────────────────────────────────────────────────────────
+    message(STATUS "Platform: Windows")
+
+    # Winsock2 (ws2_32) — always needed
+    target_link_libraries(firewall PRIVATE ws2_32)
+
+    # iphlpapi — GetExtendedTcpTable/GetExtendedUdpTable (process_monitor)
+    target_link_libraries(firewall PRIVATE iphlpapi)
+
+    # psapi — QueryFullProcessImageName (process_monitor)
+    target_link_libraries(firewall PRIVATE psapi)
+
+    # MinGW static runtime (no DLL dependency in the exe)
+    if(MINGW)
+        target_link_options(firewall PRIVATE -static -static-libgcc -static-libstdc++)
+        message(STATUS "Toolchain: MinGW-w64 (static runtime)")
+    endif()
+
+    # ── WinDivert (optional — enables real packet blocking on Windows) ──────
+    # Download WinDivert from https://reqrypt.org/windivert.html
+    # and place WinDivert64.dll + WinDivert.lib next to the executable,
+    # or set WINDIVERT_DIR in CMake cache to the extracted folder.
+    if(DEFINED WINDIVERT_DIR AND EXISTS "${WINDIVERT_DIR}/include/windivert.h")
+        message(STATUS "Found WinDivert at ${WINDIVERT_DIR} — real blocking enabled")
+        target_include_directories(firewall PRIVATE "${WINDIVERT_DIR}/include")
+        target_link_directories(firewall PRIVATE "${WINDIVERT_DIR}/x64")
+        target_link_libraries(firewall PRIVATE WinDivert)
+        target_compile_definitions(firewall PRIVATE HAVE_WINDIVERT)
+    else()
+        message(STATUS "WinDivert NOT found — observer mode only")
+        message(STATUS "  To enable real blocking:")
+        message(STATUS "    1. Download WinDivert from https://reqrypt.org/windivert.html")
+        message(STATUS "    2. cmake .. -DWINDIVERT_DIR=<path>")
+    endif()
+
+    # Windows needs _WIN32_WINNT set (Vista+ for Winsock features used)
+    target_compile_definitions(firewall PRIVATE
+        _WIN32_WINNT=0x0A00   # Windows 10+ (required by httplib.h)
+        _CRT_SECURE_NO_WARNINGS
+    )
+
+else()
+    # ── Linux / macOS ────────────────────────────────────────────────────────
+    message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
+
+    # libnetfilter_queue (optional — enables real blocking on Linux)
+    find_library(NFQ_LIB NAMES netfilter_queue)
+    if(NFQ_LIB)
+        message(STATUS "Found libnetfilter_queue: ${NFQ_LIB} — real blocking enabled")
+        target_compile_definitions(firewall PRIVATE HAVE_NFQUEUE)
+        target_link_libraries(firewall PRIVATE ${NFQ_LIB})
+    else()
+        message(STATUS "libnetfilter_queue NOT found — raw socket observer mode only")
+        message(STATUS "  Install with: sudo apt install libnetfilter-queue-dev")
+    endif()
+
+endif()
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Build assets (config + dashboard copied next to the executable)
+# ══════════════════════════════════════════════════════════════════════════════
+file(COPY config    DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY dashboard DESTINATION ${CMAKE_BINARY_DIR})
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/logs)
+
+# ── Summary ────────────────────────────────────────────────────────────────
+message(STATUS "")
+message(STATUS "══════════════════════════════════════════════")
+message(STATUS " Firewall v2  build summary")
+message(STATUS "══════════════════════════════════════════════")
+message(STATUS "  Build type : ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Compiler   : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "  Standard   : C++${CMAKE_CXX_STANDARD}")
+if(WIN32)
+    message(STATUS "  Windows    : Observer mode (ws2_32)")
+    message(STATUS "  Blocking   : WinDivert (set WINDIVERT_DIR to enable)")
+    message(STATUS "")
+    message(STATUS "  Run as Administrator in PowerShell:")
+    message(STATUS "    cd cmake-build-debug")
+    message(STATUS "    .\\firewall.exe")
+else()
+    message(STATUS "  Linux      : NFQ mode available")
+    message(STATUS "")
+    message(STATUS "  iptables setup (run once before daemon):")
+    message(STATUS "    sudo iptables -I INPUT   -j NFQUEUE --queue-num 0")
+    message(STATUS "    sudo iptables -I OUTPUT  -j NFQUEUE --queue-num 0")
+    message(STATUS "    sudo iptables -I FORWARD -j NFQUEUE --queue-num 0")
+    message(STATUS "  Then: cd cmake-build-debug && sudo ./firewall")
+endif()
+message(STATUS "══════════════════════════════════════════════")

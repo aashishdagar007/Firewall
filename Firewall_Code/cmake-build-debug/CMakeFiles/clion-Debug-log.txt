@@ -1,0 +1,24 @@
+C:\Users\hp\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=C:/Users/hp/AppData/Local/Programs/CLion/bin/ninja/win/x64/ninja.exe -G Ninja -S D:\AASHISH\Projects\Firewall -B D:\AASHISH\Projects\Firewall\cmake-build-debug
+-- Platform: Windows
+-- Toolchain: MinGW-w64 (static runtime)
+-- WinDivert NOT found — observer mode only
+--   To enable real blocking:
+--     1. Download WinDivert from https://reqrypt.org/windivert.html
+--     2. cmake .. -DWINDIVERT_DIR=<path>
+-- 
+-- ══════════════════════════════════════════════
+--  Firewall v2  build summary
+-- ══════════════════════════════════════════════
+--   Build type : Debug
+--   Compiler   : GNU 13.1.0
+--   Standard   : C++17
+--   Windows    : Observer mode (ws2_32)
+--   Blocking   : WinDivert (set WINDIVERT_DIR to enable)
+-- 
+--   Run as Administrator in PowerShell:
+--     cd cmake-build-debug
+--     .\firewall.exe
+-- ══════════════════════════════════════════════
+-- Configuring done (0.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: D:/AASHISH/Projects/Firewall/cmake-build-debug

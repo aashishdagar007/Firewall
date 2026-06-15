@@ -1,0 +1,16 @@
+# ninja log v7
+39	678	8029465096786828	CMakeFiles/firewall.dir/src/logger.cpp.obj	8fee15382b9f8799
+34	1107	8029465096730770	CMakeFiles/firewall.dir/src/packet.cpp.obj	a2fcb2f86f4c3be4
+37	1228	8029465096761418	CMakeFiles/firewall.dir/src/rule_engine.cpp.obj	608889b2857dd3e3
+27	1330	8029746846930757	CMakeFiles/firewall.dir/src/main.cpp.obj	a6712add36aef57c
+43	1194	8029465096823764	CMakeFiles/firewall.dir/src/config_parser.cpp.obj	39981753acf9d278
+5	1433	8029803762173898	CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj	4482e875f620ffa1
+33	7350	8029746847001432	CMakeFiles/firewall.dir/src/api_server.cpp.obj	1b54a77dad618a78
+1433	14742	8029803776447186	firewall.exe	3c0aed08fcbb32b0
+36	2270	8029746847029108	CMakeFiles/firewall.dir/src/process_monitor.cpp.obj	7b78f4823d815e8e
+115	845	8030614905194635	CMakeFiles/firewall.dir/src/logger.cpp.obj	8fee15382b9f8799
+113	1508	8030614905162748	CMakeFiles/firewall.dir/src/rule_engine.cpp.obj	608889b2857dd3e3
+119	1512	8030614905219799	CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj	4482e875f620ffa1
+108	1556	8030614905111692	CMakeFiles/firewall.dir/src/main.cpp.obj	a6712add36aef57c
+122	9282	8030614905249744	CMakeFiles/firewall.dir/src/api_server.cpp.obj	1b54a77dad618a78
+9282	21462	8030614996859944	firewall.exe	3c0aed08fcbb32b0

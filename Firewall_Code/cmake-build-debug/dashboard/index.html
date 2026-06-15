@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Aegis XII Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #1b1c21;
+      --panel: #232429;
+      --sidebar: #1e1e24;
+      --text: #a0a0a5;
+      --text-bright: #ffffff;
+      --green: #28c76f;
+      --red: #ea5455;
+      --orange: #ff9f43;
+      --cyan: #00cfe8;
+      --font: 'Inter', sans-serif;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); display: flex; height: 100vh; overflow: hidden; }
+    
+    /* Sidebar */
+    .sidebar { width: 64px; background: var(--sidebar); display: flex; flex-direction: column; align-items: center; padding-top: 24px; gap: 32px; border-right: 1px solid rgba(255,255,255,0.05); z-index: 10; }
+    .sidebar .icon { font-size: 22px; cursor: pointer; color: #64646a; transition: 0.3s; }
+    .sidebar .icon:hover, .sidebar .icon.active { color: var(--text-bright); text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+    
+    .main-wrap { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; overflow-x: hidden; }
+    
+    /* Topbar */
+    .topbar { height: 64px; display: flex; align-items: center; padding: 0 32px; gap: 32px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .topbar .nav-item { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text); padding: 6px 16px; border-radius: 20px; transition: 0.2s; }
+    .topbar .nav-item:hover { color: var(--text-bright); }
+    .topbar .nav-item.active { background: rgba(255,255,255,0.1); color: var(--text-bright); }
+    
+    /* Grid Layout */
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1.3fr 1.3fr 1.2fr; gap: 20px; padding: 24px 32px; }
+    .col { display: flex; flex-direction: column; gap: 20px; }
+    .card { background: var(--panel); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 16px; display: flex; justify-content: space-between; }
+    
+    /* Gauges */
+    .gauge-wrap { position: relative; height: 130px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .gauge-label { position: absolute; bottom: 10px; text-align: center; width: 100%; font-size: 16px; font-weight: 700; color: var(--text-bright); }
+    .gauge-sub { font-size: 11px; color: var(--text); font-weight: 400; }
+    
+    /* Line Charts */
+    .line-chart-wrap { height: 160px; position: relative; }
+    
+    /* Mini Table */
+    .table-mini { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .table-mini th { text-align: left; padding-bottom: 10px; color: var(--text); font-weight: 500; }
+    .table-mini td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text-bright); }
+    .bar-bg { background: rgba(255,255,255,0.05); height: 4px; border-radius: 2px; width: 60px; display: inline-block; vertical-align: middle; position: relative; }
+    .bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 2px; background: var(--red); }
+    
+    /* Vertical Bars */
+    .v-bars-wrap { display: flex; justify-content: space-around; height: 160px; align-items: flex-end; padding-top: 20px; }
+    .v-bar-col { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 40px; }
+    .v-bar-bg { width: 24px; height: 100px; background: rgba(255,255,255,0.05); border-radius: 4px; position: relative; display: flex; align-items: flex-end; overflow: hidden; }
+    .v-bar-fill { width: 100%; background: var(--green); border-radius: 4px; transition: height 0.5s; }
+    .v-bar-label { font-size: 11px; color: var(--text); }
+    .v-bar-val { font-size: 14px; font-weight: 600; color: var(--text-bright); }
+    
+    /* Packet Feed */
+    .feed-wrap { flex: 1; overflow-y: auto; max-height: 540px; padding-right: 5px; }
+    .feed-item { padding: 12px; border-left: 3px solid var(--green); background: rgba(0,0,0,0.15); margin-bottom: 10px; border-radius: 0 6px 6px 0; font-size: 11px; transition: background 0.2s; }
+    .feed-item:hover { background: rgba(0,0,0,0.3); }
+    .feed-item.blocked { border-left-color: var(--red); }
+    .feed-item-title { font-weight: 600; color: var(--text-bright); margin-bottom: 6px; font-size: 12px; }
+    .feed-item-desc { color: var(--text); margin-bottom: 3px; }
+    
+    /* Tabs & Legacy UI */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    .panel { background: var(--panel); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+    .panel-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 16px; }
+    .btn { padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; font-family: var(--font); }
+    .btn-primary { background: var(--cyan); color: #000; }
+    .btn-danger { background: rgba(234,84,85,0.15); color: var(--red); border: 1px solid rgba(234,84,85,0.3); }
+    .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid rgba(255,255,255,0.1); }
+    
+    table.full-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.full-table th { text-align: left; padding: 12px; color: var(--text); font-weight: 500; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    table.full-table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.02); color: var(--text-bright); }
+    .form-group { display: inline-flex; flex-direction: column; gap: 5px; margin-right: 15px; margin-bottom: 15px; }
+    .form-group label { font-size: 11px; color: var(--text); }
+    .form-group input, .form-group select { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: var(--text-bright); font-family: var(--font); font-size: 12px; outline: none; }
+    .badge { padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+    .badge-allow { background: rgba(40,199,111,0.15); color: var(--green); }
+    .badge-block { background: rgba(234,84,85,0.15); color: var(--red); }
+    
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Left slim sidebar -->
+  <aside class="sidebar">
+    <div class="icon active" onclick="switchMainTab('dashboard')" title="Dashboard">🚀</div>
+    <div class="icon" onclick="switchMainTab('apps')" title="Applications">📱</div>
+    <div class="icon" onclick="switchMainTab('rules')" title="Rules">📋</div>
+    <div class="icon" title="Settings">⚙️</div>
+  </aside>
+
+  <!-- Main Area -->
+  <div class="main-wrap">
+    
+    <!-- Top Nav -->
+    <div class="topbar">
+      <div class="nav-item active" onclick="switchMainTab('dashboard')">Overview</div>
+      <div class="nav-item" onclick="switchMainTab('apps')">Network Apps</div>
+      <div class="nav-item" onclick="switchMainTab('rules')">Server Rules</div>
+      <div class="nav-item">Virtualization</div>
+      <div class="nav-item">Custom</div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="dashboard-grid">
+        
+        <!-- Col 1: Gauges -->
+        <div class="col">
+          <div class="card">
+            <div class="card-title">Total Processed Packets</div>
+            <div class="gauge-wrap">
+              <canvas id="packetGauge"></canvas>
+              <div class="gauge-label"><span id="lbl-packets">0</span><br><span class="gauge-sub">Packets</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Total Bytes Transferred</div>
+            <div class="gauge-wrap">
+              <canvas id="byteGauge"></canvas>
+              <div class="gauge-label"><span id="lbl-bytes">0 B</span><br><span class="gauge-sub">Bytes</span></div>
+            </div>
+          </div>
+          <div class="card" style="flex:1;">
+            <div class="card-title">Protocol Heatmap</div>
+            <div style="position:relative; height:150px;">
+              <canvas id="protoChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 2: Line Charts -->
+        <div class="col">
+          <div class="card">
+            <div class="card-title">Allowed Traffic Utilization</div>
+            <div class="line-chart-wrap">
+              <canvas id="allowedChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Blocked Traffic Drops</div>
+            <div class="line-chart-wrap">
+              <canvas id="blockedChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 3: Mini Apps & Summary -->
+        <div class="col">
+          <div class="card" style="height: 380px;">
+            <div class="card-title">Apps by Network Utilization</div>
+            <table class="table-mini" id="mini-apps">
+              <thead><tr><th>App Name</th><th>Packets</th><th>Avg</th></tr></thead>
+              <tbody id="mini-apps-tbody"></tbody>
+            </table>
+          </div>
+          <div class="card" style="flex:1;">
+            <div class="card-title">Verdict Availability Summary</div>
+            <div class="v-bars-wrap">
+              <div class="v-bar-col">
+                <div class="v-bar-bg"><div class="v-bar-fill" id="v-bar-allow" style="background:var(--green); height:0%;"></div></div>
+                <div class="v-bar-val" id="lbl-allow-count">0</div>
+                <div class="v-bar-label">Allowed</div>
+              </div>
+              <div class="v-bar-col">
+                <div class="v-bar-bg"><div class="v-bar-fill" id="v-bar-block" style="background:var(--red); height:0%;"></div></div>
+                <div class="v-bar-val" id="lbl-block-count">0</div>
+                <div class="v-bar-label">Blocked</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 4: Feed -->
+        <div class="col">
+          <div class="card" style="height: 100%;">
+            <div class="card-title">Recent Network Alarms / Logs</div>
+            <div class="feed-wrap" id="packet-feed">
+               <!-- feed items here -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Apps Tab -->
+    <div id="tab-apps" class="tab-content" style="padding: 24px 32px;">
+      <div class="panel">
+        <div class="panel-title">Active Applications</div>
+        <table class="full-table">
+          <thead>
+            <tr><th>PID</th><th>Application</th><th>Exe Name</th><th>Data RX</th><th>Data TX</th><th>Packets</th><th>Action</th></tr>
+          </thead>
+          <tbody id="apps-tbody"></tbody>
+        </table>
+        <div id="no-apps" style="padding:40px; text-align:center; color:var(--text);">No applications detected</div>
+      </div>
+    </div>
+
+    <!-- Rules Tab -->
+    <div id="tab-rules" class="tab-content" style="padding: 24px 32px;">
+      <div class="panel">
+        <div class="panel-title">+ Add New Rule</div>
+        <div>
+          <div class="form-group"><label>Action</label><select id="r-action"><option value="ALLOW">ALLOW</option><option value="BLOCK">BLOCK</option></select></div>
+          <div class="form-group"><label>Protocol</label><select id="r-proto"><option value="ANY">ANY</option><option value="TCP">TCP</option><option value="UDP">UDP</option><option value="ICMP">ICMP</option></select></div>
+          <div class="form-group"><label>Src IP</label><input id="r-src" placeholder="* or 192.168.1.1"/></div>
+          <div class="form-group"><label>Dst IP</label><input id="r-dst" placeholder="* or 10.0.0.1"/></div>
+          <div class="form-group"><label>Dst Port</label><input id="r-port" placeholder="* or 443" style="width:80px"/></div>
+          <div class="form-group"><label>Description</label><input id="r-desc" placeholder="Rule description" style="width:180px"/></div>
+          <div class="form-group"><label>&nbsp;</label><button class="btn btn-primary" onclick="addRule()">Add Rule</button></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Rule Chain</div>
+        <table class="full-table">
+          <thead>
+            <tr><th>ID</th><th>Action</th><th>Proto</th><th>Src IP</th><th>Dst IP</th><th>Dst Port</th><th>Hits</th><th>Description</th><th></th></tr>
+          </thead>
+          <tbody id="rules-tbody"></tbody>
+        </table>
+        <div id="no-rules" style="padding:40px; text-align:center; color:var(--text);">No rules loaded</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const API = 'http://localhost:8080';
+    let lastSeq = 0;
+    const MAX_ROWS = 50;
+
+    // Tab Switching
+    function switchMainTab(name) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.topbar .nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      
+      // Highlight matching top nav
+      const items = document.querySelectorAll('.topbar .nav-item');
+      if (name === 'dashboard') items[0].classList.add('active');
+      if (name === 'apps') items[1].classList.add('active');
+      if (name === 'rules') items[2].classList.add('active');
+
+      if (name === 'rules') loadRules();
+      if (name === 'apps') pollApps();
+    }
+
+    // Chart Setup
+    const gaugeOpts = { responsive: true, maintainAspectRatio: false, circumference: 180, rotation: -90, cutout: '80%', plugins: { legend: { display: false }, tooltip: { enabled: false } } };
+    const packetGauge = new Chart(document.getElementById('packetGauge'), { type: 'doughnut', data: { datasets: [{ data: [0, 1], backgroundColor: ['#00cfe8', '#333'], borderWidth: 0 }] }, options: gaugeOpts });
+    const byteGauge = new Chart(document.getElementById('byteGauge'), { type: 'doughnut', data: { datasets: [{ data: [0, 1], backgroundColor: ['#ff9f43', '#333'], borderWidth: 0 }] }, options: gaugeOpts });
+    
+    const protoChart = new Chart(document.getElementById('protoChart'), { type: 'doughnut', data: { labels: ['TCP', 'UDP', 'ICMP'], datasets: [{ data: [0,0,0], backgroundColor: ['#00cfe8', '#28c76f', '#ea5455'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'left', labels: {color: '#a0a0a5', boxWidth: 10} } } } });
+
+    const CHART_POINTS = 30;
+    const tLabels = Array(CHART_POINTS).fill('');
+    const tAllowed = Array(CHART_POINTS).fill(0);
+    const tBlocked = Array(CHART_POINTS).fill(0);
+    let pAllow = 0, pBlock = 0;
+
+    const lineOpts = { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, scales: { x: { display: false }, y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64646a', font: { size: 10 } } } }, plugins: { legend: { display: false } }, elements: { line: { borderWidth: 2 }, point: { radius: 0 } } };
+    const allowedChart = new Chart(document.getElementById('allowedChart').getContext('2d'), { type: 'line', data: { labels: tLabels, datasets: [{ data: tAllowed, borderColor: '#28c76f', backgroundColor: 'rgba(40,199,111,0.1)', fill: true }] }, options: lineOpts });
+    const blockedChart = new Chart(document.getElementById('blockedChart').getContext('2d'), { type: 'line', data: { labels: tLabels, datasets: [{ data: tBlocked, borderColor: '#ea5455', backgroundColor: 'rgba(234,84,85,0.1)', fill: true }] }, options: lineOpts });
+
+    // Helpers
+    function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
+    function timeOnly(ts) { return ts ? ts.split(' ')[1] || ts : ''; }
+
+    // Polling
+    async function pollStats() {
+      try {
+        const r = await fetch(API + '/api/stats');
+        if (!r.ok) return;
+        const s = await r.json();
+        
+        document.getElementById('lbl-packets').textContent = s.total.toLocaleString();
+        document.getElementById('lbl-bytes').textContent = fmtBytes(s.bytes_total);
+        packetGauge.data.datasets[0].data = [s.total, s.total === 0 ? 1 : 0]; packetGauge.update();
+        byteGauge.data.datasets[0].data = [s.bytes_total, s.bytes_total === 0 ? 1 : 0]; byteGauge.update();
+
+        const da = s.allowed - pAllow; const db = s.blocked - pBlock;
+        pAllow = s.allowed; pBlock = s.blocked;
+        tAllowed.push(da); tAllowed.shift(); allowedChart.update();
+        tBlocked.push(db); tBlocked.shift(); blockedChart.update();
+
+        protoChart.data.datasets[0].data = [s.tcp, s.udp, s.icmp]; protoChart.update();
+
+        const tot = s.total || 1;
+        document.getElementById('v-bar-allow').style.height = (s.allowed / tot * 100) + '%';
+        document.getElementById('v-bar-block').style.height = (s.blocked / tot * 100) + '%';
+        document.getElementById('lbl-allow-count').textContent = s.allowed.toLocaleString();
+        document.getElementById('lbl-block-count').textContent = s.blocked.toLocaleString();
+      } catch (e) {}
+    }
+
+    async function pollPackets() {
+      try {
+        const r = await fetch(API + '/api/packets?n=50');
+        if (!r.ok) return;
+        const packets = await r.json();
+        const newPkts = packets.filter(p => p.seq > lastSeq);
+        if (!newPkts.length) return;
+        lastSeq = Math.max(...packets.map(p => p.seq));
+        
+        const feed = document.getElementById('packet-feed');
+        newPkts.reverse().forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'feed-item ' + (p.verdict === 'BLOCK' ? 'blocked' : '');
+          div.innerHTML = `
+            <div class="feed-item-title">${p.app || p.process || 'Unknown'} | ${p.proto}</div>
+            <div class="feed-item-desc">${p.src_ip}:${p.src_port || '*'} &rarr; ${p.dst_ip}:${p.dst_port || '*'}</div>
+            <div class="feed-item-desc" style="font-size:10px; opacity:0.6">${p.rule_desc}</div>
+          `;
+          feed.insertBefore(div, feed.firstChild);
+        });
+        while(feed.children.length > MAX_ROWS) feed.removeChild(feed.lastChild);
+      } catch (e) {}
+    }
+
+    async function pollApps() {
+      try {
+        const r = await fetch(API + '/api/processes');
+        const apps = await r.json();
+        const activeApps = apps.filter(app => app.pkt_count > 0);
+        
+        // Update Mini View (Dashboard)
+        const mini = document.getElementById('mini-apps-tbody');
+        const sorted = [...activeApps].sort((a,b) => b.pkt_count - a.pkt_count);
+        mini.innerHTML = '';
+        sorted.slice(0, 8).forEach(app => {
+          const pct = (app.pkt_count / (sorted[0].pkt_count || 1)) * 100;
+          const tr = document.createElement('tr');
+          const color = app.is_blocked ? 'var(--red)' : 'var(--cyan)';
+          tr.innerHTML = `
+            <td style="max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${app.app || app.exe}</td>
+            <td>${app.pkt_count}</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${color}"></div></div></td>
+          `;
+          mini.appendChild(tr);
+        });
+
+        // Update Main View (Apps Tab)
+        const tbody = document.getElementById('apps-tbody');
+        const noApps = document.getElementById('no-apps');
+        if(document.getElementById('tab-apps').classList.contains('active')) {
+          tbody.innerHTML = '';
+          if (!activeApps.length) { noApps.style.display = 'block'; } else {
+            noApps.style.display = 'none';
+            activeApps.forEach(app => {
+              const tr = document.createElement('tr');
+              const btnClass = app.is_blocked ? 'btn-ghost' : 'btn-danger';
+              const btnText = app.is_blocked ? 'Allow' : 'Terminate';
+              tr.innerHTML = `
+                <td style="color:var(--text)">${app.pid}</td>
+                <td style="font-weight:600; color:var(--text-bright)">${app.app}</td>
+                <td style="color:var(--text)">${app.exe}</td>
+                <td style="color:var(--green)">${fmtBytes(app.bytes_rx)}</td>
+                <td style="color:var(--orange)">${fmtBytes(app.bytes_tx)}</td>
+                <td style="color:var(--text)">${app.pkt_count.toLocaleString()}</td>
+                <td><button class="btn ${btnClass}" onclick="toggleApp('${app.exe}', ${!app.is_blocked})">${btnText}</button></td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function toggleApp(exe, block) {
+      await fetch(API + (block ? '/api/apps/block' : '/api/apps/allow'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: exe }) });
+      pollApps();
+    }
+
+    async function loadRules() {
+      try {
+        const r = await fetch(API + '/api/rules');
+        const rules = await r.json();
+        const tbody = document.getElementById('rules-tbody');
+        const noRules = document.getElementById('no-rules');
+        tbody.innerHTML = '';
+        if (!rules.length) { noRules.style.display = 'block'; return; }
+        noRules.style.display = 'none';
+        rules.forEach(rule => {
+          const tr = document.createElement('tr');
+          const badge = rule.action === 'ALLOW' ? '<span class="badge badge-allow">ALLOW</span>' : '<span class="badge badge-block">BLOCK</span>';
+          tr.innerHTML = `<td>${rule.id}</td><td>${badge}</td><td>${rule.proto}</td><td>${rule.src_ip}</td><td>${rule.dst_ip}</td><td>${rule.dst_port||'*'}</td><td style="color:var(--text)">${rule.hit_count}</td><td>${rule.description}</td><td><button class="btn btn-danger" onclick="deleteRule(${rule.id})">Delete</button></td>`;
+          tbody.appendChild(tr);
+        });
+      } catch(e){}
+    }
+
+    async function addRule() {
+      const body = {
+        action: document.getElementById('r-action').value, proto: document.getElementById('r-proto').value,
+        src_ip: document.getElementById('r-src').value || '*', dst_ip: document.getElementById('r-dst').value || '*',
+        dst_port: parseInt(document.getElementById('r-port').value) || 0, description: document.getElementById('r-desc').value || 'Custom rule'
+      };
+      await fetch(API + '/api/rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      loadRules();
+    }
+    async function deleteRule(id) { await fetch(API + '/api/rules/' + id, { method: 'DELETE' }); loadRules(); }
+
+    // Start polling
+    pollStats(); pollPackets(); pollApps();
+    setInterval(pollStats, 2500);
+    setInterval(pollPackets, 1500);
+    setInterval(pollApps, 2500);
+  </script>
+</body>
+</html>
