@@ -30,6 +30,7 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
     out.src_port = 0;
     out.dst_port = 0;
     out.size     = len;
+    out.ttl      = iph->ttl;
 
     switch (iph->protocol) {
 

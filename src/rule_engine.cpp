@@ -29,6 +29,60 @@ bool RuleEngine::remove_rule(uint32_t id) {
 }
 
 EvalResult RuleEngine::evaluate(const PacketInfo& pkt) {
+    // 0. Static Anomaly Detection (RFC Axioms)
+    static Rule anomaly_rule{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "Anomaly Detected", 0};
+    
+    // Layer 3: Land attack (src IP == dst IP)
+    if (pkt.src_ip != 0 && pkt.src_ip == pkt.dst_ip) {
+        anomaly_rule.description = "Anomaly: Land Attack (src == dst)";
+        anomaly_rule.hit_count++;
+        return {Action::BLOCK, &anomaly_rule};
+    }
+
+    // Layer 3: Invalid TTL
+    if (pkt.ttl > 0 && pkt.ttl < 5) { // ttl is 0 if not extracted correctly, so only check > 0
+        anomaly_rule.description = "Anomaly: Unusually low TTL (< 5)";
+        anomaly_rule.hit_count++;
+        return {Action::BLOCK, &anomaly_rule};
+    }
+
+    // Layer 4: TCP Anomalies
+    if (pkt.proto == Proto::TCP) {
+        // NULL scan
+        if (pkt.tcp_flags == 0) {
+            anomaly_rule.description = "Anomaly: TCP NULL Scan";
+            anomaly_rule.hit_count++;
+            return {Action::BLOCK, &anomaly_rule};
+        }
+        // XMAS scan
+        if ((pkt.tcp_flags & (TCP_FIN | TCP_PSH | TCP_URG)) == (TCP_FIN | TCP_PSH | TCP_URG)) {
+            anomaly_rule.description = "Anomaly: TCP XMAS Scan";
+            anomaly_rule.hit_count++;
+            return {Action::BLOCK, &anomaly_rule};
+        }
+        // SYN-FIN combination
+        if ((pkt.tcp_flags & (TCP_SYN | TCP_FIN)) == (TCP_SYN | TCP_FIN)) {
+            anomaly_rule.description = "Anomaly: TCP SYN-FIN combination";
+            anomaly_rule.hit_count++;
+            return {Action::BLOCK, &anomaly_rule};
+        }
+        // SYN-RST combination
+        if ((pkt.tcp_flags & (TCP_SYN | TCP_RST)) == (TCP_SYN | TCP_RST)) {
+            anomaly_rule.description = "Anomaly: TCP SYN-RST combination";
+            anomaly_rule.hit_count++;
+            return {Action::BLOCK, &anomaly_rule};
+        }
+    }
+
+    // Layer 4: UDP Anomalies
+    if (pkt.proto == Proto::UDP) {
+        if (pkt.dst_port == 53 && pkt.size > 4096) {
+            anomaly_rule.description = "Anomaly: Oversized DNS UDP packet";
+            anomaly_rule.hit_count++;
+            return {Action::BLOCK, &anomaly_rule};
+        }
+    }
+
     // 1. Connection Tracking (Stateful Inspection)
     if (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP || pkt.proto == Proto::ICMP) {
         ConnectionKey key{pkt.src_ip, pkt.dst_ip, pkt.src_port, pkt.dst_port, pkt.proto};
@@ -89,6 +143,8 @@ EvalResult RuleEngine::evaluate(const PacketInfo& pkt) {
 
     // 2. Threat Detection (Heuristics)
     {
+        static constexpr uint32_t MAX_PACKETS_PER_SEC = 1000;
+        static constexpr std::chrono::seconds BAN_DURATION{60};
         std::lock_guard<std::mutex> lock(state_mtx_);
         auto now = std::chrono::steady_clock::now();
         auto& tstate = threat_table_[pkt.src_ip];
@@ -99,6 +155,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo& pkt) {
                 // Ban expired
                 tstate.is_banned = false;
                 tstate.packet_count = 0;
+                tstate.syn_count = 0;
                 tstate.window_start = now;
             } else {
                 threat_rule_.hit_count++;
@@ -106,16 +163,28 @@ EvalResult RuleEngine::evaluate(const PacketInfo& pkt) {
             }
         }
 
-        // Rate tracking (protects against port scans / SYN floods)
+        // Rate tracking (protects against port scans / SYN floods / DDoS)
         if (now - tstate.window_start > std::chrono::seconds(1)) {
             tstate.window_start = now;
             tstate.packet_count = 1;
+            tstate.syn_count = (is_tcp && tcp_syn) ? 1 : 0;
         } else {
             tstate.packet_count++;
-            if (tstate.packet_count > MAX_PACKETS_PER_SEC) {
+            if (is_tcp && tcp_syn) tstate.syn_count++;
+
+            if (tstate.packet_count > 1000) {
                 tstate.is_banned = true;
-                tstate.ban_expires = now + BAN_DURATION;
-                threat_rule_.description = "Threat Detected: High-Frequency Scanning (Auto-Ban)";
+                tstate.ban_expires = now + std::chrono::seconds(60);
+                threat_rule_.description = "Threat Detected: Rate Limit Exceeded (Auto-Ban)";
+                threat_rule_.hit_count++;
+                return {Action::BLOCK, &threat_rule_};
+            }
+
+            // SYN Flood / Port Scan protection
+            if (tstate.syn_count > 20) {
+                tstate.is_banned = true;
+                tstate.ban_expires = now + std::chrono::seconds(60);
+                threat_rule_.description = "Threat Detected: SYN Flood / Port Scan (Auto-Ban)";
                 threat_rule_.hit_count++;
                 return {Action::BLOCK, &threat_rule_};
             }

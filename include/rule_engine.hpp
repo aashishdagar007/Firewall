@@ -54,6 +54,7 @@ namespace fw {
     struct ThreatState {
         std::chrono::steady_clock::time_point window_start;
         uint32_t packet_count = 0;
+        uint32_t syn_count = 0;
         bool is_banned = false;
         std::chrono::steady_clock::time_point ban_expires;
     };
