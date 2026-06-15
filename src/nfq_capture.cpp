@@ -269,6 +269,16 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
     return;
   }
 
+  // ── Process attribution (lookup before evaluation) ────────────
+  if (proc_mon_) {
+    // Try src_port first (outbound), then dst_port (inbound service)
+    uint16_t probe_port = pkt.src_port ? pkt.src_port : pkt.dst_port;
+    pkt.process_name = proc_mon_->process_name_for_port(probe_port);
+    if (pkt.process_name.empty() && pkt.dst_port) {
+      pkt.process_name = proc_mon_->process_name_for_port(pkt.dst_port);
+    }
+  }
+
   EvalResult result = engine_.evaluate(pkt);
 
   // ── Update live stats ──────────────────────────────────────
@@ -299,17 +309,13 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
   rec.src_ip_str = ip4_to_string(pkt.src_ip);
   rec.dst_ip_str = ip4_to_string(pkt.dst_ip);
   rec.seq       = ++seq_counter_;
+  rec.process_name = pkt.process_name;
 
-  // ── Process attribution (real OS lookup via ProcessMonitor) ──
   if (proc_mon_) {
-    // Try src_port first (outbound), then dst_port (inbound service)
     uint16_t probe_port = pkt.src_port ? pkt.src_port : pkt.dst_port;
-    rec.process_name    = proc_mon_->process_name_for_port(probe_port);
-    rec.pid             = proc_mon_->pid_for_port(probe_port);
-    if (rec.process_name.empty() && pkt.dst_port) {
-      // Try the destination port too (inbound to a local service)
-      rec.process_name = proc_mon_->process_name_for_port(pkt.dst_port);
-      rec.pid          = proc_mon_->pid_for_port(pkt.dst_port);
+    rec.pid = proc_mon_->pid_for_port(probe_port);
+    if (!rec.pid && pkt.dst_port) {
+      rec.pid = proc_mon_->pid_for_port(pkt.dst_port);
     }
     // Credit bytes to the process
     if (rec.pid)
@@ -317,10 +323,11 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
                            static_cast<uint32_t>(pkt.size),
                            /*outbound=*/ (pkt.dir == Direction::OUTBOUND));
 
-    // Override verdict if this application is explicitly blocked
+    // Override verdict if this application is explicitly administratively blocked
+    // (We also have a rule engine BLOCK_PROCESS but this is a fallback for dynamic dashboard blocks)
     if (!rec.process_name.empty() && proc_mon_->is_app_blocked(rec.process_name)) {
       result.verdict = Action::BLOCK;
-      result.matched_rule = nullptr; // Treat it as an explicit app block, no specific IP/Port rule matched
+      result.matched_rule = nullptr;
       rec.result = result;
     }
   }

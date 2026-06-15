@@ -50,16 +50,41 @@ std::vector<Rule> ConfigParser::load(const std::string& path) {
     return rules;
 }
 
+#include <iomanip>
+
 bool ConfigParser::parse_line(const std::string& line, Rule& out) {
     std::istringstream ss(line);
-    std::string action_s, proto_s, src_ip_s, dst_ip_s, dst_port_s, desc;
+    std::string action_s;
+    if (!(ss >> action_s)) return false;
 
-    if (!(ss >> action_s >> proto_s >> src_ip_s >> dst_ip_s >> dst_port_s))
+    if (action_s == "BLOCK_PROCESS" || action_s == "ALLOW_PROCESS") {
+        out.action = (action_s == "BLOCK_PROCESS") ? Action::BLOCK : Action::ALLOW;
+        out.proto = Proto::ANY;
+        out.src_ip = 0;
+        out.dst_ip = 0;
+        out.src_port = 0;
+        out.dst_port = 0;
+
+        std::string proc;
+        ss >> std::quoted(proc);
+        out.process_name = proc;
+
+        std::string desc;
+        std::getline(ss, desc);
+        size_t start = desc.find_first_not_of(" \t\"");
+        size_t end   = desc.find_last_not_of(" \t\"");
+        if (start != std::string::npos)
+            out.description = desc.substr(start, end - start + 1);
+        else
+            out.description = action_s + " " + proc;
+        return true;
+    }
+
+    std::string proto_s, src_ip_s, dst_ip_s, dst_port_s, desc;
+    if (!(ss >> proto_s >> src_ip_s >> dst_ip_s >> dst_port_s))
         return false;
 
-    // Description is the remainder (may be quoted)
     std::getline(ss, desc);
-    // Trim surrounding spaces and quotes
     size_t start = desc.find_first_not_of(" \t\"");
     size_t end   = desc.find_last_not_of(" \t\"");
     if (start != std::string::npos)

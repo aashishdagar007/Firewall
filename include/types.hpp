@@ -62,6 +62,8 @@ namespace fw {
         uint8_t  tcp_flags = 0; // Contains SYN, ACK, FIN, RST, etc. if proto == TCP
         uint8_t  ttl       = 0; // Time-to-Live field from IP header
 
+        std::string process_name; // Looked up via ProcessMonitor before evaluation
+
         // Raw byte count (for logging/stats)
         int      size      = 0;
     };
@@ -78,6 +80,7 @@ namespace fw {
         uint16_t    src_port    = 0;  // 0 = wildcard
         uint16_t    dst_port    = 0;
 
+        std::string process_name; // empty = wildcard
         std::string description;
 
         // Stats

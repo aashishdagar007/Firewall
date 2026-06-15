@@ -350,6 +350,7 @@ std::string ApiServer::rule_to_json(const Rule& r) {
       << "\"dst_ip\":\""    << ip_str(r.dst_ip)                << "\","
       << "\"src_port\":"    << r.src_port                      << ","
       << "\"dst_port\":"    << r.dst_port                      << ","
+      << "\"process\":\""   << escape_json(r.process_name)     << "\","
       << "\"hit_count\":"   << r.hit_count                     << ","
       << "\"description\":\"" << escape_json(r.description)    << "\""
       << "}";
