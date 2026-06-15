@@ -60,6 +60,8 @@ namespace fw {
         uint16_t dst_port  = 0;
         Direction dir      = Direction::ANY;
         uint8_t  tcp_flags = 0; // Contains SYN, ACK, FIN, RST, etc. if proto == TCP
+        uint32_t tcp_seq   = 0;
+        uint32_t tcp_ack   = 0;
         uint8_t  ttl       = 0; // Time-to-Live field from IP header
 
         // Fragment Info

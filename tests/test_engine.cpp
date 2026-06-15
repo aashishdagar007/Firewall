@@ -19,7 +19,7 @@ void test_default_policy() {
     
     PacketInfo pkt;
     pkt.proto = Proto::TCP;
-    pkt.src_ip = make_ip(192, 168, 1, 100);
+    pkt.src_ip = make_ip(198, 51, 100, 55);
     pkt.dst_ip = make_ip(8, 8, 8, 8);
     pkt.src_port = 50000;
     pkt.dst_port = 80;
@@ -44,7 +44,7 @@ void test_process_name_matching() {
     
     PacketInfo pkt;
     pkt.proto = Proto::TCP;
-    pkt.src_ip = make_ip(192, 168, 1, 100);
+    pkt.src_ip = make_ip(198, 51, 100, 55);
     pkt.dst_ip = make_ip(8, 8, 8, 8);
     pkt.src_port = 5555;
     pkt.dst_port = 80;
@@ -68,7 +68,7 @@ void test_syn_flood_detection() {
     PacketInfo pkt;
     pkt.proto = Proto::TCP;
     pkt.src_ip = make_ip(203, 0, 113, 5); // Some external IP
-    pkt.dst_ip = make_ip(192, 168, 1, 10);
+    pkt.dst_ip = make_ip(198, 51, 100, 10);
     pkt.dst_port = 80;
     pkt.tcp_flags = TCP_SYN;
     pkt.dir = Direction::INBOUND;

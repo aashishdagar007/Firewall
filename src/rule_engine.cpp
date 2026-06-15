@@ -50,12 +50,18 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     return {Action::BLOCK, &anomaly_rule};
   }
 
-  // Layer 3: Bogon Check (excluding common LAN subnets 10, 192.168, 172.16, 127)
+  // Layer 3: Strict Bogon Check (Includes RFC 1918 as requested)
   if (pkt.src_ip != 0) {
     uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;
     uint8_t b2 = (pkt.src_ip >> 16) & 0xFF;
-    if (b1 == 0 || b1 == 224 || b1 == 240 || (b1 == 169 && b2 == 254)) {
-      anomaly_rule.description = "Anomaly: Bogon Source IP";
+    bool is_bogon = false;
+    if (b1 == 0 || b1 == 10 || b1 == 127 || b1 == 224 || b1 == 240) is_bogon = true;
+    else if (b1 == 172 && (b2 >= 16 && b2 <= 31)) is_bogon = true;
+    else if (b1 == 192 && b2 == 168) is_bogon = true;
+    else if (b1 == 169 && b2 == 254) is_bogon = true;
+
+    if (is_bogon) {
+      anomaly_rule.description = "Anomaly: Spoofed/Bogon Source IP (RFC 1918+)";
       anomaly_rule.hit_count++;
       return {Action::BLOCK, &anomaly_rule};
     }
@@ -88,6 +94,12 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     // NULL scan
     if (pkt.tcp_flags == 0) {
       anomaly_rule.description = "Anomaly: TCP NULL Scan";
+      anomaly_rule.hit_count++;
+      return {Action::BLOCK, &anomaly_rule};
+    }
+    // FIN scan
+    if ((pkt.tcp_flags & TCP_FIN) && !(pkt.tcp_flags & TCP_ACK)) {
+      anomaly_rule.description = "Anomaly: TCP FIN Scan (No ACK)";
       anomaly_rule.hit_count++;
       return {Action::BLOCK, &anomaly_rule};
     }
@@ -142,10 +154,19 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
 
     if (it != state_table_.end()) {
       // Forward direction packet
-      if (is_tcp && tcp_fin_rst) {
-        // Connection teardown
-        state_table_.erase(it);
-        return {Action::ALLOW, nullptr};
+      if (is_tcp) {
+          if (tcp_fin_rst) {
+            state_table_.erase(it);
+            return {Action::ALLOW, nullptr};
+          }
+          // TCP Sequence Window Validation (Session Hijacking check)
+          int32_t seq_diff = static_cast<int32_t>(pkt.tcp_seq - it->second.expected_seq);
+          if (seq_diff < -131072 || seq_diff > 131072) {
+              static Rule hijack_rule{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Hijack Attempt (Seq Out of Window)", 0};
+              hijack_rule.hit_count++;
+              return {Action::BLOCK, &hijack_rule};
+          }
+          it->second.expected_seq = pkt.tcp_seq + pkt.size; // approximation
       }
       it->second.last_seen = std::chrono::steady_clock::now();
       it->second.bytes_transferred += pkt.size;
@@ -159,6 +180,15 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         }
         if (tcp_syn && tcp_ack && rev_it->second.state == FlowState::NEW) {
           rev_it->second.state = FlowState::ESTABLISHED;
+          rev_it->second.expected_ack = pkt.tcp_seq;
+        } else {
+            int32_t seq_diff = static_cast<int32_t>(pkt.tcp_seq - rev_it->second.expected_ack);
+            if (rev_it->second.state == FlowState::ESTABLISHED && (seq_diff < -131072 || seq_diff > 131072)) {
+                static Rule hijack_rule{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Hijack Attempt (Seq Out of Window)", 0};
+                hijack_rule.hit_count++;
+                return {Action::BLOCK, &hijack_rule};
+            }
+            rev_it->second.expected_ack = pkt.tcp_seq + pkt.size;
         }
       } else {
         // UDP/ICMP: First reply promotes to ESTABLISHED
@@ -270,7 +300,8 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         }
         if (create_state && state_table_.find(key) == state_table_.end()) {
           state_table_[key] = {FlowState::NEW, std::chrono::steady_clock::now(),
-                               static_cast<uint64_t>(pkt.size)};
+                               static_cast<uint64_t>(pkt.size),
+                               pkt.tcp_seq + static_cast<uint32_t>(pkt.size), 0};
         }
       }
 

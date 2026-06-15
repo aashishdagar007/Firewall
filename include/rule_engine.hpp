@@ -48,6 +48,8 @@ namespace fw {
         FlowState state;
         std::chrono::steady_clock::time_point last_seen;
         uint64_t bytes_transferred = 0;
+        uint32_t expected_seq = 0;
+        uint32_t expected_ack = 0;
     };
 
     // Threat Tracking State
