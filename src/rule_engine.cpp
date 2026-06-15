@@ -12,7 +12,16 @@
 namespace fw {
 
 RuleEngine::RuleEngine(Action default_policy)
-    : default_policy_(default_policy) {}
+    : default_policy_(default_policy) {
+    heuristic_thread_ = std::thread(&RuleEngine::heuristic_worker, this);
+}
+
+RuleEngine::~RuleEngine() {
+    stop_heuristics_ = true;
+    if (heuristic_thread_.joinable()) {
+        heuristic_thread_.join();
+    }
+}
 
 void RuleEngine::add_rule(Rule r) {
   r.id = next_id_++;
@@ -133,6 +142,15 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     }
   }
 
+  // 0.5 Layer 7 Deep Packet Inspection (DPI)
+  std::string dpi_threat_name;
+  if (dpi_.scan(pkt.payload_ptr, pkt.payload_len, dpi_threat_name) == Action::BLOCK) {
+      static Rule dpi_rule{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "DPI: Threat signature match", 0};
+      dpi_rule.description = dpi_threat_name;
+      dpi_rule.hit_count++;
+      return {Action::BLOCK, &dpi_rule};
+  }
+
   // 1. Connection Tracking (Stateful Inspection)
   if (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP ||
       pkt.proto == Proto::ICMP) {
@@ -170,6 +188,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       }
       it->second.last_seen = std::chrono::steady_clock::now();
       it->second.bytes_transferred += pkt.size;
+      it->second.bytes_out += pkt.payload_len;
       return {Action::ALLOW, nullptr};
     } else if (rev_it != state_table_.end()) {
       // Reverse direction packet
@@ -198,6 +217,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       }
       rev_it->second.last_seen = std::chrono::steady_clock::now();
       rev_it->second.bytes_transferred += pkt.size;
+      rev_it->second.bytes_in += pkt.payload_len;
       return {Action::ALLOW, nullptr};
     }
 
@@ -265,9 +285,13 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       // SYN Flood / Port Scan protection
       if (tstate.syn_count > 20) {
         tstate.is_banned = true;
-        tstate.ban_expires = now + std::chrono::seconds(60);
-        threat_rule_.description =
-            "Threat Detected: SYN Flood / Port Scan (Auto-Ban)";
+        tstate.ban_count++;
+        // Escalating bans: if banned > 2 times, ban for 24 hours
+        auto duration = (tstate.ban_count > 2) ? std::chrono::hours(24) : std::chrono::seconds(60);
+        tstate.ban_expires = now + duration;
+        threat_rule_.description = (tstate.ban_count > 2) 
+            ? "Threat Detected: SYN Flood (Permanent Ban Escalate)" 
+            : "Threat Detected: SYN Flood / Port Scan (Auto-Ban)";
         threat_rule_.hit_count++;
         return {Action::BLOCK, &threat_rule_};
       }
@@ -301,6 +325,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         if (create_state && state_table_.find(key) == state_table_.end()) {
           state_table_[key] = {FlowState::NEW, std::chrono::steady_clock::now(),
                                static_cast<uint64_t>(pkt.size),
+                               static_cast<uint64_t>(pkt.payload_len), 0,
                                pkt.tcp_seq + static_cast<uint32_t>(pkt.size), 0};
         }
       }
@@ -323,6 +348,32 @@ void RuleEngine::purge_stale_connections(std::chrono::seconds timeout) {
       ++it;
     }
   }
+}
+
+void RuleEngine::heuristic_worker() {
+    while (!stop_heuristics_) {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        
+        std::lock_guard<std::mutex> lock(state_mtx_);
+        auto now = std::chrono::steady_clock::now();
+        
+        for (auto it = state_table_.begin(); it != state_table_.end();) {
+            // Check for severe flow asymmetry (potential data exfiltration)
+            // e.g. Sent > 2MB but received < 5KB
+            if (it->second.bytes_out > 2000000 && it->second.bytes_in < 5000) {
+                // Escalate to Threat tracking
+                auto& tstate = threat_table_[it->first.src_ip];
+                tstate.is_banned = true;
+                tstate.ban_count += 5; // Instant severe escalation
+                tstate.ban_expires = now + std::chrono::hours(24);
+                
+                std::cout << "[HEURISTIC] Killed asymmetric connection! Possible data exfiltration from IP.\n";
+                it = state_table_.erase(it);
+                continue;
+            }
+            ++it;
+        }
+    }
 }
 
 // ── Private: field-by-field matching ────────────────────────

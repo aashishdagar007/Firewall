@@ -4,6 +4,9 @@
 #include <unordered_map>
 #include <mutex>
 #include <chrono>
+#include <thread>
+#include <atomic>
+#include "dpi_engine.hpp"
 
 // ──────────────────────────────────────────────────────────────
 //  rule_engine.hpp  –  rule chain management and matching
@@ -48,6 +51,8 @@ namespace fw {
         FlowState state;
         std::chrono::steady_clock::time_point last_seen;
         uint64_t bytes_transferred = 0;
+        uint64_t bytes_out = 0; // from originator
+        uint64_t bytes_in = 0;  // to originator
         uint32_t expected_seq = 0;
         uint32_t expected_ack = 0;
     };
@@ -57,6 +62,7 @@ namespace fw {
         std::chrono::steady_clock::time_point window_start;
         uint32_t packet_count = 0;
         uint32_t syn_count = 0;
+        uint32_t ban_count = 0; // Number of times banned
         bool is_banned = false;
         std::chrono::steady_clock::time_point ban_expires;
     };
@@ -65,6 +71,7 @@ namespace fw {
     public:
         // Default policy applied when no rule matches
         explicit RuleEngine(Action default_policy = Action::BLOCK);
+        ~RuleEngine();
 
         // Add a rule to the END of the chain
         void add_rule(Rule r);
@@ -100,7 +107,12 @@ namespace fw {
         static constexpr std::chrono::seconds BAN_DURATION{300}; // 5 minutes
 
         std::mutex state_mtx_;
+        DpiEngine  dpi_;
 
+        std::thread heuristic_thread_;
+        std::atomic<bool> stop_heuristics_{false};
+
+        void heuristic_worker();
         static bool matches(const Rule& rule, const PacketInfo& pkt);
     };
 

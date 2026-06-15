@@ -28,6 +28,7 @@ set(SOURCES
     src/nfq_capture.cpp
     src/api_server.cpp
     src/process_monitor.cpp
+    src/dpi_engine.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/logs)
 #  Testing
 # ══════════════════════════════════════════════════════════════════════════════
 enable_testing()
-add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp)
+add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp)
 if(WIN32)
     target_link_libraries(test_engine PRIVATE ws2_32)
 endif()

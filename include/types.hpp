@@ -75,6 +75,10 @@ namespace fw {
 
         std::string process_name; // Looked up via ProcessMonitor before evaluation
 
+        // Raw payload for DPI
+        const uint8_t* payload_ptr = nullptr;
+        uint16_t       payload_len = 0;
+
         // Raw byte count (for logging/stats)
         int      size      = 0;
     };

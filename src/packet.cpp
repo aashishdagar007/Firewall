@@ -49,6 +49,12 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
             out.tcp_ack  = ntohl(th->ack_seq);
             // Safely grab the TCP flags (14th byte of the TCP header) to avoid struct differences across platforms
             out.tcp_flags = *(reinterpret_cast<const uint8_t*>(th) + 13);
+            
+            int tcp_hdr_len = ((*(reinterpret_cast<const uint8_t*>(th) + 12)) >> 4) * 4;
+            if (len >= ip_hdr_len + tcp_hdr_len) {
+                out.payload_ptr = buf + ip_hdr_len + tcp_hdr_len;
+                out.payload_len = len - (ip_hdr_len + tcp_hdr_len);
+            }
             break;
         }
 
@@ -58,6 +64,10 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
             const auto* uh = reinterpret_cast<const struct udphdr*>(buf + ip_hdr_len);
             out.src_port = ntohs(uh->source);
             out.dst_port = ntohs(uh->dest);
+            if (len >= ip_hdr_len + (int)sizeof(struct udphdr)) {
+                out.payload_ptr = buf + ip_hdr_len + sizeof(struct udphdr);
+                out.payload_len = len - (ip_hdr_len + sizeof(struct udphdr));
+            }
             break;
         }
 

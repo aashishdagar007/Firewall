@@ -87,11 +87,33 @@ void test_syn_flood_detection() {
     std::cout << "[PASS] SYN Flood detection\n";
 }
 
+void test_dpi_sql_injection() {
+    RuleEngine engine(Action::ALLOW);
+    
+    PacketInfo pkt;
+    pkt.proto = Proto::TCP;
+    pkt.src_ip = make_ip(203, 0, 113, 5); 
+    pkt.dst_ip = make_ip(198, 51, 100, 10);
+    pkt.dst_port = 80;
+    pkt.tcp_flags = TCP_PSH | TCP_ACK;
+    pkt.dir = Direction::INBOUND;
+    
+    // Simulate a payload with SQL injection
+    std::string malicious_payload = "GET /login?user=admin' OR 1=1;-- HTTP/1.1\r\n";
+    pkt.payload_ptr = reinterpret_cast<const uint8_t*>(malicious_payload.data());
+    pkt.payload_len = malicious_payload.length();
+    
+    EvalResult res = engine.evaluate(pkt);
+    assert(res.verdict == Action::BLOCK && "DPI should block 'OR 1=1' payload");
+    std::cout << "[PASS] DPI SQL Injection Block\n";
+}
+
 int main() {
     std::cout << "Running RuleEngine Tests...\n";
     test_default_policy();
     test_process_name_matching();
     test_syn_flood_detection();
+    test_dpi_sql_injection();
     std::cout << "All tests passed successfully.\n";
     return 0;
 }
