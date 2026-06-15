@@ -39,6 +39,8 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
             const auto* th = reinterpret_cast<const struct tcphdr*>(buf + ip_hdr_len);
             out.src_port = ntohs(th->source);
             out.dst_port = ntohs(th->dest);
+            // Safely grab the TCP flags (14th byte of the TCP header) to avoid struct differences across platforms
+            out.tcp_flags = *(reinterpret_cast<const uint8_t*>(th) + 13);
             break;
         }
 

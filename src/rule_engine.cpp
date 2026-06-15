@@ -30,25 +30,60 @@ bool RuleEngine::remove_rule(uint32_t id) {
 
 EvalResult RuleEngine::evaluate(const PacketInfo& pkt) {
     // 1. Connection Tracking (Stateful Inspection)
-    if (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP) {
+    if (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP || pkt.proto == Proto::ICMP) {
         ConnectionKey key{pkt.src_ip, pkt.dst_ip, pkt.src_port, pkt.dst_port, pkt.proto};
         ConnectionKey rev_key{pkt.dst_ip, pkt.src_ip, pkt.dst_port, pkt.src_port, pkt.proto};
 
         std::lock_guard<std::mutex> lock(state_mtx_);
 
+        bool is_tcp = (pkt.proto == Proto::TCP);
+        bool tcp_syn = is_tcp && (pkt.tcp_flags & TCP_SYN);
+        bool tcp_ack = is_tcp && (pkt.tcp_flags & TCP_ACK);
+        bool tcp_fin_rst = is_tcp && (pkt.tcp_flags & (TCP_FIN | TCP_RST));
+
         // Check if this packet belongs to an established connection
         auto it = state_table_.find(key);
+        auto rev_it = state_table_.find(rev_key);
+
         if (it != state_table_.end()) {
+            // Forward direction packet
+            if (is_tcp && tcp_fin_rst) {
+                // Connection teardown
+                state_table_.erase(it);
+                return {Action::ALLOW, nullptr};
+            }
             it->second.last_seen = std::chrono::steady_clock::now();
             it->second.bytes_transferred += pkt.size;
-            return {Action::ALLOW, nullptr}; // implicitly allowed by state
+            return {Action::ALLOW, nullptr};
+        } else if (rev_it != state_table_.end()) {
+            // Reverse direction packet
+            if (is_tcp) {
+                if (tcp_fin_rst) {
+                    state_table_.erase(rev_it);
+                    return {Action::ALLOW, nullptr};
+                }
+                if (tcp_syn && tcp_ack && rev_it->second.state == FlowState::NEW) {
+                    rev_it->second.state = FlowState::ESTABLISHED;
+                }
+            } else {
+                // UDP/ICMP: First reply promotes to ESTABLISHED
+                if (rev_it->second.state == FlowState::NEW) {
+                    rev_it->second.state = FlowState::ESTABLISHED;
+                }
+            }
+            rev_it->second.last_seen = std::chrono::steady_clock::now();
+            rev_it->second.bytes_transferred += pkt.size;
+            return {Action::ALLOW, nullptr};
         }
-        
-        it = state_table_.find(rev_key);
-        if (it != state_table_.end()) {
-            it->second.last_seen = std::chrono::steady_clock::now();
-            it->second.bytes_transferred += pkt.size;
-            return {Action::ALLOW, nullptr}; // implicitly allowed by state
+
+        // --- INVALID State Check ---
+        // If we reach here, no existing flow matches.
+        if (is_tcp && !tcp_syn) {
+            // Bare ACK or other non-SYN packets with no matching flow are INVALID.
+            // This drops state-exhaustion probes.
+            static Rule invalid_rule{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "INVALID TCP State (Auto-Drop)", 0};
+            invalid_rule.hit_count++;
+            return {Action::BLOCK, &invalid_rule};
         }
     }
 
@@ -101,10 +136,16 @@ EvalResult RuleEngine::evaluate(const PacketInfo& pkt) {
             rule.hit_count++;
             
             // If allowed, add to connection tracking
-            if (rule.action == Action::ALLOW && (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP)) {
+            if (rule.action == Action::ALLOW && (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP || pkt.proto == Proto::ICMP)) {
                 ConnectionKey key{pkt.src_ip, pkt.dst_ip, pkt.src_port, pkt.dst_port, pkt.proto};
                 std::lock_guard<std::mutex> lock(state_mtx_);
-                state_table_[key] = {std::chrono::steady_clock::now(), static_cast<uint64_t>(pkt.size)};
+                bool create_state = true;
+                if (pkt.proto == Proto::TCP && !(pkt.tcp_flags & TCP_SYN)) {
+                    create_state = false; // Only SYN packets can start a NEW TCP flow
+                }
+                if (create_state && state_table_.find(key) == state_table_.end()) {
+                    state_table_[key] = {FlowState::NEW, std::chrono::steady_clock::now(), static_cast<uint64_t>(pkt.size)};
+                }
             }
 
             return { rule.action, &rule };

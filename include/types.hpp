@@ -25,6 +25,22 @@ namespace fw {
         }
     }
 
+    // ── TCP Flags ────────────────────────────────────────────────
+    constexpr uint8_t TCP_FIN = 0x01;
+    constexpr uint8_t TCP_SYN = 0x02;
+    constexpr uint8_t TCP_RST = 0x04;
+    constexpr uint8_t TCP_PSH = 0x08;
+    constexpr uint8_t TCP_ACK = 0x10;
+    constexpr uint8_t TCP_URG = 0x20;
+
+    // ── Flow State ───────────────────────────────────────────────
+    enum class FlowState {
+        NEW,
+        ESTABLISHED,
+        RELATED,
+        INVALID
+    };
+
     // ── Verdict ──────────────────────────────────────────────────
     enum class Action { ALLOW, BLOCK };
 
@@ -43,6 +59,7 @@ namespace fw {
         uint16_t src_port  = 0;
         uint16_t dst_port  = 0;
         Direction dir      = Direction::ANY;
+        uint8_t  tcp_flags = 0; // Contains SYN, ACK, FIN, RST, etc. if proto == TCP
 
         // Raw byte count (for logging/stats)
         int      size      = 0;

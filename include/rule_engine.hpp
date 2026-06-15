@@ -45,6 +45,7 @@ namespace fw {
 
     // Connection Tracking State
     struct ConnectionState {
+        FlowState state;
         std::chrono::steady_clock::time_point last_seen;
         uint64_t bytes_transferred = 0;
     };
