@@ -41,9 +41,14 @@ namespace fw {
         uint64_t allowed_ = 0;
         uint64_t blocked_ = 0;
 
+        size_t   current_file_size_ = 0;
+        static constexpr size_t MAX_LOG_SIZE = 50 * 1024 * 1024; // 50MB
+
         void write(const std::string& line);
+        void rotate_if_needed();
         static std::string timestamp();
-        static const char* level_tag(LogLevel l);
+        static const char* level_string(LogLevel l);
+        static std::string escape_json(const std::string& s);
     };
 
 } // namespace fw
