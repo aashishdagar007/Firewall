@@ -32,6 +32,11 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
     out.size     = len;
     out.ttl      = iph->ttl;
 
+    uint16_t frag_off = ntohs(iph->frag_off);
+    out.is_frag_offset = (frag_off & 0x1FFF) != 0;
+    out.has_more_frags = (frag_off & 0x2000) != 0;
+    out.frag_offset_bytes = (frag_off & 0x1FFF) * 8;
+
     switch (iph->protocol) {
 
         case IPPROTO_TCP: {
@@ -56,6 +61,10 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
 
         case IPPROTO_ICMP:
             out.proto = Proto::ICMP;
+            if (len >= ip_hdr_len + 2) {
+                out.icmp_type = *(buf + ip_hdr_len);
+                out.icmp_code = *(buf + ip_hdr_len + 1);
+            }
             break;
 
         default:

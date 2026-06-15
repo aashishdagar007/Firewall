@@ -107,6 +107,17 @@ file(COPY config    DESTINATION ${CMAKE_BINARY_DIR})
 file(COPY dashboard DESTINATION ${CMAKE_BINARY_DIR})
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/logs)
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  Testing
+# ══════════════════════════════════════════════════════════════════════════════
+enable_testing()
+add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp)
+if(WIN32)
+    target_link_libraries(test_engine PRIVATE ws2_32)
+endif()
+target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME rule_engine_test COMMAND test_engine)
+
 # ── Summary ────────────────────────────────────────────────────────────────
 message(STATUS "")
 message(STATUS "══════════════════════════════════════════════")

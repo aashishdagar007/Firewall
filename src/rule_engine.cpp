@@ -50,6 +50,39 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     return {Action::BLOCK, &anomaly_rule};
   }
 
+  // Layer 3: Bogon Check (excluding common LAN subnets 10, 192.168, 172.16, 127)
+  if (pkt.src_ip != 0) {
+    uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;
+    uint8_t b2 = (pkt.src_ip >> 16) & 0xFF;
+    if (b1 == 0 || b1 == 224 || b1 == 240 || (b1 == 169 && b2 == 254)) {
+      anomaly_rule.description = "Anomaly: Bogon Source IP";
+      anomaly_rule.hit_count++;
+      return {Action::BLOCK, &anomaly_rule};
+    }
+  }
+
+  // Layer 3: Fragment Validation (Strict drop for unreassembled fragments)
+  if (pkt.is_frag_offset || pkt.has_more_frags) {
+    anomaly_rule.description = "Anomaly: IP Fragmentation not supported";
+    anomaly_rule.hit_count++;
+    return {Action::BLOCK, &anomaly_rule};
+  }
+
+  // Layer 4: ICMP Validation
+  if (pkt.proto == Proto::ICMP) {
+    bool valid = false;
+    if (pkt.icmp_type == 0 && pkt.icmp_code == 0) valid = true; // Echo Reply
+    else if (pkt.icmp_type == 8 && pkt.icmp_code == 0) valid = true; // Echo Request
+    else if (pkt.icmp_type == 3 && pkt.icmp_code <= 15) valid = true; // Dest Unreach
+    else if (pkt.icmp_type == 11 && pkt.icmp_code <= 1) valid = true; // Time Exceeded
+    
+    if (!valid) {
+      anomaly_rule.description = "Anomaly: Invalid ICMP Type/Code";
+      anomaly_rule.hit_count++;
+      return {Action::BLOCK, &anomaly_rule};
+    }
+  }
+
   // Layer 4: TCP Anomalies
   if (pkt.proto == Proto::TCP) {
     // NULL scan

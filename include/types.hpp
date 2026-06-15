@@ -62,6 +62,15 @@ namespace fw {
         uint8_t  tcp_flags = 0; // Contains SYN, ACK, FIN, RST, etc. if proto == TCP
         uint8_t  ttl       = 0; // Time-to-Live field from IP header
 
+        // Fragment Info
+        bool     is_frag_offset = false;
+        bool     has_more_frags = false;
+        uint16_t frag_offset_bytes = 0;
+
+        // ICMP Info
+        uint8_t  icmp_type = 0;
+        uint8_t  icmp_code = 0;
+
         std::string process_name; // Looked up via ProcessMonitor before evaluation
 
         // Raw byte count (for logging/stats)
