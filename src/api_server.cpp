@@ -4,6 +4,9 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <random>
+#include <fstream>
+#include <filesystem>
 
 // cpp-httplib — header-only, single include
 #include "httplib.h"
@@ -26,7 +29,23 @@ ApiServer::ApiServer(RuleEngine& engine,
     : engine_(engine), stats_(stats), ring_(ring),
       proc_mon_(proc_mon),
       dashboard_root_(dashboard_root), port_(port),
-      server_(std::make_unique<httplib::Server>()) {}
+      server_(std::make_unique<httplib::Server>()) {
+    
+    api_token_ = generate_token();
+    
+    // Ensure logs directory exists
+    std::filesystem::create_directories("logs");
+    
+    std::ofstream out("logs/api.token");
+    if (out.is_open()) {
+        out << api_token_ << "\n";
+    }
+    
+    std::cout << "\n======================================================\n";
+    std::cout << "  API Token Generated: " << api_token_ << "\n";
+    std::cout << "  (Saved to logs/api.token)\n";
+    std::cout << "======================================================\n\n";
+}
 
 ApiServer::~ApiServer() { stop(); }
 
@@ -58,10 +77,25 @@ void ApiServer::setup_routes() {
         res.set_header("Access-Control-Allow-Headers", "Content-Type");
     };
 
-    // Preflight
-    server_->Options(".*", [cors](const httplib::Request&, httplib::Response& res) {
-        cors(res);
-        res.status = 204;
+    // Preflight and Authorization middleware
+    server_->set_pre_routing_handler([this, cors](const httplib::Request& req, httplib::Response& res) {
+        if (req.method == "OPTIONS") {
+            cors(res);
+            res.status = 204;
+            return httplib::Server::HandlerResponse::Handled;
+        }
+        
+        // Protect all /api/ routes
+        if (req.path.find("/api/") == 0) {
+            auto it = req.headers.find("Authorization");
+            if (it == req.headers.end() || it->second != "Bearer " + api_token_) {
+                cors(res);
+                res.status = 401;
+                res.set_content("{\"error\":\"Unauthorized - Invalid or missing Bearer token\"}", "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+        }
+        return httplib::Server::HandlerResponse::Unhandled;
     });
 
     // ── GET /api/stats ─────────────────────────────────────────
@@ -146,6 +180,16 @@ void ApiServer::setup_routes() {
 }
 
 // ── Handler implementations ───────────────────────────────────
+
+std::string ApiServer::generate_token() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 15);
+    const char* hex = "0123456789abcdef";
+    std::string token;
+    for (int i = 0; i < 32; ++i) token += hex[dis(gen)];
+    return token;
+}
 
 std::string ApiServer::handle_stats() const {
     std::ostringstream o;

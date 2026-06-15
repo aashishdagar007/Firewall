@@ -60,6 +60,9 @@ private:
     std::atomic<bool>                running_{false};
     mutable std::mutex               engine_mtx_; // guard rule mutations
 
+    std::string                      api_token_;
+    std::string                      generate_token();
+
     void setup_routes();
 
     // ── Route handlers ─────────────────────────────────────────────

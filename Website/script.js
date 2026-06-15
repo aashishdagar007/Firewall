@@ -55,15 +55,40 @@ document.addEventListener('DOMContentLoaded', () => {
         revealObserver.observe(el);
     });
 
-    // Simulate real-time packet scanning in the mock UI
+    // ── API Authorization ──
+    let apiToken = sessionStorage.getItem('fw_api_token');
+    if (!apiToken) {
+        apiToken = prompt("Enter Aegis XII API Bearer Token:");
+        if (apiToken) sessionStorage.setItem('fw_api_token', apiToken);
+    }
+
+    // Wrapper for all future API requests
+    async function apiFetch(endpoint, options = {}) {
+        const headers = options.headers || {};
+        headers['Authorization'] = `Bearer ${apiToken}`;
+        return fetch(endpoint, { ...options, headers });
+    }
+
+    // ── Live Telemetry ──
     const packetCounter = document.querySelector('.pulse-text');
     if (packetCounter) {
-        setInterval(() => {
-            const current = parseInt(packetCounter.textContent.replace(/,/g, '').split(' ')[0]) || 1492304;
-            // Random fluctuation to look realistic
-            const fluctuation = Math.floor(Math.random() * 8000) - 2000; 
-            const nextVal = current + fluctuation;
-            packetCounter.textContent = nextVal.toLocaleString() + ' /s';
+        setInterval(async () => {
+            try {
+                const res = await apiFetch('/api/stats');
+                if (res.ok) {
+                    const data = await res.json();
+                    packetCounter.textContent = data.total.toLocaleString() + ' PKTS';
+                } else if (res.status === 401) {
+                    packetCounter.textContent = 'AUTH ERROR';
+                    sessionStorage.removeItem('fw_api_token');
+                }
+            } catch (err) {
+                // Keep the mock fluctuation running if API is unreachable for demo aesthetics
+                const current = parseInt(packetCounter.textContent.replace(/,/g, '').split(' ')[0]) || 1492304;
+                const fluctuation = Math.floor(Math.random() * 8000) - 2000; 
+                const nextVal = current + fluctuation;
+                packetCounter.textContent = nextVal.toLocaleString() + ' /s (MOCK)';
+            }
         }, 1200);
     }
     
