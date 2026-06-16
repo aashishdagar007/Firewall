@@ -235,11 +235,9 @@ void ApiServer::setup_routes() {
       [this, cors](const httplib::Request &req, httplib::Response &res) {
         cors(res);
         size_t idx = std::stoul(req.matches[1].str());
-        bool ok = handle_delete_geoblock(idx);
-        res.set_content(ok ? "{\"ok\":true}"
-                           : "{\"ok\":false,\"error\":\"not found\"}",
-                        "application/json");
-        if (!ok)
+        std::string body = handle_delete_geoblock(idx);
+        res.set_content(body, "application/json");
+        if (body.find("false") != std::string::npos)
           res.status = 404;
       });
 

@@ -32,7 +32,13 @@ set(SOURCES
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
-add_executable(firewall ${SOURCES})
+# WIN32 keyword → /SUBSYSTEM:WINDOWS — suppresses the console window on Windows.
+# The firewall runs silently; the dashboard opens in the browser automatically.
+if(WIN32)
+    add_executable(firewall WIN32 ${SOURCES})
+else()
+    add_executable(firewall ${SOURCES})
+endif()
 
 # ── Threads ────────────────────────────────────────────────────────────────
 find_package(Threads REQUIRED)
@@ -54,6 +60,9 @@ if(WIN32)
 
     # psapi — QueryFullProcessImageName (process_monitor)
     target_link_libraries(firewall PRIVATE psapi)
+
+    # shell32 — ShellExecuteW (open_browser in main.cpp)
+    target_link_libraries(firewall PRIVATE shell32)
 
     # MinGW static runtime (no DLL dependency in the exe)
     if(MINGW)

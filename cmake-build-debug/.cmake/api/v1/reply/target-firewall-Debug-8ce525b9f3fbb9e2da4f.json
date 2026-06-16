@@ -32,25 +32,13 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 35,
+				"line" : 38,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 60,
-				"parent" : 0
-			},
-			{
-				"command" : 2,
-				"file" : 0,
-				"line" : 50,
-				"parent" : 0
-			},
-			{
-				"command" : 2,
-				"file" : 0,
-				"line" : 53,
+				"line" : 69,
 				"parent" : 0
 			},
 			{
@@ -62,7 +50,25 @@
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 39,
+				"line" : 59,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 62,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 65,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 45,
 				"parent" : 0
 			},
 			{
@@ -74,7 +80,7 @@
 			{
 				"command" : 4,
 				"file" : 0,
-				"line" : 82,
+				"line" : 91,
 				"parent" : 0
 			},
 			{
@@ -93,7 +99,7 @@
 	"compileDependencies" : 
 	[
 		{
-			"backtrace" : 6,
+			"backtrace" : 7,
 			"id" : "Threads::Threads::@6890427a1f51a3e7e1df"
 		}
 	],
@@ -106,33 +112,33 @@
 					"fragment" : "-std=c++17 -fdiagnostics-color=always"
 				},
 				{
-					"backtrace" : 7,
+					"backtrace" : 8,
 					"fragment" : "-Wall"
 				},
 				{
-					"backtrace" : 7,
+					"backtrace" : 8,
 					"fragment" : "-Wextra"
 				},
 				{
-					"backtrace" : 7,
+					"backtrace" : 8,
 					"fragment" : "-Wpedantic"
 				}
 			],
 			"defines" : 
 			[
 				{
-					"backtrace" : 8,
+					"backtrace" : 9,
 					"define" : "_CRT_SECURE_NO_WARNINGS"
 				},
 				{
-					"backtrace" : 8,
+					"backtrace" : 9,
 					"define" : "_WIN32_WINNT=0x0A00"
 				}
 			],
 			"includes" : 
 			[
 				{
-					"backtrace" : 9,
+					"backtrace" : 10,
 					"path" : "D:/AASHISH/Projects/Firewall/include"
 				}
 			],
@@ -165,6 +171,10 @@
 		"commandFragments" : 
 		[
 			{
+				"fragment" : "-mwindows",
+				"role" : "flags"
+			},
+			{
 				"backtrace" : 2,
 				"fragment" : "-static",
 				"role" : "flags"
@@ -195,6 +205,11 @@
 				"role" : "libraries"
 			},
 			{
+				"backtrace" : 6,
+				"fragment" : "-lshell32",
+				"role" : "libraries"
+			},
+			{
 				"fragment" : "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32",
 				"role" : "libraries"
 			}
@@ -204,7 +219,7 @@
 	"linkLibraries" : 
 	[
 		{
-			"backtrace" : 6,
+			"backtrace" : 7,
 			"id" : "Threads::Threads::@6890427a1f51a3e7e1df"
 		},
 		{
@@ -218,6 +233,10 @@
 		{
 			"backtrace" : 5,
 			"fragment" : "psapi"
+		},
+		{
+			"backtrace" : 6,
+			"fragment" : "shell32"
 		}
 	],
 	"name" : "firewall",

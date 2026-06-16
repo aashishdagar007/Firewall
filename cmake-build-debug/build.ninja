@@ -149,8 +149,8 @@ build CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj: CXX_COMPILER__firewall_uns
 
 build firewall.exe: CXX_EXECUTABLE_LINKER__firewall_Debug CMakeFiles/firewall.dir/src/main.cpp.obj CMakeFiles/firewall.dir/src/packet.cpp.obj CMakeFiles/firewall.dir/src/rule_engine.cpp.obj CMakeFiles/firewall.dir/src/logger.cpp.obj CMakeFiles/firewall.dir/src/config_parser.cpp.obj CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj CMakeFiles/firewall.dir/src/api_server.cpp.obj CMakeFiles/firewall.dir/src/process_monitor.cpp.obj CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj
   CONFIG = Debug
-  LINK_FLAGS = -static -static-libgcc -static-libstdc++
-  LINK_LIBRARIES = -lws2_32  -liphlpapi  -lpsapi  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
+  LINK_FLAGS = -mwindows -static -static-libgcc -static-libstdc++
+  LINK_LIBRARIES = -lws2_32  -liphlpapi  -lpsapi  -lshell32  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\firewall.dir
   POST_BUILD = cd .
   PRE_LINK = cd .

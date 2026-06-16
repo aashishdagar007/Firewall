@@ -6,11 +6,11 @@
 #include "api_server.hpp"
 #include "ring_buffer.hpp"
 #include "process_monitor.hpp"
-#include <iostream>
 #include <csignal>
 #include <atomic>
 #include <thread>
 #include <string>
+#include <vector>
 
 // ──────────────────────────────────────────────────────────────
 //  main.cpp  (v2 — Real Firewall + GUI  |  Windows + Linux)
@@ -28,22 +28,70 @@
 //    api_port      default: 8080
 //
 //  Windows notes:
-//    • Run as Administrator (raw socket / SIO_RCVALL needs it)
-//    • Build with MinGW-w64 or MSVC via CLion + CMake
-//    • For real packet blocking on Windows, integrate WinDivert
+//    • Linked as /SUBSYSTEM:WINDOWS — no console window appears.
+//    • All diagnostic output goes to logs/firewall.log.
+//    • Run as Administrator (raw socket / SIO_RCVALL needs it).
+//    • For real packet blocking on Windows, integrate WinDivert.
 // ──────────────────────────────────────────────────────────────
 
 static fw::NfqCapture* g_capture = nullptr;
 
 static void signal_handler(int) {
-    std::cout << "\n[Signal] Shutting down firewall...\n";
     if (g_capture) g_capture->stop();
 }
 
+// ── Open a URL in the default browser without flashing a console window ──
+static void open_browser(const std::string& url) {
+#ifdef _WIN32
+    // Convert to wide string for ShellExecuteW
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, nullptr, 0);
+    std::wstring wurl(wlen, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, &wurl[0], wlen);
+
+    // Try Chrome in app mode (frameless standalone window)
+    std::wstring chrome_args = L"--app=\"" + wurl + L"\" --new-window";
+    HINSTANCE rc = ShellExecuteW(nullptr, L"open", L"chrome", chrome_args.c_str(), nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(rc) > 32) return;
+
+    // Fallback: Edge in app mode
+    std::wstring edge_args = L"--app=\"" + wurl + L"\" --new-window";
+    rc = ShellExecuteW(nullptr, L"open", L"msedge", edge_args.c_str(), nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(rc) > 32) return;
+
+    // Final fallback: system default browser
+    ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+#else
+    std::string cmd = "xdg-open '" + url + "' 2>/dev/null &";
+    std::system(cmd.c_str());
+#endif
+}
+
+#ifdef _WIN32
+// WinMain entry point for /SUBSYSTEM:WINDOWS (no console)
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    int    argc = 0;
+    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    // Convert wide args to narrow for uniform handling below
+    std::vector<std::string> args_storage;
+    if (wargv) {
+        for (int i = 0; i < argc; ++i) {
+            int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
+            std::string s(len, '\0');
+            WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
+            args_storage.push_back(s);
+        }
+        LocalFree(wargv);
+    }
+    std::vector<const char*> argv_ptrs;
+    for (auto& s : args_storage) argv_ptrs.push_back(s.c_str());
+    char** argv = const_cast<char**>(argv_ptrs.data());
+#else
 int main(int argc, char* argv[]) {
+#endif
+
     // ── 0. Platform init (Winsock on Windows, no-op on Linux) ──
     if (!wsa_init()) {
-        std::cerr << "[Error] WSAStartup failed — cannot use sockets.\n";
+        // No console — failure is silent; firewall simply won't start.
         return 1;
     }
 
@@ -52,39 +100,18 @@ int main(int argc, char* argv[]) {
     const std::string dashboard_root = (argc > 3) ? argv[3] : "dashboard/";
     int               api_port       = 8080;
     if (argc > 4) {
-        try {
-            api_port = std::stoi(argv[4]);
-        } catch (const std::exception&) {
-            std::cerr << "[Warning] Invalid port argument '" << argv[4] << "', defaulting to 8080\n";
-        }
+        try { api_port = std::stoi(argv[4]); } catch (...) {}
     }
-
-    std::cout << R"(
-  ███████╗██╗██████╗ ███████╗██╗    ██╗ █████╗ ██╗     ██╗
-  ██╔════╝██║██╔══██╗██╔════╝██║    ██║██╔══██╗██║     ██║
-  █████╗  ██║██████╔╝█████╗  ██║ █╗ ██║███████║██║     ██║
-  ██╔══╝  ██║██╔══██╗██╔══╝  ██║███╗██║██╔══██║██║     ██║
-  ██║     ██║██║  ██║███████╗╚███╔███╔╝██║  ██║███████╗███████╗
-  ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚══════╝
-  Real Kernel Firewall + Live Dashboard  |  Aashish Dagar
-)" << "\n";
-
-#ifdef _WIN32
-    std::cout << "  [Platform] Windows — observer mode (run as Administrator)\n\n";
-#else
-    std::cout << "  [Platform] Linux — NFQ blocking mode available\n\n";
-#endif
 
     // ── 1. Load rules ──────────────────────────────────────────
     auto loaded_rules = fw::ConfigParser::load(config_path);
     fw::RuleEngine engine(fw::Action::BLOCK);
     for (auto& r : loaded_rules)
         engine.add_rule(std::move(r));
-    engine.print_rules();
 
     // ── 2. Shared state ────────────────────────────────────────
     fw::LiveStats                     stats;
-    fw::RingBuffer<fw::PacketRecord>  ring(500);   // keep last 500 packets
+    fw::RingBuffer<fw::PacketRecord>  ring(500);
 
     // ── 3. Logger ──────────────────────────────────────────────
     fw::Logger logger(log_path, fw::LogLevel::LOG_INFO);
@@ -93,19 +120,18 @@ int main(int argc, char* argv[]) {
     // ── 4. Start process monitor ──────────────────────────────
     fw::ProcessMonitor proc_mon;
     proc_mon.start();
-    std::cout << "[ProcessMonitor] Started (port→PID→process mapping active)\n";
+    logger.log(fw::LogLevel::LOG_INFO, "ProcessMonitor started (port->PID->process mapping active)");
 
     // ── 5. Start API server ──────────────────────────────────
     fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port);
     api.start();
 
-    // ── 5.5 Start Conntrack Cleanup Thread ───────────────────
+    // ── 5.5 Conntrack cleanup thread ─────────────────────────
     std::atomic<bool> conntrack_running{true};
     std::thread conntrack_thread([&]() {
         while (conntrack_running) {
             std::this_thread::sleep_for(std::chrono::seconds(10));
             if (!conntrack_running) break;
-            // Purge connections idle for > 300 seconds (5 mins)
             engine.purge_stale_connections(std::chrono::seconds(300));
         }
     });
@@ -131,52 +157,30 @@ int main(int argc, char* argv[]) {
         : "Raw socket observer (passive — log & stats only)";
     logger.log(fw::LogLevel::LOG_INFO, std::string("Capture mode: ") + mode);
 
-    // ── 6.5 Auto-launch dashboard as a standalone app window ─────
+    // ── 6.5 Auto-launch dashboard in the browser ──────────────
     {
         std::string url = "http://localhost:" + std::to_string(api_port);
-        std::cout << "\n  Dashboard URL: " << url << "\n";
-        std::cout << "  Launching standalone dashboard window...\n";
-        std::cout << "  Press Ctrl-C to stop.\n\n";
+        logger.log(fw::LogLevel::LOG_INFO, "Dashboard at " + url);
 
-        // Launch on a detached thread so we don't block the capture loop
+        // Give the API server 500 ms to finish binding, then open browser
         std::thread([url]() {
-            // Give the API server 500ms to finish binding
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-#ifdef _WIN32
-            // Note: `url` is built purely from `api_port` which is a validated integer,
-            // so this string concatenation is safe from shell injection.
-            // Try Chrome app mode first (frameless standalone window)
-            std::string chrome_cmd = "cmd /c start \"\" \"chrome\" --app=\"" + url + "\" --new-window 2>nul";
-            int rc = std::system(chrome_cmd.c_str());
-            if (rc != 0) {
-                // Fallback: Edge app mode
-                std::string edge_cmd = "cmd /c start \"\" \"msedge\" --app=\"" + url + "\" --new-window 2>nul";
-                rc = std::system(edge_cmd.c_str());
-                if (rc != 0) {
-                    // Final fallback: system default browser
-                    std::string fallback = "cmd /c start \"\" \"" + url + "\"";
-                    std::system(fallback.c_str());
-                }
-            }
-#else
-            std::string cmd = "xdg-open '" + url + "' 2>/dev/null &";
-            std::system(cmd.c_str());
-#endif
+            open_browser(url);
         }).detach();
     }
 
     // ── 7. Blocking capture loop (main thread) ─────────────────
     capture.run();
 
-    // ── 8. Shutdown ─────────────────────────────────────────
+    // ── 8. Shutdown ───────────────────────────────────────────
     api.stop();
     proc_mon.stop();
     conntrack_running = false;
     if (conntrack_thread.joinable()) conntrack_thread.join();
-    
+
     logger.log(fw::LogLevel::LOG_INFO, "Firewall stopped");
     logger.print_stats();
 
-    wsa_cleanup();   // no-op on Linux
+    wsa_cleanup();
     return 0;
 }
