@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 
 // ──────────────────────────────────────────────────────────────
 //  config_parser.cpp
@@ -49,8 +50,6 @@ std::vector<Rule> ConfigParser::load(const std::string& path) {
               << " rules from " << path << "\n";
     return rules;
 }
-
-#include <iomanip>
 
 bool ConfigParser::parse_line(const std::string& line, Rule& out) {
     std::istringstream ss(line);
@@ -116,7 +115,12 @@ uint32_t ConfigParser::parse_ip(const std::string& s) {
 
 uint16_t ConfigParser::parse_port(const std::string& s) {
     if (s == "*" || s == "any") return 0;
-    int p = std::stoi(s);
+    int p;
+    try {
+        p = std::stoi(s);
+    } catch (...) {
+        throw std::invalid_argument("bad port: " + s);
+    }
     if (p < 0 || p > 65535) throw std::out_of_range("port out of range");
     return static_cast<uint16_t>(p);
 }

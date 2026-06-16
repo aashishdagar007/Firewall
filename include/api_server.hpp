@@ -72,10 +72,23 @@ private:
     std::string handle_add_rule(const std::string& body);
     bool        handle_delete_rule(uint32_t id);
     std::string handle_set_policy(const std::string& body);
-    std::string handle_processes()     const;  // NEW
-    std::string handle_browser_tabs()  const;  // NEW
+    std::string handle_processes()     const;
+    std::string handle_browser_tabs()  const;
     std::string handle_block_app(const std::string& body);
     std::string handle_allow_app(const std::string& body);
+
+    // ── New: Threats (ban list) ─────────────────────────────────
+    std::string handle_get_threats()   const;
+    std::string handle_unban_ip(const std::string& body);
+
+    // ── New: Geo-Blocking ───────────────────────────────────────
+    std::string handle_get_geoblocks() const;
+    std::string handle_add_geoblock(const std::string& body);
+    std::string handle_delete_geoblock(size_t index);
+
+    // ── New: Rate Limit ─────────────────────────────────────────
+    std::string handle_get_ratelimit() const;
+    std::string handle_set_ratelimit(const std::string& body);
 
     // ── JSON helpers ────────────────────────────────────────────
     static std::string rule_to_json(const Rule& r);

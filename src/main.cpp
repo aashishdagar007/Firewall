@@ -50,7 +50,14 @@ int main(int argc, char* argv[]) {
     const std::string config_path    = (argc > 1) ? argv[1] : "config/rules.conf";
     const std::string log_path       = (argc > 2) ? argv[2] : "logs/firewall.log";
     const std::string dashboard_root = (argc > 3) ? argv[3] : "dashboard/";
-    const int         api_port       = (argc > 4) ? std::stoi(argv[4]) : 8080;
+    int               api_port       = 8080;
+    if (argc > 4) {
+        try {
+            api_port = std::stoi(argv[4]);
+        } catch (const std::exception&) {
+            std::cerr << "[Warning] Invalid port argument '" << argv[4] << "', defaulting to 8080\n";
+        }
+    }
 
     std::cout << R"(
   ███████╗██╗██████╗ ███████╗██╗    ██╗ █████╗ ██╗     ██╗
@@ -124,9 +131,39 @@ int main(int argc, char* argv[]) {
         : "Raw socket observer (passive — log & stats only)";
     logger.log(fw::LogLevel::LOG_INFO, std::string("Capture mode: ") + mode);
 
-    std::cout << "\nOpen http://localhost:" << api_port
-              << " in your browser for the live dashboard.\n"
-              << "Press Ctrl-C to stop.\n\n";
+    // ── 6.5 Auto-launch dashboard as a standalone app window ─────
+    {
+        std::string url = "http://localhost:" + std::to_string(api_port);
+        std::cout << "\n  Dashboard URL: " << url << "\n";
+        std::cout << "  Launching standalone dashboard window...\n";
+        std::cout << "  Press Ctrl-C to stop.\n\n";
+
+        // Launch on a detached thread so we don't block the capture loop
+        std::thread([url]() {
+            // Give the API server 500ms to finish binding
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+#ifdef _WIN32
+            // Note: `url` is built purely from `api_port` which is a validated integer,
+            // so this string concatenation is safe from shell injection.
+            // Try Chrome app mode first (frameless standalone window)
+            std::string chrome_cmd = "cmd /c start \"\" \"chrome\" --app=\"" + url + "\" --new-window 2>nul";
+            int rc = std::system(chrome_cmd.c_str());
+            if (rc != 0) {
+                // Fallback: Edge app mode
+                std::string edge_cmd = "cmd /c start \"\" \"msedge\" --app=\"" + url + "\" --new-window 2>nul";
+                rc = std::system(edge_cmd.c_str());
+                if (rc != 0) {
+                    // Final fallback: system default browser
+                    std::string fallback = "cmd /c start \"\" \"" + url + "\"";
+                    std::system(fallback.c_str());
+                }
+            }
+#else
+            std::string cmd = "xdg-open '" + url + "' 2>/dev/null &";
+            std::system(cmd.c_str());
+#endif
+        }).detach();
+    }
 
     // ── 7. Blocking capture loop (main thread) ─────────────────
     capture.run();

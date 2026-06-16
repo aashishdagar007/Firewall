@@ -47,6 +47,7 @@ struct LiveStats {
     std::atomic<uint64_t> tcp        {0};
     std::atomic<uint64_t> udp        {0};
     std::atomic<uint64_t> icmp       {0};
+    std::atomic<uint64_t> ipv6       {0}; // IPv6 packets seen (groundwork)
     std::atomic<uint64_t> bytes_total{0};
 };
 

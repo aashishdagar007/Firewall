@@ -369,8 +369,16 @@ void NfqCapture::run_raw_fallback() {
       std::cerr << "[Capture] recv error " << err << "\n";
       break;
     }
+    // SIO_RCVALL delivers raw IP packets (no Ethernet header on Windows).
+    // Check IP version nibble: 0x60 = IPv6, 0x40 = IPv4.
+    if (len >= 1 && (buf[0] >> 4) == 6) {
+      // IPv6 packet — count it and pass through without IPv4 parsing
+      stats_.ipv6++;
+      continue;
+    }
     process_packet(buf, len, 0);
   }
+
 #else
   // Linux: three raw sockets (TCP/UDP/ICMP), select for timeout
   while (running_) {
