@@ -28,20 +28,19 @@
 
 namespace fw {
 
-    class ConfigParser {
-    public:
-        // Load rules from a file path.
-        // Returns parsed rules; skips malformed lines (with a warning).
-        static std::vector<Rule> load(const std::string& path);
+class ConfigParser {
+public:
+  // Load rules from a file path.
+  // Returns parsed rules; skips malformed lines (with a warning).
+  static std::vector<Rule> load(const std::string &path);
 
-        // Parse a single rule line (exposed for unit-testing)
-        static bool parse_line(const std::string& line, Rule& out);
+  // Parse a single rule line (exposed for unit-testing)
+  static bool parse_line(const std::string &line, Rule &out);
 
-    private:
-        static uint32_t parse_ip(const std::string& s);   // returns 0 for "*"
-        static uint16_t parse_port(const std::string& s); // returns 0 for "*"
-        static Proto    parse_proto(const std::string& s);
-        static Action   parse_action(const std::string& s);
-    };
+  static uint32_t parse_ip(const std::string &s);   // returns 0 for "*"
+  static uint16_t parse_port(const std::string &s); // returns 0 for "*"
+  static Proto parse_proto(const std::string &s);
+  static Action parse_action(const std::string &s);
+};
 
 } // namespace fw

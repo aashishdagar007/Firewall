@@ -28,7 +28,7 @@ namespace fw {
         void log(LogLevel level, const std::string& msg);
 
         // Print running statistics (packets seen, allowed, blocked)
-        void print_stats() const;
+        void print_stats();
 
     private:
         std::string   log_path_;

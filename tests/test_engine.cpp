@@ -108,12 +108,56 @@ void test_dpi_sql_injection() {
     std::cout << "[PASS] DPI SQL Injection Block\n";
 }
 
+void test_strict_anomalies() {
+    RuleEngine engine(Action::ALLOW);
+    
+    PacketInfo pkt;
+    pkt.proto = Proto::TCP;
+    pkt.src_ip = make_ip(203, 0, 113, 5);
+    pkt.dst_ip = make_ip(198, 51, 100, 10);
+    pkt.src_port = 50000;
+    pkt.dst_port = 80;
+    pkt.dir = Direction::INBOUND;
+    pkt.ttl = 64;
+
+    // 1. TCP NULL Scan
+    pkt.tcp_flags = 0;
+    EvalResult res = engine.evaluate(pkt);
+    assert(res.verdict == Action::BLOCK && "TCP NULL scan should be blocked");
+
+    // 2. TCP XMAS Scan
+    pkt.tcp_flags = TCP_FIN | TCP_URG | TCP_PSH;
+    res = engine.evaluate(pkt);
+    assert(res.verdict == Action::BLOCK && "TCP XMAS scan should be blocked");
+
+    // 3. TCP SYN-FIN Anomaly
+    pkt.tcp_flags = TCP_SYN | TCP_FIN;
+    res = engine.evaluate(pkt);
+    assert(res.verdict == Action::BLOCK && "TCP SYN-FIN should be blocked");
+
+    // 4. TCP SYN with payload
+    pkt.tcp_flags = TCP_SYN;
+    pkt.payload_len = 100; // SYN should not have payload
+    res = engine.evaluate(pkt);
+    assert(res.verdict == Action::BLOCK && "TCP SYN with data should be blocked");
+    pkt.payload_len = 0; // Reset
+
+    // 5. Port 0 Traffic
+    pkt.tcp_flags = TCP_SYN;
+    pkt.src_port = 0;
+    res = engine.evaluate(pkt);
+    assert(res.verdict == Action::BLOCK && "Traffic from Port 0 should be blocked");
+    
+    std::cout << "[PASS] Strict Protocol Anomalies\n";
+}
+
 int main() {
     std::cout << "Running RuleEngine Tests...\n";
     test_default_policy();
     test_process_name_matching();
     test_syn_flood_detection();
     test_dpi_sql_injection();
+    test_strict_anomalies();
     std::cout << "All tests passed successfully.\n";
     return 0;
 }

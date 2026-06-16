@@ -53,7 +53,7 @@ build CMakeFiles/firewall.dir/src/main.cpp.obj: CXX_COMPILER__firewall_unscanned
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\main.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -63,7 +63,7 @@ build CMakeFiles/firewall.dir/src/packet.cpp.obj: CXX_COMPILER__firewall_unscann
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\packet.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -73,7 +73,7 @@ build CMakeFiles/firewall.dir/src/rule_engine.cpp.obj: CXX_COMPILER__firewall_un
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\rule_engine.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -83,7 +83,7 @@ build CMakeFiles/firewall.dir/src/logger.cpp.obj: CXX_COMPILER__firewall_unscann
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\logger.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -93,7 +93,7 @@ build CMakeFiles/firewall.dir/src/config_parser.cpp.obj: CXX_COMPILER__firewall_
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\config_parser.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -103,7 +103,7 @@ build CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj: CXX_COMPILER__firewall_un
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\nfq_capture.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -113,7 +113,7 @@ build CMakeFiles/firewall.dir/src/api_server.cpp.obj: CXX_COMPILER__firewall_uns
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\api_server.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -123,7 +123,17 @@ build CMakeFiles/firewall.dir/src/process_monitor.cpp.obj: CXX_COMPILER__firewal
   CONFIG = Debug
   DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
   DEP_FILE = CMakeFiles\firewall.dir\src\process_monitor.cpp.obj.d
-  FLAGS = -g -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  INCLUDES = -ID:/AASHISH/Projects/Firewall/include
+  OBJECT_DIR = CMakeFiles\firewall.dir
+  OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
+  TARGET_SUPPORT_DIR = CMakeFiles\firewall.dir
+
+build CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj: CXX_COMPILER__firewall_unscanned_Debug D$:/AASHISH/Projects/Firewall/src/dpi_engine.cpp || cmake_object_order_depends_target_firewall
+  CONFIG = Debug
+  DEFINES = -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00
+  DEP_FILE = CMakeFiles\firewall.dir\src\dpi_engine.cpp.obj.d
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
   INCLUDES = -ID:/AASHISH/Projects/Firewall/include
   OBJECT_DIR = CMakeFiles\firewall.dir
   OBJECT_FILE_DIR = CMakeFiles\firewall.dir\src
@@ -137,9 +147,8 @@ build CMakeFiles/firewall.dir/src/process_monitor.cpp.obj: CXX_COMPILER__firewal
 #############################################
 # Link the executable firewall.exe
 
-build firewall.exe: CXX_EXECUTABLE_LINKER__firewall_Debug CMakeFiles/firewall.dir/src/main.cpp.obj CMakeFiles/firewall.dir/src/packet.cpp.obj CMakeFiles/firewall.dir/src/rule_engine.cpp.obj CMakeFiles/firewall.dir/src/logger.cpp.obj CMakeFiles/firewall.dir/src/config_parser.cpp.obj CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj CMakeFiles/firewall.dir/src/api_server.cpp.obj CMakeFiles/firewall.dir/src/process_monitor.cpp.obj
+build firewall.exe: CXX_EXECUTABLE_LINKER__firewall_Debug CMakeFiles/firewall.dir/src/main.cpp.obj CMakeFiles/firewall.dir/src/packet.cpp.obj CMakeFiles/firewall.dir/src/rule_engine.cpp.obj CMakeFiles/firewall.dir/src/logger.cpp.obj CMakeFiles/firewall.dir/src/config_parser.cpp.obj CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj CMakeFiles/firewall.dir/src/api_server.cpp.obj CMakeFiles/firewall.dir/src/process_monitor.cpp.obj CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj
   CONFIG = Debug
-  FLAGS = -g
   LINK_FLAGS = -static -static-libgcc -static-libstdc++
   LINK_LIBRARIES = -lws2_32  -liphlpapi  -lpsapi  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\firewall.dir
@@ -150,14 +159,89 @@ build firewall.exe: CXX_EXECUTABLE_LINKER__firewall_Debug CMakeFiles/firewall.di
   TARGET_PDB = firewall.exe.dbg
   TARGET_SUPPORT_DIR = CMakeFiles\firewall.dir
 
+# =============================================================================
+# Object build statements for EXECUTABLE target test_engine
+
+
+#############################################
+# Order-only phony target for test_engine
+
+build cmake_object_order_depends_target_test_engine: phony || .
+
+build CMakeFiles/test_engine.dir/tests/test_engine.cpp.obj: CXX_COMPILER__test_engine_unscanned_Debug D$:/AASHISH/Projects/Firewall/tests/test_engine.cpp || cmake_object_order_depends_target_test_engine
+  CONFIG = Debug
+  DEP_FILE = CMakeFiles\test_engine.dir\tests\test_engine.cpp.obj.d
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  INCLUDES = -ID:/AASHISH/Projects/Firewall/include
+  OBJECT_DIR = CMakeFiles\test_engine.dir
+  OBJECT_FILE_DIR = CMakeFiles\test_engine.dir\tests
+  TARGET_SUPPORT_DIR = CMakeFiles\test_engine.dir
+
+build CMakeFiles/test_engine.dir/src/packet.cpp.obj: CXX_COMPILER__test_engine_unscanned_Debug D$:/AASHISH/Projects/Firewall/src/packet.cpp || cmake_object_order_depends_target_test_engine
+  CONFIG = Debug
+  DEP_FILE = CMakeFiles\test_engine.dir\src\packet.cpp.obj.d
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  INCLUDES = -ID:/AASHISH/Projects/Firewall/include
+  OBJECT_DIR = CMakeFiles\test_engine.dir
+  OBJECT_FILE_DIR = CMakeFiles\test_engine.dir\src
+  TARGET_SUPPORT_DIR = CMakeFiles\test_engine.dir
+
+build CMakeFiles/test_engine.dir/src/rule_engine.cpp.obj: CXX_COMPILER__test_engine_unscanned_Debug D$:/AASHISH/Projects/Firewall/src/rule_engine.cpp || cmake_object_order_depends_target_test_engine
+  CONFIG = Debug
+  DEP_FILE = CMakeFiles\test_engine.dir\src\rule_engine.cpp.obj.d
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  INCLUDES = -ID:/AASHISH/Projects/Firewall/include
+  OBJECT_DIR = CMakeFiles\test_engine.dir
+  OBJECT_FILE_DIR = CMakeFiles\test_engine.dir\src
+  TARGET_SUPPORT_DIR = CMakeFiles\test_engine.dir
+
+build CMakeFiles/test_engine.dir/src/dpi_engine.cpp.obj: CXX_COMPILER__test_engine_unscanned_Debug D$:/AASHISH/Projects/Firewall/src/dpi_engine.cpp || cmake_object_order_depends_target_test_engine
+  CONFIG = Debug
+  DEP_FILE = CMakeFiles\test_engine.dir\src\dpi_engine.cpp.obj.d
+  FLAGS = -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic
+  INCLUDES = -ID:/AASHISH/Projects/Firewall/include
+  OBJECT_DIR = CMakeFiles\test_engine.dir
+  OBJECT_FILE_DIR = CMakeFiles\test_engine.dir\src
+  TARGET_SUPPORT_DIR = CMakeFiles\test_engine.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target test_engine
+
+
+#############################################
+# Link the executable test_engine.exe
+
+build test_engine.exe: CXX_EXECUTABLE_LINKER__test_engine_Debug CMakeFiles/test_engine.dir/tests/test_engine.cpp.obj CMakeFiles/test_engine.dir/src/packet.cpp.obj CMakeFiles/test_engine.dir/src/rule_engine.cpp.obj CMakeFiles/test_engine.dir/src/dpi_engine.cpp.obj
+  CONFIG = Debug
+  LINK_LIBRARIES = -lws2_32  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
+  OBJECT_DIR = CMakeFiles\test_engine.dir
+  POST_BUILD = cd .
+  PRE_LINK = cd .
+  TARGET_FILE = test_engine.exe
+  TARGET_IMPLIB = libtest_engine.dll.a
+  TARGET_PDB = test_engine.exe.dbg
+  TARGET_SUPPORT_DIR = CMakeFiles\test_engine.dir
+
+
+#############################################
+# Utility command for test
+
+build CMakeFiles/test.util: CUSTOM_COMMAND
+  COMMAND = C:\WINDOWS\system32\cmd.exe /C "cd /D D:\AASHISH\Projects\Firewall\cmake-build-debug && C:\Users\hp\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\ctest.exe "
+  DESC = Running tests...
+  pool = console
+  restat = 1
+
+build test: phony CMakeFiles/test.util
+
 
 #############################################
 # Utility command for edit_cache
 
 build CMakeFiles/edit_cache.util: CUSTOM_COMMAND
-  COMMAND = C:\WINDOWS\system32\cmd.exe /C "cd /D D:\AASHISH\Projects\Firewall\cmake-build-debug && "C:\Program Files\CMake\bin\cmake-gui.exe" -SD:\AASHISH\Projects\Firewall -BD:\AASHISH\Projects\Firewall\cmake-build-debug"
-  DESC = Running CMake cache editor...
-  pool = console
+  COMMAND = C:\WINDOWS\system32\cmd.exe /C "cd /D D:\AASHISH\Projects\Firewall\cmake-build-debug && C:\Users\hp\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -E echo "No interactive CMake dialog available.""
+  DESC = No interactive CMake dialog available...
   restat = 1
 
 build edit_cache: phony CMakeFiles/edit_cache.util
@@ -179,6 +263,8 @@ build rebuild_cache: phony CMakeFiles/rebuild_cache.util
 
 build firewall: phony firewall.exe
 
+build test_engine: phony test_engine.exe
+
 # =============================================================================
 # Folder targets.
 
@@ -187,7 +273,7 @@ build firewall: phony firewall.exe
 #############################################
 # Folder: D:/AASHISH/Projects/Firewall/cmake-build-debug
 
-build all: phony firewall.exe
+build all: phony firewall.exe test_engine.exe
 
 # =============================================================================
 # Built-in targets
@@ -196,7 +282,7 @@ build all: phony firewall.exe
 #############################################
 # Re-run CMake if any of its inputs changed.
 
-build build.ninja D$:/AASHISH/Projects/Firewall/cmake-build-debug/cmake_install.cmake: RERUN_CMAKE | C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeCXXInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeCommonLanguageInclude.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeGenericSystem.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeInitializeConfigs.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeLanguageInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeRCInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeSystemSpecificInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeSystemSpecificInitialize.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CheckCXXSourceCompiles.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CheckIncludeFileCXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CheckLibraryExists.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Compiler/GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Compiler/GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindPackageMessage.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindThreads.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Linker/GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Linker/GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Linker/GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-Initialize.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-windres.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/WindowsPaths.cmake CMakeCache.txt CMakeFiles/4.2.2/CMakeCXXCompiler.cmake CMakeFiles/4.2.2/CMakeRCCompiler.cmake CMakeFiles/4.2.2/CMakeSystem.cmake D$:/AASHISH/Projects/Firewall/CMakeLists.txt
+build build.ninja D$:/AASHISH/Projects/Firewall/cmake-build-debug/cmake_install.cmake D$:/AASHISH/Projects/Firewall/cmake-build-debug/CTestTestfile.cmake: RERUN_CMAKE | C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeCXXInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeCommonLanguageInclude.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeGenericSystem.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeInitializeConfigs.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeLanguageInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeRCInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeSystemSpecificInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CMakeSystemSpecificInitialize.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CheckCXXSourceCompiles.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CheckIncludeFileCXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/CheckLibraryExists.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Compiler/CMakeCommonCompilerMacros.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Compiler/GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Compiler/GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindPackageMessage.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindThreads.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Internal/CMakeCXXLinkerInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Internal/CMakeCommonLinkerInformation.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Internal/CheckSourceCompiles.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Linker/GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Linker/GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Linker/GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Linker/Windows-GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX-ABI.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-GNU-CXX.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-GNU.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-Initialize.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows-windres.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/Windows.cmake C$:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/Platform/WindowsPaths.cmake CMakeCache.txt CMakeFiles/4.2.2/CMakeCXXCompiler.cmake CMakeFiles/4.2.2/CMakeRCCompiler.cmake CMakeFiles/4.2.2/CMakeSystem.cmake D$:/AASHISH/Projects/Firewall/CMakeLists.txt
   pool = console
 
 
