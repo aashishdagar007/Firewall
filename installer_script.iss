@@ -40,7 +40,7 @@ InfoAfterFile=D:\AASHISH\Projects\Firewall\readme_after.txt.txt
 ;PrivilegesRequired=lowest
 OutputDir=C:\Users\hp\OneDrive\Desktop
 OutputBaseFilename=AGEIS_XII_Setup_v1
-SetupIconFile=C:\Users\hp\Downloads\Gemini_Generated_Image_f934ovf934ovf934.png
+SetupIconFile=C:\Users\hp\Downloads\Gemini_Generated_Image_f934ovf934ovf934.ico
 SolidCompression=yes
 WizardStyle=modern dynamic windows11
 
@@ -51,7 +51,6 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\dashboard\*"; DestDir: "{app}\dashboard"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\logs\*"; DestDir: "{app}\logs"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
@@ -60,4 +59,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Dirs]
+Name: "{app}\logs"
 

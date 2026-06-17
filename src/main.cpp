@@ -6,6 +6,12 @@
 #include "api_server.hpp"
 #include "ring_buffer.hpp"
 #include "process_monitor.hpp"
+// ── Phase 2: Four Pillars ─────────────────────────────────────
+#include "sha256.hpp"          // Pillar 2+4: cryptographic primitive
+#include "bvudp.hpp"           // Pillar 2:   Batch-Verified UDP protocol
+#include "port_demux.hpp"      // Pillar 1:   DPI port demultiplexer
+#include "chain_ledger.hpp"    // Pillar 4:   tamper-proof event ledger
+#include "control_plane.hpp"   // Pillar 3:   cloud control plane client
 #include <csignal>
 #include <atomic>
 #include <thread>
@@ -117,6 +123,55 @@ int main(int argc, char* argv[]) {
     fw::Logger logger(log_path, fw::LogLevel::LOG_INFO);
     logger.log(fw::LogLevel::LOG_INFO, "Firewall v2 starting");
 
+    // ── P2-A: Tamper-Proof Hash-Chain Ledger (Pillar 4) ──────
+    fw::ChainLedger ledger("logs/ledger.chain", "logs/ledger.json");
+    if (ledger.open()) {
+        ledger.log_firewall_start();
+        logger.log(fw::LogLevel::LOG_INFO, "[Pillar 4] Chain ledger initialized");
+    } else {
+        logger.log(fw::LogLevel::LOG_ERROR, "[Pillar 4] Failed to open chain ledger");
+    }
+
+    // ── P2-B: BVUDP Receiver (Pillar 2) ─────────────────────
+    //   Listens on UDP port 9000 for Batch-Verified protocol traffic.
+    //   The magic-byte check ensures only BVUDP packets are processed.
+    fw::BVUDPReceiver bvudp_rx(9000);
+    bvudp_rx.start([&ledger, &logger](uint32_t batch_id,
+                                       std::vector<uint8_t> payload,
+                                       sockaddr_in /*sender*/) {
+        ledger.log_bvudp_batch(batch_id, payload.size(), /*ok=*/true);
+        logger.log(fw::LogLevel::LOG_INFO,
+                   "[Pillar 2] BVUDP batch " + std::to_string(batch_id) +
+                   " verified " + std::to_string(payload.size()) + " bytes");
+        // TODO: dispatch payload to internal application handler
+    });
+    logger.log(fw::LogLevel::LOG_INFO, "[Pillar 2] BVUDP receiver on UDP:9000");
+
+    // ── P2-C: Port Demultiplexer / WinDivert (Pillar 1) ─────
+    //   Intercepts UDP port 80 and 443. BVUDP traffic is pulled
+    //   off the OS stack; HTTP/HTTPS is transparently reinjected.
+    fw::PortDemux demux({80, 443, 9000}, bvudp_rx);
+    demux.start();
+    logger.log(fw::LogLevel::LOG_INFO,
+               std::string("[Pillar 1] Port demux started — ") +
+               (demux.is_observer_mode() ? "observer (no WinDivert)" : "WinDivert active"));
+
+    // ── P2-D: Cloud Control Plane (Pillar 3) ─────────────────
+    //   Remote URL is empty by default — uses local cloud_config.json.
+    //   Set AEGIS_CONTROL_URL env var to enable remote endpoint.
+    std::string cloud_url;
+    if (const char* env = std::getenv("AEGIS_CONTROL_URL")) cloud_url = env;
+    fw::ControlPlaneClient control_plane(engine, ledger, cloud_url,
+                                         "config/cloud_config.json", 60);
+    control_plane.set_callback([&logger](const fw::CloudConfig& cfg) {
+        logger.log(fw::LogLevel::LOG_INFO,
+                   "[Pillar 3] Cloud config applied — " +
+                   std::to_string(cfg.rules.size()) + " rules, " +
+                   std::to_string(cfg.geo_blocks.size()) + " geo-blocks");
+    });
+    control_plane.start();
+    logger.log(fw::LogLevel::LOG_INFO, "[Pillar 3] Control plane started");
+
     // ── 4. Start process monitor ──────────────────────────────
     fw::ProcessMonitor proc_mon;
     proc_mon.start();
@@ -178,8 +233,17 @@ int main(int argc, char* argv[]) {
     conntrack_running = false;
     if (conntrack_thread.joinable()) conntrack_thread.join();
 
+    // Phase 2 shutdown (order: control plane → demux → bvudp → ledger)
+    control_plane.stop();
+    demux.stop();
+    bvudp_rx.stop();
+
     logger.log(fw::LogLevel::LOG_INFO, "Firewall stopped");
     logger.print_stats();
+
+    // Commit final ledger block before closing
+    ledger.log_firewall_stop();
+    ledger.close();
 
     wsa_cleanup();
     return 0;

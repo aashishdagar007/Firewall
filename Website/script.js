@@ -1,115 +1,81 @@
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // Smooth scrolling and HUD active state update
-    const sections = document.querySelectorAll('.section-step');
-    const hudLinks = document.querySelectorAll('.hud-link');
 
-    const observerOptions = {
-        root: null,
-        rootMargin: '-20% 0px -70% 0px', // Trigger when section is in top part of viewport
-        threshold: 0
-    };
+    // ── Navbar scroll shadow ──────────────────────────────────
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+        navbar.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
 
-    const sectionObserver = new IntersectionObserver((entries) => {
+    // ── Mobile menu toggle ───────────────────────────────────
+    const mobileBtn    = document.getElementById('mobileMenuBtn');
+    const mobileDrawer = document.getElementById('mobileDrawer');
+    if (mobileBtn && mobileDrawer) {
+        mobileBtn.addEventListener('click', () => {
+            mobileDrawer.classList.toggle('open');
+        });
+        // Close drawer when a link is clicked
+        mobileDrawer.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', () => mobileDrawer.classList.remove('open'));
+        });
+    }
+
+    // ── Scroll reveal ─────────────────────────────────────────
+    const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                // Remove active class from all
-                hudLinks.forEach(link => link.classList.remove('active'));
-                
-                // Add active class to corresponding link
-                const activeId = entry.target.getAttribute('id');
-                const activeLink = document.querySelector(`.hud-link[href="#${activeId}"]`);
-                if (activeLink) {
-                    activeLink.classList.add('active');
-                }
+                entry.target.classList.add('visible');
+                revealObserver.unobserve(entry.target);
             }
         });
-    }, observerOptions);
+    }, { rootMargin: '0px 0px -60px 0px', threshold: 0.05 });
 
-    sections.forEach(sec => sectionObserver.observe(sec));
+    document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
 
-    // Reveal elements on scroll
-    const revealOptions = {
-        root: null,
-        rootMargin: '0px',
-        threshold: 0.1
-    };
+    // ── Live terminal stats (mock fluctuation / real API) ────
+    const heroPkts    = document.getElementById('heroPkts');
+    const heroThreats = document.getElementById('heroThreats');
+    const heroProcs   = document.getElementById('heroProcs');
 
-    const revealObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-                observer.unobserve(entry.target);
+    let pktBase = 48291;
+    let threats = 0;
+    let procs   = 12;
+
+    // Try to pull real stats from the running firewall
+    async function fetchStats() {
+        try {
+            const token = sessionStorage.getItem('fw_api_token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const res = await fetch('/api/stats', { headers });
+            if (res.ok) {
+                const d = await res.json();
+                if (heroPkts)    heroPkts.textContent    = Number(d.total).toLocaleString();
+                if (heroThreats) heroThreats.textContent = Number(d.blocked).toLocaleString();
+                return;
             }
-        });
-    }, revealOptions);
+        } catch (_) { /* fall through to mock */ }
 
-    // Apply reveal to cards and sections
-    const revealElements = document.querySelectorAll('.card, .split-content, .split-visual, .cta-container, .hero-content, .hero-visual');
-    
-    revealElements.forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(30px)';
-        el.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
-        revealObserver.observe(el);
+        // Mock fluctuation for demo / standalone website view
+        const delta  = Math.floor(Math.random() * 3200) - 800;
+        pktBase = Math.max(0, pktBase + delta);
+        if (Math.random() > 0.85) threats += Math.floor(Math.random() * 3);
+        if (Math.random() > 0.9)  procs   = 10 + Math.floor(Math.random() * 8);
+        if (heroPkts)    heroPkts.textContent    = pktBase.toLocaleString();
+        if (heroThreats) heroThreats.textContent = threats.toString();
+        if (heroProcs)   heroProcs.textContent   = procs.toString();
+    }
+
+    fetchStats();
+    setInterval(fetchStats, 1800);
+
+    // ── Smooth anchor scrolling (offset for fixed nav) ───────
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', e => {
+            const target = document.querySelector(anchor.getAttribute('href'));
+            if (!target) return;
+            e.preventDefault();
+            const top = target.getBoundingClientRect().top + window.scrollY - 72;
+            window.scrollTo({ top, behavior: 'smooth' });
+        });
     });
 
-    // ── API Authorization ──
-    let apiToken = sessionStorage.getItem('fw_api_token');
-    if (!apiToken) {
-        apiToken = prompt("Enter Aegis XII API Bearer Token:");
-        if (apiToken) sessionStorage.setItem('fw_api_token', apiToken);
-    }
-
-    // Wrapper for all future API requests
-    async function apiFetch(endpoint, options = {}) {
-        const headers = options.headers || {};
-        headers['Authorization'] = `Bearer ${apiToken}`;
-        return fetch(endpoint, { ...options, headers });
-    }
-
-    // ── Live Telemetry ──
-    const packetCounter = document.querySelector('.pulse-text');
-    if (packetCounter) {
-        setInterval(async () => {
-            try {
-                const res = await apiFetch('/api/stats');
-                if (res.ok) {
-                    const data = await res.json();
-                    packetCounter.textContent = data.total.toLocaleString() + ' PKTS';
-                    
-                    if (data.enforcement_mode === false && !document.querySelector('.observer-banner')) {
-                        const banner = document.createElement('div');
-                        banner.className = 'observer-banner';
-                        banner.innerHTML = '<strong>OBSERVER MODE</strong> &nbsp;|&nbsp; Packets are not being blocked. (WinDivert missing)';
-                        document.body.prepend(banner);
-                    }
-                } else if (res.status === 401) {
-                    packetCounter.textContent = 'AUTH ERROR';
-                    sessionStorage.removeItem('fw_api_token');
-                }
-            } catch (err) {
-                // Keep the mock fluctuation running if API is unreachable for demo aesthetics
-                const current = parseInt(packetCounter.textContent.replace(/,/g, '').split(' ')[0]) || 1492304;
-                const fluctuation = Math.floor(Math.random() * 8000) - 2000; 
-                const nextVal = current + fluctuation;
-                packetCounter.textContent = nextVal.toLocaleString() + ' /s (MOCK)';
-            }
-        }, 1200);
-    }
-    
-    // Status text random glitch effect for "SECURE"
-    const statusText = document.querySelector('.status-text');
-    if (statusText) {
-        setInterval(() => {
-            if (Math.random() > 0.95) {
-                const originalText = statusText.innerText;
-                statusText.innerText = "SCNNNG";
-                setTimeout(() => {
-                    statusText.innerText = originalText;
-                }, 150);
-            }
-        }, 2000);
-    }
 });
