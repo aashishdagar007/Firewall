@@ -25,6 +25,11 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
     int ip_hdr_len  = iph->ihl * 4;
     if (ip_hdr_len < 20 || len < ip_hdr_len) return false;
 
+    // Prevent out-of-bounds reads and padding evasion
+    uint16_t tot_len = ntohs(iph->tot_len);
+    if (tot_len < ip_hdr_len) return false;
+    if (len > tot_len) len = tot_len;
+
     out.src_ip   = ntohl(iph->saddr);
     out.dst_ip   = ntohl(iph->daddr);
     out.src_port = 0;
@@ -51,10 +56,13 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
             out.tcp_flags = *(reinterpret_cast<const uint8_t*>(th) + 13);
             
             int tcp_hdr_len = ((*(reinterpret_cast<const uint8_t*>(th) + 12)) >> 4) * 4;
-            if (len >= ip_hdr_len + tcp_hdr_len) {
-                out.payload_ptr = buf + ip_hdr_len + tcp_hdr_len;
-                out.payload_len = len - (ip_hdr_len + tcp_hdr_len);
+            // Mitigate TCP Header underflow vulnerability (minimum valid TCP header is 20 bytes)
+            if (tcp_hdr_len < 20 || len < ip_hdr_len + tcp_hdr_len) {
+                return false;
             }
+            
+            out.payload_ptr = buf + ip_hdr_len + tcp_hdr_len;
+            out.payload_len = len - (ip_hdr_len + tcp_hdr_len);
             break;
         }
 

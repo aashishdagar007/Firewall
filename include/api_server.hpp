@@ -79,6 +79,7 @@ private:
 
     // ── New: Threats (ban list) ─────────────────────────────────
     std::string handle_get_threats()   const;
+    std::string handle_ban_ip(const std::string& body);
     std::string handle_unban_ip(const std::string& body);
 
     // ── New: Geo-Blocking ───────────────────────────────────────

@@ -17,7 +17,11 @@
 #include <thread>
 #include <string>
 #include <vector>
+#include <cstdlib>
 
+#ifdef _WIN32
+#include <shellapi.h>
+#endif
 // ──────────────────────────────────────────────────────────────
 //  main.cpp  (v2 — Real Firewall + GUI  |  Windows + Linux)
 //
@@ -136,15 +140,24 @@ int main(int argc, char* argv[]) {
     //   Listens on UDP port 9000 for Batch-Verified protocol traffic.
     //   The magic-byte check ensures only BVUDP packets are processed.
     fw::BVUDPReceiver bvudp_rx(9000);
-    bvudp_rx.start([&ledger, &logger](uint32_t batch_id,
-                                       std::vector<uint8_t> payload,
-                                       sockaddr_in /*sender*/) {
-        ledger.log_bvudp_batch(batch_id, payload.size(), /*ok=*/true);
-        logger.log(fw::LogLevel::LOG_INFO,
-                   "[Pillar 2] BVUDP batch " + std::to_string(batch_id) +
-                   " verified " + std::to_string(payload.size()) + " bytes");
-        // TODO: dispatch payload to internal application handler
-    });
+    bvudp_rx.start(
+        [&ledger, &logger](uint32_t batch_id, std::vector<uint8_t> payload, sockaddr_in /*sender*/) {
+            ledger.log_bvudp_batch(batch_id, payload.size(), /*ok=*/true);
+            logger.log(fw::LogLevel::LOG_INFO,
+                       "[Pillar 2] BVUDP batch " + std::to_string(batch_id) +
+                       " verified " + std::to_string(payload.size()) + " bytes");
+            // TODO: dispatch payload to internal application handler
+        },
+        [&engine, &ledger, &logger](sockaddr_in sender) {
+            uint32_t src_ip = ntohl(sender.sin_addr.s_addr);
+            // 1. Report to engine to immediately auto-ban the IP
+            engine.report_tampering_attempt(src_ip);
+            
+            // 2. Log tampering event to immutable ledger
+            ledger.log_threat_banned(ip4_to_string(src_ip), "Protocol Tampering Attack (HMAC mismatch)");
+            logger.log(fw::LogLevel::LOG_WARN, "[Pillar 2] HMAC Mismatch! Autobanning attacker.");
+        }
+    );
     logger.log(fw::LogLevel::LOG_INFO, "[Pillar 2] BVUDP receiver on UDP:9000");
 
     // ── P2-C: Port Demultiplexer / WinDivert (Pillar 1) ─────

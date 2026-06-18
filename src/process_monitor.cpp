@@ -18,8 +18,10 @@
 #include <iphlpapi.h>
 #include <psapi.h>
 #include <tlhelp32.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "psapi.lib")
+#endif
 #endif
 
 #include <algorithm>

@@ -42,6 +42,33 @@ DpiEngine::DpiEngine() {
   // ── HTTP Anomalies / Web Shells ──
   add_sig("WebShell: PHP eval", "eval($_POST", false);
   add_sig("WebShell: JSP Execute", "Runtime.getRuntime().exec", false);
+
+  // ── IoT & Router Device Vulnerabilities ──
+  add_sig("IoT: Mirai Botnet Payload", "/bin/busybox", true);
+  add_sig("IoT: Router Command Injection (/cgi-bin/)", "/cgi-bin/", true);
+  add_sig("IoT: Wget Execution", "wget http", true);
+  add_sig("IoT: Curl Execution", "curl -O", true);
+  add_sig("IoT: Netcat Reverse Shell", "nc -e", true);
+  add_sig("Device Exploit: Default Telnet Creds (root)", "root\r\nroot\r\n", true);
+  add_sig("Device Exploit: Default Telnet Creds (admin)", "admin\r\nadmin\r\n", true);
+  add_sig("Device Exploit: UPnP SOAP Injection", "urn:schemas-upnp-org:service", true);
+
+  // ── Phase 5: Ransomware / Lateral Movement ──
+  add_sig("SMB: EternalBlue MS17-010 (IPC$ Tree Connect)", "\\\\IPC$", true);
+  add_sig("SMB: PsExec Execution Artifact", "PSEXESVC.exe", true);
+
+  // ── Phase 5: C2 Frameworks / Post-Exploitation ──
+  add_sig("C2: Cobalt Strike Beacon (Default Malleable)", "default.prof", true);
+  add_sig("C2: Meterpreter Reverse HTTP", "Meterpreter", true);
+
+  // ── Phase 5: Exploit Frameworks ──
+  add_sig("Exploit: Log4Shell (JNDI Injection)", "${jndi:ldap://", true);
+  add_sig("Exploit: Log4Shell (RMI Injection)", "${jndi:rmi://", true);
+
+  // ── Phase 5: Suspicious User-Agents (Outbound/Inbound anomaly) ──
+  add_sig("User-Agent: curl (Suspicious)", "User-Agent: curl", true);
+  add_sig("User-Agent: Wget (Suspicious)", "User-Agent: Wget", true);
+  add_sig("User-Agent: PowerShell (Suspicious)", "User-Agent: WindowsPowerShell", true);
 }
 
 bool DpiEngine::bmh_search(const uint8_t *payload, uint16_t len,
@@ -59,8 +86,8 @@ bool DpiEngine::bmh_search(const uint8_t *payload, uint16_t len,
 
   for (size_t i = 0; i < m - 1; ++i) {
     bad_char[pattern[i]] = m - 1 - i;
-    if (case_insensitive && std::isalpha(pattern[i])) {
-      bad_char[std::toupper(pattern[i])] = m - 1 - i;
+    if (case_insensitive && std::isalpha(static_cast<unsigned char>(pattern[i]))) {
+      bad_char[std::toupper(static_cast<unsigned char>(pattern[i]))] = m - 1 - i;
     }
   }
 
@@ -70,7 +97,7 @@ bool DpiEngine::bmh_search(const uint8_t *payload, uint16_t len,
     while (j >= 0) {
       uint8_t p_byte = payload[s + j];
       if (case_insensitive) {
-        p_byte = static_cast<uint8_t>(std::tolower(p_byte));
+        p_byte = static_cast<uint8_t>(std::tolower(static_cast<unsigned char>(p_byte)));
       }
       if (p_byte != pattern[j]) {
         break;

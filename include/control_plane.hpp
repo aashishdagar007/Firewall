@@ -159,37 +159,47 @@ private:
 
     // ── Remote fetch via httplib ──────────────────────────────
     std::string fetch_remote() {
-        try {
-            // Parse URL: http://host[:port]/path
-            std::string url = remote_url_;
-            bool https = url.find("https://") == 0;
-            size_t start = https ? 8 : 7;
-            size_t slash = url.find('/', start);
-            std::string host = (slash == std::string::npos)
-                               ? url.substr(start)
-                               : url.substr(start, slash - start);
-            std::string path = (slash == std::string::npos) ? "/" : url.substr(slash);
-            int port = https ? 443 : 80;
-            auto colon = host.rfind(':');
-            if (colon != std::string::npos) {
-                port = std::stoi(host.substr(colon+1));
-                host = host.substr(0, colon);
-            }
+        int backoff_ms = 1000;
+        for (int attempt = 0; attempt < 3; ++attempt) {
+            try {
+                // Parse URL: http://host[:port]/path
+                std::string url = remote_url_;
+                bool https = url.find("https://") == 0;
+                size_t start = https ? 8 : 7;
+                size_t slash = url.find('/', start);
+                std::string host = (slash == std::string::npos)
+                                   ? url.substr(start)
+                                   : url.substr(start, slash - start);
+                std::string path = (slash == std::string::npos) ? "/" : url.substr(slash);
+                int port = https ? 443 : 80;
+                auto colon = host.rfind(':');
+                if (colon != std::string::npos) {
+                    port = std::stoi(host.substr(colon+1));
+                    host = host.substr(0, colon);
+                }
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
-            if (https) {
-                httplib::SSLClient cli(host, port);
-                cli.set_connection_timeout(5);
-                auto res = cli.Get(path.c_str());
-                if (res && res->status == 200) return res->body;
-                return "";
-            }
+                if (https) {
+                    httplib::SSLClient cli(host, port);
+                    cli.set_connection_timeout(5);
+                    auto res = cli.Get(path.c_str());
+                    if (res && res->status == 200) return res->body;
+                } else
 #endif
-            httplib::Client cli(host, port);
-            cli.set_connection_timeout(5);
-            auto res = cli.Get(path.c_str());
-            if (res && res->status == 200) return res->body;
-        } catch (...) {}
+                {
+                    httplib::Client cli(host, port);
+                    cli.set_connection_timeout(5);
+                    auto res = cli.Get(path.c_str());
+                    if (res && res->status == 200) return res->body;
+                }
+            } catch (...) {}
+            
+            // Exponential backoff
+            if (attempt < 2 && running_) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(backoff_ms));
+                backoff_ms *= 2;
+            }
+        }
         return "";
     }
 
@@ -234,6 +244,8 @@ private:
         };
 
         cfg.schema           = get_int("schema");
+        if (cfg.schema != 1) return false; // Strict schema validation
+
         cfg.magic_hex        = get_str("magic_bytes");
         cfg.rate_limit_pps   = static_cast<uint32_t>(get_int("rate_limit_pps"));
         cfg.default_policy   = get_str("default_policy");
@@ -261,7 +273,7 @@ private:
             }
         }
 
-        return cfg.schema > 0;
+        return true;
     }
 
     static void parse_rules_array(const std::string& arr,

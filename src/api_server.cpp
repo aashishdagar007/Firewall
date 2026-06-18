@@ -204,6 +204,15 @@ void ApiServer::setup_routes() {
                  res.set_content(handle_get_threats(), "application/json");
                });
 
+  // ── POST /api/threats (body: {"ip":"1.2.3.4", "reason":"manual"}) ──
+  server_->Post("/api/threats",
+                  [this, cors](const httplib::Request &req,
+                               httplib::Response &res) {
+                    cors(res);
+                    res.set_content(handle_ban_ip(req.body),
+                                    "application/json");
+                  });
+
   // ── DELETE /api/threats (body: {"ip":"1.2.3.4"}) ──────────
   server_->Delete("/api/threats",
                   [this, cors](const httplib::Request &req,
@@ -341,22 +350,7 @@ std::string ApiServer::handle_add_rule(const std::string &body) {
     auto end = body.find('"', pos);
     return (end == std::string::npos) ? "" : body.substr(pos, end - pos);
   };
-  auto get_int_field = [&](const std::string &key) -> int {
-    std::string search = "\"" + key + "\":";
-    auto pos = body.find(search);
-    if (pos == std::string::npos)
-      return 0;
-    pos += search.size();
-    // skip quotes if present
-    if (pos < body.size() && body[pos] == '"')
-      pos++;
-    int val = 0;
-    try {
-      val = std::stoi(body.substr(pos));
-    } catch (...) {
-    }
-    return val;
-  };
+
 
   std::string action_s = get_field("action");
   std::string proto_s = get_field("proto");
@@ -630,6 +624,42 @@ std::string ApiServer::handle_get_threats() const {
   }
   o << "]";
   return o.str();
+}
+
+std::string ApiServer::handle_ban_ip(const std::string& body) {
+  // Body: {"ip":"1.2.3.4", "reason":"manual"}
+  std::string search_ip = "\"ip\":\"";
+  auto pos = body.find(search_ip);
+  if (pos == std::string::npos)
+    return "{\"ok\":false,\"error\":\"missing ip field\"}";
+  pos += search_ip.size();
+  auto end = body.find('"', pos);
+  if (end == std::string::npos)
+    return "{\"ok\":false,\"error\":\"invalid json\"}";
+  std::string ip_str = body.substr(pos, end - pos);
+
+  std::string reason = "Manual Ban";
+  std::string search_reason = "\"reason\":\"";
+  auto rpos = body.find(search_reason);
+  if (rpos != std::string::npos) {
+      rpos += search_reason.size();
+      auto rend = body.find('"', rpos);
+      if (rend != std::string::npos) {
+          reason = body.substr(rpos, rend - rpos);
+      }
+  }
+
+  // Parse the IP string back to uint32_t
+  uint32_t ip = 0;
+  try { ip = ConfigParser::parse_ip(ip_str); }
+  catch (...) {
+    return "{\"ok\":false,\"error\":\"invalid IP\"}";
+  }
+  if (ip == 0)
+    return "{\"ok\":false,\"error\":\"invalid IP\"}";
+
+  bool ok = engine_.ban_ip(ip, reason);
+  return ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"Failed to ban IP\"}";
 }
 
 std::string ApiServer::handle_unban_ip(const std::string& body) {

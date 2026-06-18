@@ -851,7 +851,13 @@
             <div class="card-title" style="font-size:16px; color:var(--accent-red);">⚠ Active Threat Ban List</div>
             <button class="action-btn btn-primary" onclick="pollThreats()" style="font-size:11px;">↻ Refresh</button>
           </div>
-          <div style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">IPs currently banned by the heuristic engine. Click Unban to manually lift a restriction.</div>
+          <div style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">IPs currently banned by the heuristic engine or manually. Click Unban to manually lift a restriction.</div>
+          
+          <div class="form-grid" style="grid-template-columns:1fr 2fr auto; gap:12px; margin-bottom:16px; background:rgba(255,51,85,0.05); border:1px solid rgba(255,51,85,0.2); padding:12px; border-radius:8px;">
+            <input type="text" id="ban-ip" class="form-control" placeholder="IP Address (e.g. 1.2.3.4)" />
+            <input type="text" id="ban-reason" class="form-control" placeholder="Reason for ban (optional)" />
+            <button class="action-btn btn-block" onclick="banIp()">Ban IP</button>
+          </div>
           <div class="table-container" style="flex:1; overflow-y:auto;">
             <table>
               <thead>
@@ -1336,6 +1342,28 @@
       });
       showToast('✓ ' + ip + ' unbanned', 'var(--accent-green)');
       pollThreats();
+    }
+
+    async function banIp() {
+      const ip = document.getElementById('ban-ip').value.trim();
+      const reason = document.getElementById('ban-reason').value.trim() || 'Manual Ban';
+      if (!ip) { showToast('Enter an IP address to ban', 'var(--accent-red)'); return; }
+
+      const res = await apiFetch('/api/threats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, reason })
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast('✓ ' + ip + ' manually banned', 'var(--accent-red)');
+        document.getElementById('ban-ip').value = '';
+        document.getElementById('ban-reason').value = '';
+        pollThreats();
+      } else {
+        showToast('Failed to ban IP: ' + (data.error || 'Unknown error'), 'var(--accent-red)');
+      }
     }
 
     // --- Rate Limit ---

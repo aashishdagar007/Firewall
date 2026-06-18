@@ -166,7 +166,8 @@ private:
 
     void divert_loop() {
         static constexpr UINT BUFSIZE = 65535;
-        std::vector<uint8_t> buf(BUFSIZE);
+        // Zero-allocation hot path: pre-allocated thread-local array
+        thread_local std::array<uint8_t, BUFSIZE> buf;
         WINDIVERT_ADDRESS    addr;
         UINT                 recv_len = 0;
 
@@ -174,6 +175,7 @@ private:
             if (!WinDivertRecv(divert_handle_,
                                reinterpret_cast<PVOID>(buf.data()),
                                BUFSIZE, &recv_len, &addr)) {
+                // Graceful shutdown: WinDivertClose in stop() aborts this blocking call
                 if (!running_) break;
                 continue;
             }

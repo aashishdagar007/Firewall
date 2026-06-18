@@ -123,11 +123,17 @@ struct BVUDPNack {
 // ─────────────────────────────────────────────────────────────
 class BVUDPSender {
 public:
-    BVUDPSender() : batch_counter_(1) {
+    explicit BVUDPSender(std::string session_key = "DEFAULT_AEGIS_KEY") 
+        : batch_counter_(1), 
+          session_key_(session_key.begin(), session_key.end()) {
         sock_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     }
     ~BVUDPSender() {
         if (socket_valid(sock_)) close_socket(sock_);
+    }
+
+    void set_session_key(const std::string& key) {
+        session_key_ = std::vector<uint8_t>(key.begin(), key.end());
     }
 
     // Send `data` (len bytes) to `dest` over BVUDP.
@@ -149,10 +155,11 @@ public:
         if (chunks.size() > BVUDP_MAX_CHUNKS) return false;
         uint16_t total = static_cast<uint16_t>(chunks.size());
 
-        // ── 2. Build SHA-256 of the full batch ───────────────
-        SHA256 hasher;
-        for (auto& c : chunks) hasher.update(c.data(), c.size());
-        SHA256::Digest batch_hash = hasher.finalize();
+        // ── 2. Build HMAC-SHA256 of the full payload ──────────
+        SHA256::Digest batch_hash = SHA256::hmac(
+            session_key_.data(), session_key_.size(),
+            data, len
+        );
 
         // ── 3. Send all chunks ────────────────────────────────
         auto send_chunk = [&](uint16_t seq) -> bool {
@@ -241,6 +248,7 @@ public:
 private:
     sock_t       sock_;
     std::atomic<uint32_t> batch_counter_;
+    std::vector<uint8_t>  session_key_;
 
     void set_recv_timeout(int ms) {
 #ifdef _WIN32
@@ -260,35 +268,49 @@ private:
 struct BVUDPBatchSession {
     uint32_t batch_id   = 0;
     uint16_t total      = 0;
-    std::map<uint16_t, std::vector<uint8_t>> chunks;
+    
+    // Fixed-allocation buffer: sized exactly once when session is created
+    std::vector<uint8_t> payload;
+    std::vector<bool>    chunk_received;
+    std::vector<uint16_t> chunk_sizes;
+    uint16_t             received_count = 0;
+
     std::chrono::steady_clock::time_point created;
+    std::chrono::steady_clock::time_point last_updated;
 
     bool complete() const {
-        return total > 0 && chunks.size() == static_cast<size_t>(total);
+        return total > 0 && received_count == total;
     }
 
-    // Verify hash and assemble payload; returns assembled data or empty on mismatch
+    // Verify HMAC and assemble payload; returns assembled data or empty on mismatch
     std::optional<std::vector<uint8_t>> verify_and_assemble(
-            const SHA256::Digest& expected_hash) const {
-        SHA256 h;
-        for (uint16_t i = 0; i < total; ++i) {
-            auto it = chunks.find(i);
-            if (it == chunks.end()) return std::nullopt;
-            h.update(it->second.data(), it->second.size());
-        }
-        if (h.finalize() != expected_hash) return std::nullopt;
-
+            const SHA256::Digest& expected_hash,
+            const std::vector<uint8_t>& session_key) const {
+        
+        // Assemble first
         std::vector<uint8_t> out;
+        out.reserve(total * BVUDP_MTU);
+        size_t offset = 0;
         for (uint16_t i = 0; i < total; ++i) {
-            auto& c = chunks.at(i);
-            out.insert(out.end(), c.begin(), c.end());
+            if (!chunk_received[i]) return std::nullopt;
+            out.insert(out.end(), payload.data() + offset, payload.data() + offset + chunk_sizes[i]);
+            offset += BVUDP_MTU;
         }
+
+        // Verify HMAC mathematically bound to the secret key
+        SHA256::Digest actual_hash = SHA256::hmac(
+            session_key.data(), session_key.size(),
+            out.data(), out.size()
+        );
+
+        if (actual_hash != expected_hash) return std::nullopt;
+
         return out;
     }
 
     uint16_t first_missing() const {
         for (uint16_t i = 0; i < total; ++i)
-            if (chunks.find(i) == chunks.end()) return i;
+            if (!chunk_received[i]) return i;
         return total; // all present
     }
 };
@@ -299,21 +321,33 @@ struct BVUDPBatchSession {
 // ─────────────────────────────────────────────────────────────
 class BVUDPReceiver {
 public:
+    static constexpr size_t MAX_SESSIONS = 256; // Anti-DoS limit
+
+    // callback(batch_id, payload, sender)
     using BatchCallback = std::function<void(uint32_t batch_id,
                                              std::vector<uint8_t> payload,
                                              sockaddr_in sender)>;
 
-    explicit BVUDPReceiver(uint16_t port)
+    // tamper_callback(sender_ip)
+    using TamperCallback = std::function<void(sockaddr_in sender)>;
+
+    explicit BVUDPReceiver(uint16_t port, std::string session_key = "DEFAULT_AEGIS_KEY")
         : port_(port),
+          session_key_(session_key.begin(), session_key.end()),
           sock_(INVALID_SOCK),
           running_(false) {}
 
     ~BVUDPReceiver() { stop(); }
 
-    // Start listening; callback is called for every verified batch
-    bool start(BatchCallback cb) {
+    void set_session_key(const std::string& key) {
+        session_key_ = std::vector<uint8_t>(key.begin(), key.end());
+    }
+
+    // Start listening; callbacks fired on verified batch or tampering detection
+    bool start(BatchCallback cb, TamperCallback tamper_cb = nullptr) {
         if (running_) return true;
         callback_ = std::move(cb);
+        tamper_callback_ = std::move(tamper_cb);
 
         sock_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (!socket_valid(sock_)) return false;
@@ -350,10 +384,12 @@ public:
 
 private:
     uint16_t     port_;
+    std::vector<uint8_t> session_key_;
     sock_t       sock_;
     std::atomic<bool> running_;
     std::thread  thread_;
     BatchCallback callback_;
+    TamperCallback tamper_callback_;
 
     std::mutex   sessions_mtx_;
     std::unordered_map<uint32_t, BVUDPBatchSession> sessions_;
@@ -362,7 +398,23 @@ private:
         static constexpr int BUFSIZE = 65535;
         std::vector<uint8_t> buf(BUFSIZE);
         sockaddr_in from{}; int fromlen = sizeof(from);
+        
         while (running_) {
+            fd_set fds;
+            FD_ZERO(&fds);
+            FD_SET(sock_, &fds);
+            
+            struct timeval tv{ 0, 500000 }; // 500ms timeout for graceful exit checking
+            int ready = select(static_cast<int>(sock_ + 1), &fds, nullptr, nullptr, &tv);
+            
+            if (ready < 0) {
+#ifndef _WIN32
+                if (errno == EINTR) continue;
+#endif
+                break; // Socket error
+            }
+            if (ready == 0) continue; // Timeout, check running_ again
+
             int n = recvfrom(sock_, reinterpret_cast<char*>(buf.data()),
                              BUFSIZE, 0,
                              reinterpret_cast<sockaddr*>(&from), &fromlen);
@@ -391,13 +443,43 @@ private:
             uint16_t pay_len = ntohs(dp->pay_len);
             off += sizeof(BVUDPDataPayload);
             if (len < off + pay_len) return;
+            if (total == 0 || total > BVUDP_MAX_CHUNKS) return;
+            if (seq >= total) return;
+
+            // Enforce Anti-DoS Session Limit
+            if (sessions_.find(bid) == sessions_.end()) {
+                if (sessions_.size() >= MAX_SESSIONS) {
+                    // Evict oldest session (LRU)
+                    auto oldest = sessions_.begin();
+                    for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
+                        if (it->second.last_updated < oldest->second.last_updated) {
+                            oldest = it;
+                        }
+                    }
+                    sessions_.erase(oldest);
+                }
+            }
 
             auto& session = sessions_[bid];
             session.batch_id = bid;
             session.total    = total;
-            if (!session.created.time_since_epoch().count())
-                session.created = std::chrono::steady_clock::now();
-            session.chunks[seq] = std::vector<uint8_t>(data + off, data + off + pay_len);
+            
+            auto now = std::chrono::steady_clock::now();
+            if (!session.created.time_since_epoch().count()) {
+                session.created = now;
+                // Pre-allocate buffer based on reported total to avoid dynamic reallocations
+                session.payload.resize(total * BVUDP_MTU);
+                session.chunk_received.resize(total, false);
+                session.chunk_sizes.resize(total, 0);
+            }
+            session.last_updated = now;
+
+            if (!session.chunk_received[seq]) {
+                std::memcpy(session.payload.data() + (seq * BVUDP_MTU), data + off, pay_len);
+                session.chunk_sizes[seq] = pay_len;
+                session.chunk_received[seq] = true;
+                session.received_count++;
+            }
 
         } else if (type == BVUDPType::MANIFEST) {
             if (len < off + static_cast<int>(sizeof(BVUDPManifest))) return;
@@ -416,10 +498,16 @@ private:
                 return;
             }
 
-            auto result = s.verify_and_assemble(expected);
+            auto result = s.verify_and_assemble(expected, session_key_);
             if (!result) {
-                // Hash mismatch — request all chunks again (send NACK for chunk 0)
-                s.chunks.clear();
+                // HMAC mismatch — highly indicative of active alteration/tampering!
+                if (tamper_callback_) {
+                    tamper_callback_(from);
+                }
+                
+                // Clear the corrupted chunks
+                std::fill(s.chunk_received.begin(), s.chunk_received.end(), false);
+                s.received_count = 0;
                 send_nack(bid, 0, from);
                 return;
             }

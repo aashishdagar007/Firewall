@@ -273,6 +273,8 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
 
     bool is_tcp_pkt = (pkt.proto == Proto::TCP);
     bool is_syn_pkt = is_tcp_pkt && (pkt.tcp_flags & TCP_SYN);
+    bool is_udp_pkt = (pkt.proto == Proto::UDP);
+    bool is_icmp_pkt = (pkt.proto == Proto::ICMP);
 
     // Check if IP is currently banned
     if (tstate.is_banned) {
@@ -281,6 +283,8 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         tstate.is_banned = false;
         tstate.packet_count = 0;
         tstate.syn_count = 0;
+        tstate.udp_count = 0;
+        tstate.icmp_count = 0;
         tstate.window_start = now;
       } else {
         threat_rule_.hit_count++;
@@ -293,10 +297,13 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       tstate.window_start = now;
       tstate.packet_count = 1;
       tstate.syn_count = is_syn_pkt ? 1 : 0;
+      tstate.udp_count = is_udp_pkt ? 1 : 0;
+      tstate.icmp_count = is_icmp_pkt ? 1 : 0;
     } else {
       tstate.packet_count++;
-      if (is_syn_pkt)
-        tstate.syn_count++;
+      if (is_syn_pkt) tstate.syn_count++;
+      if (is_udp_pkt) tstate.udp_count++;
+      if (is_icmp_pkt) tstate.icmp_count++;
 
       if (tstate.packet_count > rate_limit_pps_.load()) {
         tstate.is_banned = true;
@@ -321,6 +328,24 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
                 : "Threat Detected: SYN Flood / Port Scan (Auto-Ban)";
         threat_rule_.hit_count++;
         return {Action::BLOCK, &threat_rule_};
+      }
+
+      // UDP Flood protection (excluding DNS and QUIC)
+      if (tstate.udp_count > 100 && pkt.dst_port != 53 && pkt.dst_port != 443) {
+        tstate.is_banned = true;
+        tstate.ban_count++;
+        tstate.ban_expires = now + std::chrono::seconds(120);
+        anomaly_udp_flood_.hit_count++;
+        return {Action::BLOCK, &anomaly_udp_flood_};
+      }
+
+      // ICMP (Ping) Flood / Smurf protection
+      if (tstate.icmp_count > 50) {
+        tstate.is_banned = true;
+        tstate.ban_count++;
+        tstate.ban_expires = now + std::chrono::seconds(300);
+        anomaly_icmp_flood_.hit_count++;
+        return {Action::BLOCK, &anomaly_icmp_flood_};
       }
     }
 
@@ -636,7 +661,11 @@ std::vector<ThreatSnapshot> RuleEngine::get_threat_table_snapshot() const {
     snap.ban_count  = ts.ban_count;
     snap.ban_expires = ts.ban_expires;
     // Derive reason from ban_count escalation level
-    if (ts.ban_count >= 5)
+    if (ts.ban_count >= 100)
+      snap.reason = "Manual Ban";
+    else if (ts.ban_count >= 10)
+      snap.reason = "Protocol Tampering Attack (HMAC Failed)";
+    else if (ts.ban_count >= 5)
       snap.reason = "Data Exfiltration (Heuristic)";
     else if (ts.ban_count > 2)
       snap.reason = "SYN Flood — Escalated Ban";
@@ -657,6 +686,35 @@ bool RuleEngine::unban_ip(uint32_t src_ip) {
   it->second.packet_count = 0;
   it->second.syn_count    = 0;
   return true;
+}
+
+bool RuleEngine::ban_ip(uint32_t src_ip, const std::string& reason) {
+  std::lock_guard<std::mutex> lock(state_mtx_);
+  auto now = std::chrono::steady_clock::now();
+  auto &tstate = threat_table_[src_ip];
+
+  // Manual bans are permanent and use a high ban_count to identify them
+  tstate.is_banned = true;
+  tstate.ban_count = 100; // Trigger "Manual Ban" reason
+  tstate.ban_expires = now + std::chrono::hours(24 * 365); // 1-year ban
+  
+  std::cout << "[THREAT] MANUAL BAN: IP " << ip4_to_string(src_ip) 
+            << " blocked. Reason: " << (reason.empty() ? "None" : reason) << "\n";
+  return true;
+}
+
+void RuleEngine::report_tampering_attempt(uint32_t src_ip) {
+  std::lock_guard<std::mutex> lock(state_mtx_);
+  auto now = std::chrono::steady_clock::now();
+  auto &tstate = threat_table_[src_ip];
+
+  // Instantly lock down the IP permanently across all ports
+  tstate.is_banned = true;
+  tstate.ban_count = 10; // Trigger "Protocol Tampering Attack" reason
+  tstate.ban_expires = now + std::chrono::hours(24 * 365); // 1-year ban
+  
+  std::cout << "[THREAT] ACTIVE BAN: IP " << ip4_to_string(src_ip) 
+            << " blocked for Protocol Tampering (HMAC-SHA256 signature mismatch)!\n";
 }
 
 } // namespace fw

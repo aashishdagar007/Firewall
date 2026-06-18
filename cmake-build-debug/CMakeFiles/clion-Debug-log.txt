@@ -6,19 +6,27 @@ C:\Users\hp\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -DCMAKE
 --     1. Download WinDivert from https://reqrypt.org/windivert.html
 --     2. cmake .. -DWINDIVERT_DIR=<path>
 -- 
--- ══════════════════════════════════════════════
+-- ════════════════════════════════════════════
 --  Firewall v2  build summary
--- ══════════════════════════════════════════════
+-- ════════════════════════════════════════════
 --   Build type : Debug
 --   Compiler   : GNU 13.1.0
 --   Standard   : C++17
+-- 
+--   Phase 2 Architecture:
+--     Pillar 1 ─ Port Demux (WinDivert DPI interceptor)
+--     Pillar 2 ─ BVUDP Batch-Verified UDP protocol stack
+--     Pillar 3 ─ Cloud Control Plane client
+--     Pillar 4 ─ Tamper-Proof Hash-Chain Ledger
+--     Crypto   ─ SHA-256 (header-only, zero deps)
 --   Windows    : Observer mode (ws2_32)
 --   Blocking   : WinDivert (set WINDIVERT_DIR to enable)
 -- 
 --   Run as Administrator in PowerShell:
 --     cd cmake-build-debug
 --     .\firewall.exe
--- ══════════════════════════════════════════════
--- Configuring done (0.1s)
+--   Cloud endpoint: set AEGIS_CONTROL_URL=http://your-api/config
+-- ════════════════════════════════════════════
+-- Configuring done (0.4s)
 -- Generating done (0.1s)
 -- Build files have been written to: D:/AASHISH/Projects/Firewall/cmake-build-debug

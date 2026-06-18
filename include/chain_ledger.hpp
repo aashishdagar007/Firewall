@@ -29,6 +29,7 @@
 
 #include "sha256.hpp"
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -36,6 +37,9 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <thread>
+#include <condition_variable>
+#include <queue>
 
 namespace fw {
 
@@ -104,27 +108,28 @@ struct LedgerBlock {
 };
 
 // ─────────────────────────────────────────────────────────────
-//  ChainLedger  –  thread-safe append-only ledger
+//  ChainLedger  –  thread-safe, async append-only ledger
 // ─────────────────────────────────────────────────────────────
 class ChainLedger {
 public:
     explicit ChainLedger(const std::string& binary_path  = "logs/ledger.chain",
                          const std::string& json_path    = "logs/ledger.json")
-        : bin_path_(binary_path), json_path_(json_path)
+        : bin_path_(binary_path), json_path_(json_path), running_(false)
     {
-        // Genesis block
         last_hash_.fill(0);
         next_index_ = 0;
     }
 
-    // Initialize: open files and write genesis if new ledger
+    ~ChainLedger() { close(); }
+
+    // Initialize: open files, write genesis if new, and start async thread
     bool open() {
         std::lock_guard<std::mutex> lk(mtx_);
         bin_out_.open(bin_path_, std::ios::binary | std::ios::app);
         json_out_.open(json_path_, std::ios::app);
         if (!bin_out_.is_open() || !json_out_.is_open()) return false;
 
-        // If the file is empty, write the genesis block
+        // If the file is empty, write the genesis block immediately
         if (bin_out_.tellp() == 0) {
             LedgerBlock genesis;
             genesis.index        = 0;
@@ -135,30 +140,43 @@ public:
             genesis.block_hash   = genesis.compute_hash();
             last_hash_   = genesis.block_hash;
             next_index_  = 1;
-            write_block(genesis);
+            write_block_direct(genesis);
+        } else {
+            // In a real system, we'd read the last block from disk to restore last_hash_ and next_index_.
+            // For simplicity, we assume we append from 0 if restarted, or we need a restore phase.
         }
+        
+        running_ = true;
+        worker_thread_ = std::thread([this]{ worker_loop(); });
         return true;
     }
 
     void close() {
+        {
+            std::lock_guard<std::mutex> lk(queue_mtx_);
+            running_ = false;
+        }
+        cv_.notify_one();
+        if (worker_thread_.joinable()) {
+            worker_thread_.join();
+        }
+
         std::lock_guard<std::mutex> lk(mtx_);
         if (bin_out_.is_open())  bin_out_.close();
         if (json_out_.is_open()) json_out_.close();
     }
 
-    // Commit a new event to the chain
-    LedgerBlock commit(LedgerEventType type, const std::string& data) {
-        std::lock_guard<std::mutex> lk(mtx_);
-        LedgerBlock blk;
-        blk.index        = next_index_++;
-        blk.timestamp_ms = now_ms();
-        blk.event_type   = type;
-        blk.event_data   = data;
-        blk.prev_hash    = last_hash_;
-        blk.block_hash   = blk.compute_hash();
-        last_hash_       = blk.block_hash;
-        write_block(blk);
-        return blk;
+    // Commit a new event (Non-Blocking: pushes to async queue)
+    void commit(LedgerEventType type, const std::string& data) {
+        PendingEvent ev{type, data};
+        {
+            std::lock_guard<std::mutex> lk(queue_mtx_);
+            // Anti-DoS: drop events if queue gets absurdly huge
+            if (event_queue_.size() < 100000) {
+                event_queue_.push(std::move(ev));
+            }
+        }
+        cv_.notify_one();
     }
 
     // Convenience overloads
@@ -239,11 +257,23 @@ public:
     }
 
 private:
+    struct PendingEvent {
+        LedgerEventType type;
+        std::string     data;
+    };
+
     std::string       bin_path_, json_path_;
     std::ofstream     bin_out_, json_out_;
     mutable std::mutex mtx_;
     SHA256::Digest    last_hash_{};
     uint64_t          next_index_ = 0;
+
+    // Async machinery
+    std::mutex              queue_mtx_;
+    std::condition_variable cv_;
+    std::queue<PendingEvent> event_queue_;
+    std::thread             worker_thread_;
+    bool                    running_;
 
     static uint64_t now_ms() {
         return static_cast<uint64_t>(
@@ -251,7 +281,41 @@ private:
                 std::chrono::system_clock::now().time_since_epoch()).count());
     }
 
-    void write_block(const LedgerBlock& blk) {
+    // Background worker loop
+    void worker_loop() {
+        std::vector<PendingEvent> batch;
+        while (true) {
+            {
+                std::unique_lock<std::mutex> lk(queue_mtx_);
+                cv_.wait(lk, [this]{ return !event_queue_.empty() || !running_; });
+                
+                if (!running_ && event_queue_.empty()) break;
+
+                // Drain the queue into a local batch to release the lock fast
+                while (!event_queue_.empty()) {
+                    batch.push_back(std::move(event_queue_.front()));
+                    event_queue_.pop();
+                }
+            }
+
+            // Process the batch (hashing + I/O)
+            std::lock_guard<std::mutex> lk(mtx_);
+            for (auto& ev : batch) {
+                LedgerBlock blk;
+                blk.index        = next_index_++;
+                blk.timestamp_ms = now_ms();
+                blk.event_type   = ev.type;
+                blk.event_data   = std::move(ev.data);
+                blk.prev_hash    = last_hash_;
+                blk.block_hash   = blk.compute_hash();
+                last_hash_       = blk.block_hash;
+                write_block_direct(blk);
+            }
+            batch.clear();
+        }
+    }
+
+    void write_block_direct(const LedgerBlock& blk) {
         if (!bin_out_.is_open()) return;
 
         // Binary record: fixed-size fields + variable event_data

@@ -80,6 +80,8 @@ namespace fw {
         std::chrono::steady_clock::time_point window_start;
         uint32_t packet_count = 0;
         uint32_t syn_count = 0;
+        uint32_t udp_count = 0;
+        uint32_t icmp_count = 0;
         uint32_t ban_count = 0; // Number of times banned
         bool is_banned = false;
         std::chrono::steady_clock::time_point ban_expires;
@@ -126,7 +128,11 @@ namespace fw {
 
         // ── Threat Table ─────────────────────────────────────────────────
         std::vector<ThreatSnapshot> get_threat_table_snapshot() const;
+        bool ban_ip(uint32_t src_ip, const std::string& reason); // manually ban an IP
         bool unban_ip(uint32_t src_ip);          // manually lift a ban
+        
+        // ── Active Threat Ban ─────────────────────────────────────────────
+        void report_tampering_attempt(uint32_t src_ip); // instantly severe-ban IP
 
     private:
         std::vector<Rule> rules_;
@@ -166,6 +172,8 @@ namespace fw {
         Rule anomaly_tcp_syn_flags_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Anomaly: TCP SYN with PSH/URG", 0};
         Rule anomaly_tcp_syn_data_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Anomaly: TCP SYN contains payload", 0};
         Rule anomaly_udp_dns_{0, Action::BLOCK, Proto::UDP, Direction::ANY, 0, 0, 0, 0, "Anomaly: Oversized DNS UDP packet", 0};
+        Rule anomaly_udp_flood_{0, Action::BLOCK, Proto::UDP, Direction::ANY, 0, 0, 0, 0, "Anomaly: UDP Flood Detected", 0};
+        Rule anomaly_icmp_flood_{0, Action::BLOCK, Proto::ICMP, Direction::ANY, 0, 0, 0, 0, "Anomaly: ICMP (Ping) Flood Detected", 0};
         Rule anomaly_port_zero_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "Anomaly: Traffic to/from Port 0", 0};
 
         Rule invalid_rule_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "INVALID TCP State (Auto-Drop)", 0};
