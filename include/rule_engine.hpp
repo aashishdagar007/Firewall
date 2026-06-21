@@ -37,6 +37,26 @@ namespace fw {
         std::chrono::steady_clock::time_point ban_expires;
     };
 
+    // Snapshot of a single anomaly rule hit count
+    struct AnomalySnapshot {
+        std::string name;       // human-readable anomaly label
+        uint32_t    hit_count;  // cumulative hits since startup
+    };
+
+    // Snapshot of a single live connection flow
+    struct ConnectionSnapshot {
+        std::string src_ip;
+        std::string dst_ip;
+        uint16_t    src_port;
+        uint16_t    dst_port;
+        std::string proto;      // "TCP", "UDP", "ICMP"
+        std::string state;      // "NEW" or "ESTABLISHED"
+        uint64_t    bytes_in;
+        uint64_t    bytes_out;
+        uint64_t    bytes_total;
+        double      age_sec;    // seconds since last seen
+    };
+
     // Connection Tracking Key (5-tuple)
     struct ConnectionKey {
         uint32_t src_ip;
@@ -133,6 +153,10 @@ namespace fw {
         
         // ── Active Threat Ban ─────────────────────────────────────────────
         void report_tampering_attempt(uint32_t src_ip); // instantly severe-ban IP
+
+        // ── Anomaly & Connection Analytics ───────────────────────────────
+        std::vector<AnomalySnapshot>    get_anomaly_snapshot()    const;
+        std::vector<ConnectionSnapshot> get_connection_snapshot() const;
 
     private:
         std::vector<Rule> rules_;

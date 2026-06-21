@@ -26,8 +26,16 @@ ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
                      RingBuffer<PacketRecord> &ring, ProcessMonitor &proc_mon,
                      const std::string &dashboard_root, int port)
     : engine_(engine), stats_(stats), ring_(ring), proc_mon_(proc_mon),
-      dashboard_root_(dashboard_root), port_(port),
-      server_(std::make_unique<httplib::Server>()) {
+      dashboard_root_(dashboard_root), port_(port) {
+
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+  server_ = std::make_unique<httplib::SSLServer>("./config/cert.pem", "./config/key.pem");
+  if (!server_->is_valid()) {
+    std::cerr << "[API] Warning: Failed to load ./config/cert.pem and key.pem for HTTPS. Please generate them.\n";
+  }
+#else
+  server_ = std::make_unique<httplib::Server>();
+#endif
 
   api_token_ = generate_token();
 
@@ -55,10 +63,18 @@ void ApiServer::start() {
   setup_routes();
   running_ = true;
   thread_ = std::thread([this]() {
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+    std::cout << "[API] Dashboard at https://localhost:" << port_ << "\n";
+#else
     std::cout << "[API] Dashboard at http://localhost:" << port_ << "\n";
+#endif
     server_->listen("0.0.0.0", port_);
     running_ = false;
   });
+
+  // Start rolling stats history ticker (1-sample/sec, max 60 samples)
+  history_running_ = true;
+  history_thread_ = std::thread(&ApiServer::run_history_ticker, this);
 }
 
 void ApiServer::stop() {
@@ -68,6 +84,9 @@ void ApiServer::stop() {
       thread_.join();
     running_ = false;
   }
+  history_running_ = false;
+  if (history_thread_.joinable())
+    history_thread_.join();
 }
 
 // ── Route setup ───────────────────────────────────────────────
@@ -265,6 +284,39 @@ void ApiServer::setup_routes() {
                   res.set_content(handle_set_ratelimit(req.body),
                                   "application/json");
                 });
+
+  // ── GET /api/anomalies ─────────────────────────────────
+  server_->Get("/api/anomalies",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_anomalies(), "application/json");
+               });
+
+  // ── GET /api/connections ──────────────────────────────
+  server_->Get("/api/connections",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_connections(), "application/json");
+               });
+
+  // ── GET /api/ledger?n=N ──────────────────────────────
+  server_->Get("/api/ledger", [this, cors](const httplib::Request &req,
+                                           httplib::Response &res) {
+    cors(res);
+    int n = 50;
+    if (req.has_param("n")) {
+      try { n = std::stoi(req.get_param_value("n")); } catch (...) {}
+    }
+    n = std::max(1, std::min(n, 500));
+    res.set_content(handle_ledger(n), "application/json");
+  });
+
+  // ── GET /api/stats/history ───────────────────────────
+  server_->Get("/api/stats/history",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_stats_history(), "application/json");
+               });
 
   // ── Static file serving (dashboard) ────────────────────────
   if (!dashboard_root_.empty()) {
@@ -785,6 +837,131 @@ std::string ApiServer::handle_set_ratelimit(const std::string& body) {
     return "{\"ok\":false,\"error\":\"pps must be 1-100000\"}";
   engine_.set_rate_limit(static_cast<uint32_t>(pps));
   return "{\"ok\":true,\"pps\":" + std::to_string(pps) + "}";
+}
+
+// ── Analytics: Anomalies ─────────────────────────────────────
+
+std::string ApiServer::handle_anomalies() const {
+  auto snaps = engine_.get_anomaly_snapshot();
+  std::ostringstream o;
+  o << "[";
+  for (size_t i = 0; i < snaps.size(); ++i) {
+    if (i) o << ",";
+    o << "{"
+      << "\"name\":\"" << escape_json(snaps[i].name) << "\","
+      << "\"hits\":" << snaps[i].hit_count
+      << "}";
+  }
+  o << "]";
+  return o.str();
+}
+
+// ── Analytics: Live Connections ──────────────────────────────
+
+std::string ApiServer::handle_connections() const {
+  auto conns = engine_.get_connection_snapshot();
+  std::ostringstream o;
+  o << "[";
+  for (size_t i = 0; i < conns.size(); ++i) {
+    if (i) o << ",";
+    const auto& c = conns[i];
+    o << "{"
+      << "\"src_ip\":\"" << escape_json(c.src_ip) << "\","
+      << "\"dst_ip\":\"" << escape_json(c.dst_ip) << "\","
+      << "\"src_port\":" << c.src_port << ","
+      << "\"dst_port\":" << c.dst_port << ","
+      << "\"proto\":\"" << c.proto << "\","
+      << "\"state\":\"" << c.state << "\","
+      << "\"bytes_in\":" << c.bytes_in << ","
+      << "\"bytes_out\":" << c.bytes_out << ","
+      << "\"bytes_total\":" << c.bytes_total << ","
+      << "\"age_sec\":" << static_cast<int>(c.age_sec)
+      << "}";
+  }
+  o << "]";
+  return o.str();
+}
+
+// ── Analytics: Ledger ────────────────────────────────────────
+
+std::string ApiServer::handle_ledger(int n) const {
+  // Read the last N lines from logs/ledger.json
+  std::ifstream f("logs/ledger.json");
+  if (!f.is_open())
+    return "[]";
+
+  // Buffer all lines
+  std::vector<std::string> lines;
+  std::string line;
+  while (std::getline(f, line)) {
+    if (!line.empty())
+      lines.push_back(line);
+  }
+
+  // Take the last N
+  size_t start = (lines.size() > static_cast<size_t>(n))
+                 ? lines.size() - static_cast<size_t>(n)
+                 : 0;
+
+  std::ostringstream o;
+  o << "[";
+  bool first = true;
+  for (size_t i = start; i < lines.size(); ++i) {
+    if (!first) o << ",";
+    o << lines[i];
+    first = false;
+  }
+  o << "]";
+  return o.str();
+}
+
+// ── Analytics: Stats History ─────────────────────────────────
+
+std::string ApiServer::handle_stats_history() const {
+  std::lock_guard<std::mutex> lock(history_mtx_);
+  std::ostringstream o;
+  o << "[";
+  bool first = true;
+  for (const auto& e : stats_history_) {
+    if (!first) o << ",";
+    o << "{"
+      << "\"ts\":\"" << escape_json(e.ts) << "\","
+      << "\"total\":" << e.total << ","
+      << "\"blocked\":" << e.blocked << ","
+      << "\"allowed\":" << e.allowed << ","
+      << "\"bytes\":" << e.bytes
+      << "}";
+    first = false;
+  }
+  o << "]";
+  return o.str();
+}
+
+// ── Stats History Ticker ─────────────────────────────────────
+
+void ApiServer::run_history_ticker() {
+  // Sample stats every second; keep last 60 samples
+  while (history_running_) {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (!history_running_) break;
+
+    // Build a simple timestamp string (seconds since epoch)
+    auto now = std::chrono::system_clock::now();
+    auto epoch_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now.time_since_epoch()).count();
+
+    StatsEntry e;
+    e.ts      = std::to_string(epoch_ms);
+    e.total   = stats_.total.load();
+    e.blocked = stats_.blocked.load();
+    e.allowed = stats_.allowed.load();
+    e.bytes   = stats_.bytes_total.load();
+
+    std::lock_guard<std::mutex> lock(history_mtx_);
+    stats_history_.push_back(std::move(e));
+    if (stats_history_.size() > 60)
+      stats_history_.pop_front();
+  }
 }
 
 } // namespace fw

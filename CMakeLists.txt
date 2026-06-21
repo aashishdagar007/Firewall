@@ -44,6 +44,16 @@ endif()
 find_package(Threads REQUIRED)
 target_link_libraries(firewall PRIVATE Threads::Threads)
 
+# ── OpenSSL (Optional for HTTPS API Server) ────────────────────────────────
+find_package(OpenSSL)
+if(OpenSSL_FOUND)
+    message(STATUS "Found OpenSSL: Enabling HTTPS API Server")
+    target_link_libraries(firewall PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+    target_compile_definitions(firewall PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
+else()
+    message(STATUS "OpenSSL NOT found: API Server will run in HTTP mode")
+endif()
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Platform-specific configuration
 # ══════════════════════════════════════════════════════════════════════════════

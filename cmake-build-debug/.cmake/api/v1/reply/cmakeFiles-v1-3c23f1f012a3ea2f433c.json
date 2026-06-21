@@ -175,6 +175,21 @@
 			"isCMake" : true,
 			"isExternal" : true,
 			"path" : "C:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindPackageMessage.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindOpenSSL.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindPackageHandleStandardArgs.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Users/hp/AppData/Local/Programs/CLion/bin/cmake/win/x64/share/cmake-4.2/Modules/FindPackageMessage.cmake"
 		}
 	],
 	"kind" : "cmakeFiles",

@@ -717,4 +717,65 @@ void RuleEngine::report_tampering_attempt(uint32_t src_ip) {
             << " blocked for Protocol Tampering (HMAC-SHA256 signature mismatch)!\n";
 }
 
+// ── Anomaly Snapshot ─────────────────────────────────────────
+
+std::vector<AnomalySnapshot> RuleEngine::get_anomaly_snapshot() const {
+  // Returns hit counts for all 16 built-in anomaly rules
+  return {
+    { anomaly_land_.description,       static_cast<uint32_t>(anomaly_land_.hit_count)       },
+    { anomaly_ttl_.description,        static_cast<uint32_t>(anomaly_ttl_.hit_count)        },
+    { anomaly_bogon_.description,      static_cast<uint32_t>(anomaly_bogon_.hit_count)      },
+    { anomaly_frag_.description,       static_cast<uint32_t>(anomaly_frag_.hit_count)       },
+    { anomaly_icmp_.description,       static_cast<uint32_t>(anomaly_icmp_.hit_count)       },
+    { anomaly_tcp_null_.description,   static_cast<uint32_t>(anomaly_tcp_null_.hit_count)   },
+    { anomaly_tcp_fin_.description,    static_cast<uint32_t>(anomaly_tcp_fin_.hit_count)    },
+    { anomaly_tcp_xmas_.description,   static_cast<uint32_t>(anomaly_tcp_xmas_.hit_count)   },
+    { anomaly_tcp_synfin_.description, static_cast<uint32_t>(anomaly_tcp_synfin_.hit_count) },
+    { anomaly_tcp_synrst_.description, static_cast<uint32_t>(anomaly_tcp_synrst_.hit_count) },
+    { anomaly_tcp_syn_flags_.description, static_cast<uint32_t>(anomaly_tcp_syn_flags_.hit_count) },
+    { anomaly_tcp_syn_data_.description,  static_cast<uint32_t>(anomaly_tcp_syn_data_.hit_count)  },
+    { anomaly_udp_dns_.description,    static_cast<uint32_t>(anomaly_udp_dns_.hit_count)    },
+    { anomaly_udp_flood_.description,  static_cast<uint32_t>(anomaly_udp_flood_.hit_count)  },
+    { anomaly_icmp_flood_.description, static_cast<uint32_t>(anomaly_icmp_flood_.hit_count) },
+    { anomaly_port_zero_.description,  static_cast<uint32_t>(anomaly_port_zero_.hit_count)  },
+    { invalid_rule_.description,       static_cast<uint32_t>(invalid_rule_.hit_count)       },
+    { hijack_rule_.description,        static_cast<uint32_t>(hijack_rule_.hit_count)        },
+    { dpi_rule_.description,           static_cast<uint32_t>(dpi_rule_.hit_count)           },
+    { threat_rule_.description,        static_cast<uint32_t>(threat_rule_.hit_count)        },
+  };
+}
+
+// ── Connection Snapshot ──────────────────────────────────────
+
+std::vector<ConnectionSnapshot> RuleEngine::get_connection_snapshot() const {
+  std::lock_guard<std::mutex> lock(state_mtx_);
+  std::vector<ConnectionSnapshot> out;
+  out.reserve(state_table_.size());
+
+  auto now = std::chrono::steady_clock::now();
+
+  for (const auto& [key, cs] : state_table_) {
+    ConnectionSnapshot snap;
+    snap.src_ip     = ip4_to_string(key.src_ip);
+    snap.dst_ip     = ip4_to_string(key.dst_ip);
+    snap.src_port   = key.src_port;
+    snap.dst_port   = key.dst_port;
+
+    switch (key.proto) {
+      case Proto::TCP:  snap.proto = "TCP";  break;
+      case Proto::UDP:  snap.proto = "UDP";  break;
+      case Proto::ICMP: snap.proto = "ICMP"; break;
+      default:          snap.proto = "ANY";  break;
+    }
+
+    snap.state      = (cs.state == FlowState::ESTABLISHED) ? "ESTABLISHED" : "NEW";
+    snap.bytes_in   = cs.bytes_in;
+    snap.bytes_out  = cs.bytes_out;
+    snap.bytes_total = cs.bytes_transferred;
+    snap.age_sec    = std::chrono::duration<double>(now - cs.last_seen).count();
+    out.push_back(std::move(snap));
+  }
+  return out;
+}
+
 } // namespace fw
