@@ -25,6 +25,7 @@
     <div class="ambient-bg">
         <div class="orb orb-blue"></div>
         <div class="orb orb-teal"></div>
+        <div class="orb orb-purple"></div>
     </div>
 
     <!-- Navigation -->
@@ -60,9 +61,9 @@
         <div class="hero-bg-image"></div>
         <div class="container hero-container">
             <div class="hero-text reveal">
-                <div class="pill">v1.0 — Now Available</div>
+                <div class="pill">v2.0 — The Desktop Edition</div>
                 <h1>Your Network.<br><span class="gradient-text">Under Control.</span></h1>
-                <p class="hero-sub">AEGIS XII is a real-time packet firewall for Windows. It tracks every data packet, applies intelligent rules, and silently blocks malicious traffic — no console window, no friction.</p>
+                <p class="hero-sub">AEGIS XII v2 is a real-time packet firewall and native desktop application for Windows. Track packets, apply intelligent rules, and block malicious traffic via a seamless standalone UI.</p>
                 <div class="hero-actions">
                     <a href="#download" class="btn-solid">Download Free</a>
                     <a href="#features" class="btn-ghost">See Features</a>
@@ -148,6 +149,43 @@
         </div>
     </section>
 
+    <!-- Version Comparison -->
+    <section id="comparison" class="section">
+        <div class="container">
+            <div class="section-label reveal">The Evolution</div>
+            <h2 class="section-title reveal">Why Version 2.0 is Better</h2>
+            <p class="section-desc reveal">We listened to feedback. Version 2.0 completely transforms AEGIS XII from a headless service into a premium standalone desktop application.</p>
+            
+            <div class="compare-grid">
+                <div class="compare-card v1-card reveal">
+                    <div class="compare-header">
+                        <h3>Version 1.0</h3>
+                        <span class="compare-badge legacy">Legacy</span>
+                    </div>
+                    <ul class="compare-list">
+                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Background service only</li>
+                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Requires web browser to view UI</li>
+                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Manual page refreshes required</li>
+                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Unsorted connection tracking</li>
+                    </ul>
+                </div>
+                
+                <div class="compare-card v2-card reveal delay-1">
+                    <div class="compare-header">
+                        <h3>Version 2.0</h3>
+                        <span class="compare-badge current">Current</span>
+                    </div>
+                    <ul class="compare-list">
+                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Native Electron Desktop App</li>
+                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Frameless, standalone UI</li>
+                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Real-time auto-refreshing tables</li>
+                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Dynamic connection sorting</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- How It Works -->
     <section id="how-it-works" class="section section-alt">
         <div class="container">
@@ -184,9 +222,9 @@
 
             <div class="download-card glass reveal">
                 <div class="download-left">
-                    <div class="version-badge">Version 1.0</div>
-                    <h3 class="download-title">AEGIS XII — Windows Release</h3>
-                    <p class="download-desc">Includes the firewall engine, live web dashboard, rule engine, process monitor, DPI module, and geo-IP blocking out of the box.</p>
+                    <div class="version-badge">Version 2.0</div>
+                    <h3 class="download-title">AEGIS XII — Windows Native Release</h3>
+                    <p class="download-desc">Includes the firewall engine, native Electron desktop UI, rule engine, process monitor, DPI module, and geo-IP blocking out of the box.</p>
                     <ul class="download-requirements">
                         <li>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
@@ -198,11 +236,11 @@
                         </li>
                         <li>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            No installation needed — portable .exe
+                            Full system installer included
                         </li>
                         <li>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            Dashboard opens automatically on first run
+                            Standalone frameless desktop experience
                         </li>
                     </ul>
                 </div>
@@ -210,11 +248,11 @@
                     <div class="download-meta">
                         <div class="meta-row">
                             <span class="meta-key">File</span>
-                            <span class="meta-value mono">AGEIS_XII_Setup_v1.exe</span>
+                            <span class="meta-value mono">AGEIS_XII_Setup_v2.exe</span>
                         </div>
                         <div class="meta-row">
                             <span class="meta-key">Size</span>
-                            <span class="meta-value">3.5 MB</span>
+                            <span class="meta-value">75.5 MB</span>
                         </div>
                         <div class="meta-row">
                             <span class="meta-key">Platform</span>
@@ -225,9 +263,9 @@
                             <span class="meta-value">June 2026</span>
                         </div>
                     </div>
-                    <a href="AGEIS_XII_Setup_v1.exe" class="btn-download" download>
+                    <a href="AGEIS_XII_Setup_v2.exe" class="btn-download" download>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Download v1.0
+                        Download v2.0
                     </a>
                     <p class="download-note">Observer mode by default. For real packet blocking on Windows, see the README included in the download.</p>
                 </div>
@@ -237,10 +275,10 @@
             <div class="quickstart glass reveal">
                 <h3 class="qs-title">Quick Start</h3>
                 <ol class="qs-steps">
-                    <li><span class="qs-num">1</span><span>Right-click <code>AGEIS_XII_Setup_v1.exe</code> → <strong>Run as administrator</strong></span></li>
-                    <li><span class="qs-num">2</span><span>Your browser opens <code>http://localhost:8080</code> automatically</span></li>
-                    <li><span class="qs-num">3</span><span>Enter your API token from <code>logs/api.token</code> when prompted</span></li>
-                    <li><span class="qs-num">4</span><span>Monitor traffic, set rules, and block threats from the live dashboard</span></li>
+                    <li><span class="qs-num">1</span><span>Run the installer <code>AGEIS_XII_Setup_v2.exe</code></span></li>
+                    <li><span class="qs-num">2</span><span>Launch <strong>AEGIS XII</strong> from your Start Menu</span></li>
+                    <li><span class="qs-num">3</span><span>The application handles background processes automatically</span></li>
+                    <li><span class="qs-num">4</span><span>Monitor traffic, set rules, and block threats from the native UI</span></li>
                 </ol>
             </div>
         </div>
