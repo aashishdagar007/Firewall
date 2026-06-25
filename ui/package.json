@@ -1,0 +1,45 @@
+{
+  "name": "aegis-ui",
+  "version": "1.0.0",
+  "description": "Standalone Desktop UI for Aegis Firewall",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "electron": "^31.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.aegis.firewall",
+    "productName": "Aegis Firewall",
+    "win": {
+      "target": "nsis",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true
+    },
+    "extraFiles": [
+      {
+        "from": "../cmake-build-debug/firewall.exe",
+        "to": "resources/bin/firewall.exe"
+      },
+      {
+        "from": "../dashboard",
+        "to": "resources/dashboard"
+      },
+      {
+        "from": "../config",
+        "to": "resources/config"
+      }
+    ]
+  }
+}

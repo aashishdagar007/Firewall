@@ -1,5 +1,6 @@
 #pragma once
 #include "types.hpp"
+#include "port_scan_detector.hpp"
 #include <vector>
 #include <unordered_map>
 #include <mutex>
@@ -7,6 +8,7 @@
 #include <thread>
 #include <atomic>
 #include <shared_mutex>
+#include <functional>
 #include "dpi_engine.hpp"
 
 // ──────────────────────────────────────────────────────────────
@@ -158,6 +160,18 @@ namespace fw {
         std::vector<AnomalySnapshot>    get_anomaly_snapshot()    const;
         std::vector<ConnectionSnapshot> get_connection_snapshot() const;
 
+        // ── Stealth Mode (silent drop — no RST/ICMP sent back) ────────────
+        void set_stealth_mode(bool enabled);
+        bool get_stealth_mode() const { return stealth_mode_.load(); }
+
+        // ── Port Scan Detection ───────────────────────────────────────────
+        // Register callback fired whenever a port scan is detected.
+        // Callback is invoked from within evaluate() — keep it fast.
+        void set_scan_callback(std::function<void(ScanEvent)> cb);
+
+        // Snapshot of recent scan events (for the API)
+        std::vector<ScanEvent> get_scan_events() const;
+
     private:
         std::vector<Rule> rules_;
         Action            default_policy_;
@@ -212,6 +226,16 @@ namespace fw {
         mutable std::shared_mutex rules_mtx_;
         DpiEngine  dpi_;
         uint32_t local_ip_ = 0;
+
+        // ── Stealth Mode ──────────────────────────────────────────────────
+        // When true, the capture layer must drop packets silently (no RST).
+        // The API server reads this flag to set the appropriate WinDivert
+        // verdict (DROP vs REJECT).
+        std::atomic<bool> stealth_mode_{true}; // ON by default
+
+        // ── Port Scan Detector ────────────────────────────────────────────
+        PortScanDetector            scan_detector_;
+        std::function<void(ScanEvent)> scan_callback_;
 
         std::thread heuristic_thread_;
         std::atomic<bool> stop_heuristics_{false};

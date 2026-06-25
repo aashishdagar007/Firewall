@@ -4,6 +4,7 @@
 #include "ring_buffer.hpp"
 #include "nfq_capture.hpp"
 #include "process_monitor.hpp"
+#include "port_scan_detector.hpp"
 #include <string>
 #include <thread>
 #include <atomic>
@@ -115,11 +116,18 @@ private:
     std::string handle_get_ratelimit() const;
     std::string handle_set_ratelimit(const std::string& body);
 
-    // ── New: Analytics ──────────────────────────────────────────
+    // ── New: Analytics ─────────────────────────────────────────────
     std::string handle_anomalies()        const;  // GET /api/anomalies
     std::string handle_connections()      const;  // GET /api/connections
     std::string handle_ledger(int n)      const;  // GET /api/ledger?n=N
     std::string handle_stats_history()    const;  // GET /api/stats/history
+
+    // ── New: Port Scan Alerts ──────────────────────────────────────
+    // push_scan_alert() is called from the rule engine callback (any thread)
+    void        push_scan_alert(ScanEvent ev);
+    std::string handle_get_scans()        const;  // GET /api/scans
+    std::string handle_get_stealth()      const;  // GET /api/stealth
+    std::string handle_set_stealth(const std::string& body); // POST /api/stealth
 
     // Rolling 60-second stats history (filled by background ticker)
     mutable std::mutex          history_mtx_;
@@ -127,6 +135,10 @@ private:
     std::thread                 history_thread_;
     std::atomic<bool>           history_running_{false};
     void                        run_history_ticker();
+
+    // ── Scan alert queue (filled by push_scan_alert, drained by GET /api/scans)
+    mutable std::mutex          scan_mtx_;
+    std::deque<ScanEvent>       scan_alerts_;   // max 100 entries
 
     // ── JSON helpers ────────────────────────────────────────────
     static std::string rule_to_json(const Rule& r);

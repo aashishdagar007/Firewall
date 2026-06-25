@@ -194,6 +194,14 @@ int main(int argc, char* argv[]) {
     fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port);
     api.start();
 
+    // ── 5.1 Wire port scan alerts: engine → API → dashboard ──
+    // The callback is called from within evaluate() when a scan burst is
+    // detected. It simply queues the event in the API server; the dashboard
+    // polls GET /api/scans every 3 seconds to display alerts.
+    engine.set_scan_callback([&api](fw::ScanEvent ev) {
+        api.push_scan_alert(std::move(ev));
+    });
+
     // ── 5.5 Conntrack cleanup thread ─────────────────────────
     std::atomic<bool> conntrack_running{true};
     std::thread conntrack_thread([&]() {
@@ -228,13 +236,9 @@ int main(int argc, char* argv[]) {
     // ── 6.5 Auto-launch dashboard in the browser ──────────────
     {
         std::string url = "http://localhost:" + std::to_string(api_port);
-        logger.log(fw::LogLevel::LOG_INFO, "Dashboard at " + url);
+        logger.log(fw::LogLevel::LOG_INFO, "Dashboard API available at " + url);
 
-        // Give the API server 500 ms to finish binding, then open browser
-        std::thread([url]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            open_browser(url);
-        }).detach();
+        // (Auto-opening browser disabled, using standalone UI instead)
     }
 
     // ── 7. Blocking capture loop (main thread) ─────────────────

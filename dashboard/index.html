@@ -502,6 +502,116 @@
     /* ── Bytes ── */
     .rx-text { color: var(--accent-green); }
     .tx-text { color: var(--accent-purple); }
+
+    /* ── Stealth Mode Toggle ── */
+    .stealth-toggle-wrap {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(0,229,255,0.25);
+      background: rgba(0,229,255,0.05);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.3s;
+    }
+    .stealth-toggle-wrap.off {
+      border-color: rgba(255,140,0,0.3);
+      background: rgba(255,140,0,0.06);
+    }
+    .stealth-switch {
+      width: 36px; height: 19px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+      position: relative;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+    .stealth-switch.on  { background: var(--accent-cyan); box-shadow: 0 0 10px rgba(0,229,255,0.5); }
+    .stealth-switch.off { background: var(--accent-orange); }
+    .stealth-switch::after {
+      content: '';
+      position: absolute; top: 3px; left: 3px;
+      width: 13px; height: 13px; border-radius: 50%;
+      background: #fff;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .stealth-switch.on::after  { transform: translateX(17px); }
+    .stealth-label { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--accent-cyan); }
+    .stealth-label.off { color: var(--accent-orange); }
+
+    /* ── Scan Alert Toast ── */
+    #scan-toast-container {
+      position: fixed;
+      top: 80px; right: 20px;
+      z-index: 9999;
+      display: flex; flex-direction: column; gap: 10px;
+      max-width: 360px;
+      pointer-events: none;
+    }
+    .scan-toast {
+      background: linear-gradient(135deg, rgba(10,14,22,0.98), rgba(25,8,14,0.98));
+      border: 1px solid rgba(255,51,85,0.5);
+      border-radius: 14px;
+      padding: 16px 18px;
+      box-shadow: 0 8px 32px rgba(255,51,85,0.3), 0 0 0 1px rgba(255,51,85,0.15);
+      animation: toastIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: auto;
+    }
+    @keyframes toastIn {
+      from { transform: translateX(120%); opacity:0; }
+      to   { transform: translateX(0);    opacity:1; }
+    }
+    @keyframes toastOut {
+      from { transform: translateX(0);    opacity:1; }
+      to   { transform: translateX(120%); opacity:0; }
+    }
+    .toast-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    }
+    .toast-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: rgba(255,51,85,0.15); display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      animation: iconPulse 1s ease-in-out 3;
+    }
+    @keyframes iconPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(255,51,85,0.4); }
+      50%      { box-shadow: 0 0 0 8px rgba(255,51,85,0); }
+    }
+    .toast-title { font-size: 13px; font-weight: 700; color: var(--accent-red); letter-spacing: 0.5px; }
+    .toast-close { margin-left: auto; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; background: none; border: none; transition: color 0.2s; }
+    .toast-close:hover { color: var(--text-bright); }
+    .toast-row { display: flex; justify-content: space-between; margin-top: 4px; }
+    .toast-key { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .toast-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-bright); }
+    .toast-banned-badge {
+      margin-top: 10px; display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 20px;
+      background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3);
+      color: var(--accent-green); font-size: 10px; font-weight: 700;
+    }
+
+    /* ── Scan Alerts Panel ── */
+    .scan-alert-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 80px 90px 90px;
+      gap: 12px; align-items: center;
+      padding: 11px 14px; border-radius: 10px;
+      background: rgba(255,51,85,0.04);
+      border-left: 3px solid rgba(255,51,85,0.5);
+      margin-bottom: 7px;
+      animation: slideIn 0.3s ease-out;
+    }
+    .scan-alert-row:hover { background: rgba(255,51,85,0.08); }
+    .scan-ip { font-family: var(--font-mono); font-size: 12px; color: var(--accent-red); font-weight: 700; }
+    .scan-type-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      background: rgba(255,51,85,0.12); color: var(--accent-red);
+      border: 1px solid rgba(255,51,85,0.3);
+    }
+    .scan-ports { font-family: var(--font-mono); font-size: 11px; color: var(--accent-gold); }
+    .scan-time  { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
   </style>
 </head>
 <body>
@@ -519,6 +629,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Scan Alert Toast Container -->
+  <div id="scan-toast-container"></div>
 
   <div class="app-container">
     <!-- Sidebar -->
@@ -548,6 +661,11 @@
           <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14H9V9h2v6zm0-8H9V5h2v2zm4 8h-2V9h2v6zm0-8h-2V5h2v2z"/></svg>
           <div class="nav-badge" id="threat-badge">0</div>
           <span class="kbd" style="position:absolute;bottom:2px;right:3px;font-size:7px;">T</span>
+        </div>
+        <div class="nav-btn" id="nav-scans" onclick="switchTab('scans')" title="Port Scan Alerts (N)">
+          <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <div class="nav-badge" id="scan-badge" style="background:var(--accent-orange);">0</div>
+          <span class="kbd" style="position:absolute;bottom:2px;right:3px;font-size:7px;">N</span>
         </div>
         <div class="nav-btn" id="nav-ledger" onclick="switchTab('ledger')" title="Chain Ledger (L)">
           <svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 14H8v-2h8v2zm0-4H8v-2h8v2zm0-4H8V6h8v2z"/></svg>
@@ -584,6 +702,11 @@
           <div class="quick-toolbar">
             <button class="toolbar-btn block-all" onclick="confirmPolicy('BLOCK','Block All traffic? This will drop all packets not matching an ALLOW rule.')">⛔ Block All</button>
             <button class="toolbar-btn allow-all"  onclick="confirmPolicy('ALLOW','Allow All traffic? Default policy will be set to ALLOW.')">✅ Allow All</button>
+          </div>
+          <!-- Stealth Mode Toggle -->
+          <div class="stealth-toggle-wrap" id="stealth-wrap" onclick="toggleStealthMode()" title="Stealth Mode: silently drops probes — no RST/ICMP sent back">
+            <div class="stealth-switch on" id="stealth-switch"></div>
+            <span class="stealth-label" id="stealth-label">🛡 STEALTH</span>
           </div>
           <div class="status-badge"><div class="status-dot"></div>ACTIVE</div>
         </div>
@@ -834,6 +957,48 @@
       </section>
 
       <!-- ═══════════════════════════════════════════════════════════ -->
+      <!-- Scan Alerts View -->
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <section id="view-scans" class="view-area" style="overflow-y:auto;">
+        <div class="glass-card" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:16px;justify-content:space-between;flex-wrap:wrap;">
+            <div>
+              <div class="card-title" style="font-size:14px;margin-bottom:4px;color:var(--accent-red);">🔍 Port Scan Detection &amp; Stealth Mode</div>
+              <div style="color:var(--text-muted);font-size:11px;">
+                When Stealth Mode is <strong style="color:var(--accent-cyan);">ON</strong>, all blocked/probed ports return <em>no response</em> — Nmap and scanners see every port as <code style="color:var(--accent-cyan);font-family:var(--font-mono);">filtered</code>. The device appears invisible.
+                When <strong style="color:var(--accent-orange);">OFF</strong>, blocked ports send TCP RST responses (device appears present but firewalled).
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <span style="font-size:11px;color:var(--text-muted);">Stealth Mode:</span>
+              <div class="stealth-toggle-wrap" id="stealth-wrap2" onclick="toggleStealthMode()">
+                <div class="stealth-switch on" id="stealth-switch2"></div>
+                <span class="stealth-label" id="stealth-label2">ON</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+          <div class="card-header">
+            <div>
+              <div class="card-title" style="margin-bottom:4px;color:var(--accent-orange);">📡 Detected Network Scans</div>
+              <div style="font-size:10px;color:var(--text-muted);">Scans are detected when a source IP probes &gt;15 unique ports within 3 seconds. Scanner IP is immediately auto-banned.</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="scan-count-badge" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">0 events</span>
+              <button class="action-btn btn-icon" onclick="pollScans()">↻ Refresh</button>
+            </div>
+          </div>
+          <div id="scans-list" style="flex:1;overflow-y:auto;padding-top:4px;">
+            <div style="text-align:center;color:var(--text-muted);font-size:13px;padding:40px 0;" id="scans-empty">
+              🛡 No port scans detected. Your device is hidden.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════ -->
       <!-- Ledger View -->
       <!-- ═══════════════════════════════════════════════════════════ -->
       <section id="view-ledger" class="view-area">
@@ -1015,12 +1180,13 @@
       if (id === 'settings')    { loadRateLimit(); loadGeoBlocks(); }
       if (id === 'connections') pollConnections();
       if (id === 'ledger')      pollLedger();
+      if (id === 'scans')       { pollScans(); pollStealth(); }
     }
 
     // ── Keyboard shortcuts ──────────────────────────────────────
     document.addEventListener('keydown', e => {
       if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
-      const map = { d:'dashboard', a:'apps', r:'rules', c:'connections', t:'threats', l:'ledger', s:'settings' };
+      const map = { d:'dashboard', a:'apps', r:'rules', c:'connections', t:'threats', l:'ledger', s:'settings', n:'scans' };
       if (map[e.key.toLowerCase()]) switchTab(map[e.key.toLowerCase()]);
     });
 
@@ -1562,8 +1728,158 @@
       setInterval(() => pollApps(false), 2500);
       setInterval(pollAnomalies,  8000);
       setInterval(pollThreats,    6000);
+      setInterval(pollScans,      3000);  // Port scan detection alerts
 
+      pollStealth();  // Sync stealth mode on startup
       loadRateLimit();
+    }
+
+    // ── Stealth Mode ──────────────────────────────────────────
+    let stealthEnabled = true;
+
+    function applyStealthUI(on) {
+      stealthEnabled = on;
+      // Header toggle (#1)
+      const sw  = document.getElementById('stealth-switch');
+      const lbl = document.getElementById('stealth-label');
+      const wrap = document.getElementById('stealth-wrap');
+      if (sw)   { sw.className  = 'stealth-switch ' + (on ? 'on' : 'off'); }
+      if (lbl)  { lbl.textContent = on ? '\uD83D\uDEE1 STEALTH' : '\u26A0 VISIBLE'; lbl.className = 'stealth-label' + (on ? '' : ' off'); }
+      if (wrap) { wrap.className = 'stealth-toggle-wrap' + (on ? '' : ' off'); }
+      // Scan tab toggle (#2)
+      const sw2  = document.getElementById('stealth-switch2');
+      const lbl2 = document.getElementById('stealth-label2');
+      const wrap2 = document.getElementById('stealth-wrap2');
+      if (sw2)   { sw2.className  = 'stealth-switch ' + (on ? 'on' : 'off'); }
+      if (lbl2)  { lbl2.textContent = on ? 'ON' : 'OFF'; lbl2.className = 'stealth-label' + (on ? '' : ' off'); }
+      if (wrap2) { wrap2.className = 'stealth-toggle-wrap' + (on ? '' : ' off'); }
+    }
+
+    async function pollStealth() {
+      try {
+        const r = await apiFetch('/api/stealth');
+        if (!r.ok) return;
+        const d = await r.json();
+        applyStealthUI(d.stealth);
+      } catch(e) {}
+    }
+
+    async function toggleStealthMode() {
+      const newState = !stealthEnabled;
+      try {
+        await apiFetch('/api/stealth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stealth: newState })
+        });
+        applyStealthUI(newState);
+        showToast(
+          newState ? '\uD83D\uDEE1 Stealth Mode ACTIVATED — device is now invisible' :
+                     '\u26A0 Stealth Mode DISABLED — RST responses re-enabled',
+          newState ? 'var(--accent-cyan)' : 'var(--accent-orange)'
+        );
+      } catch(e) {
+        showToast('\u2717 Could not change stealth mode', 'var(--accent-red)');
+      }
+    }
+
+    // ── Port Scan Detection ──────────────────────────────────
+    let lastScanCount = 0;
+    let knownScanIps  = new Set(); // track IPs we've already toasted
+
+    function fmtScanTime(epochMs) {
+      try {
+        const d = new Date(parseInt(epochMs));
+        return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      } catch(e) { return epochMs; }
+    }
+
+    function showScanToast(ev) {
+      const container = document.getElementById('scan-toast-container');
+      const t = document.createElement('div');
+      t.className = 'scan-toast';
+      t.innerHTML = `
+        <div class="toast-header">
+          <div class="toast-icon">📡</div>
+          <div class="toast-title">⚠ PORT SCAN DETECTED</div>
+          <button class="toast-close" onclick="this.closest('.scan-toast').remove()">×</button>
+        </div>
+        <div class="toast-row">
+          <span class="toast-key">Scanner IP</span>
+          <span class="toast-val">${ev.ip}</span>
+        </div>
+        <div class="toast-row">
+          <span class="toast-key">Scan Type</span>
+          <span class="toast-val">${ev.scan_type}</span>
+        </div>
+        <div class="toast-row">
+          <span class="toast-key">Ports Probed</span>
+          <span class="toast-val">${ev.ports_probed} unique ports</span>
+        </div>
+        <div class="toast-banned-badge">✔ IP Auto-Banned</div>
+      `;
+      container.appendChild(t);
+      // Auto-dismiss after 8 seconds with animation
+      setTimeout(() => {
+        t.style.animation = 'toastOut 0.4s forwards';
+        setTimeout(() => t.remove(), 400);
+      }, 8000);
+    }
+
+    async function pollScans() {
+      try {
+        const r = await apiFetch('/api/scans');
+        if (!r.ok) return;
+        const events = await r.json();
+
+        // Update badge
+        const badge = document.getElementById('scan-badge');
+        const countEl = document.getElementById('scan-count-badge');
+        if (badge) {
+          badge.style.display = events.length > 0 ? 'flex' : 'none';
+          badge.textContent = events.length;
+        }
+        if (countEl) countEl.textContent = events.length + ' event' + (events.length !== 1 ? 's' : '');
+
+        // Toast for new events
+        events.forEach(ev => {
+          const key = ev.ip + '_' + ev.timestamp;
+          if (!knownScanIps.has(key)) {
+            knownScanIps.add(key);
+            showScanToast(ev);
+          }
+        });
+
+        // Render scan list
+        const list = document.getElementById('scans-list');
+        const empty = document.getElementById('scans-empty');
+        if (!list) return;
+        if (events.length === 0) {
+          if (empty) empty.style.display = 'block';
+          // Clear old rows but keep the empty message
+          Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+          return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        // Re-render whole list (events are < 100, so this is fine)
+        Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+
+        // Show newest first
+        const sorted = [...events].reverse();
+        sorted.forEach(ev => {
+          const row = document.createElement('div');
+          row.className = 'scan-alert-row';
+          row.innerHTML = `
+            <div class="scan-ip">${ev.ip}</div>
+            <div><span class="scan-type-badge">${ev.scan_type}</span></div>
+            <div class="scan-ports">${ev.ports_probed} ports</div>
+            <div class="scan-time">${fmtScanTime(ev.timestamp)}</div>
+            <div><span class="threat-badge threat-high">${ev.auto_banned ? 'Banned' : 'Detected'}</span></div>
+          `;
+          list.appendChild(row);
+        });
+      } catch(e) {}
     }
 
     init();

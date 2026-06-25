@@ -461,7 +461,32 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   }
 
   // Default policy — no rule matched
-  return {default_policy_, nullptr};
+  auto default_result = EvalResult{default_policy_, nullptr};
+
+  // ── Port Scan Detection (runs for every packet regardless of verdict) ─
+  // We pass the packet through the detector AFTER the main evaluation so
+  // that we catch cross-port patterns even when individual packets are
+  // already blocked by anomaly rules.
+  {
+    auto scan_opt = scan_detector_.record(pkt);
+    if (scan_opt.has_value()) {
+      // Auto-ban the scanner's IP immediately
+      {
+        std::lock_guard<std::mutex> lock(state_mtx_);
+        auto now = std::chrono::steady_clock::now();
+        auto& tstate = threat_table_[pkt.src_ip];
+        tstate.is_banned   = true;
+        tstate.ban_count  += 5; // escalate ban count to mark as port-scanner
+        tstate.ban_expires = now + std::chrono::hours(24);
+      }
+      // Fire the dashboard callback (non-blocking: callback queues the event)
+      if (scan_callback_) {
+        scan_callback_(scan_opt.value());
+      }
+    }
+  }
+
+  return default_result;
 }
 
 void RuleEngine::purge_stale_connections(std::chrono::seconds timeout) {
@@ -583,9 +608,25 @@ void RuleEngine::print_rules() const {
 
 } // namespace fw (print_rules end)
 
-// ── New method implementations ───────────────────────────────
+// ── New method implementations ──────────────────────────────────
 
 namespace fw {
+
+// ── Stealth Mode ──────────────────────────────────────────────
+
+void RuleEngine::set_stealth_mode(bool enabled) {
+  stealth_mode_.store(enabled);
+}
+
+// ── Port Scan Detection ───────────────────────────────────────
+
+void RuleEngine::set_scan_callback(std::function<void(ScanEvent)> cb) {
+  scan_detector_.set_callback(std::move(cb));
+}
+
+std::vector<ScanEvent> RuleEngine::get_scan_events() const {
+  return scan_detector_.get_recent_events();
+}
 
 // ── Port index ───────────────────────────────────────────────
 

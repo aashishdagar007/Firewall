@@ -318,6 +318,27 @@ void ApiServer::setup_routes() {
                  res.set_content(handle_stats_history(), "application/json");
                });
 
+  // ── GET /api/scans ────────────────────────────────────
+  server_->Get("/api/scans",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_get_scans(), "application/json");
+               });
+
+  // ── GET /api/stealth ──────────────────────────────────
+  server_->Get("/api/stealth",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_get_stealth(), "application/json");
+               });
+
+  // ── POST /api/stealth ─────────────────────────────────
+  server_->Post("/api/stealth",
+                [this, cors](const httplib::Request &req, httplib::Response &res) {
+                  cors(res);
+                  res.set_content(handle_set_stealth(req.body), "application/json");
+                });
+
   // ── Static file serving (dashboard) ────────────────────────
   if (!dashboard_root_.empty()) {
     server_->set_mount_point("/", dashboard_root_);
@@ -962,6 +983,60 @@ void ApiServer::run_history_ticker() {
     if (stats_history_.size() > 60)
       stats_history_.pop_front();
   }
+}
+
+} // namespace fw
+
+// ── Port Scan Alerts & Stealth Mode ──────────────────────────────
+
+namespace fw {
+
+void ApiServer::push_scan_alert(ScanEvent ev) {
+  std::lock_guard<std::mutex> lock(scan_mtx_);
+  scan_alerts_.push_back(std::move(ev));
+  if (scan_alerts_.size() > 100)
+    scan_alerts_.pop_front();
+}
+
+std::string ApiServer::handle_get_scans() const {
+  std::lock_guard<std::mutex> lock(scan_mtx_);
+  std::ostringstream o;
+  o << "[";
+  bool first = true;
+  for (const auto& ev : scan_alerts_) {
+    if (!first) o << ",";
+    o << "{"
+      << "\"ip\":\""         << escape_json(ev.ip_str)              << "\","
+      << "\"scan_type\":\""  << escape_json(scan_type_name(ev.scan_type)) << "\","
+      << "\"ports_probed\":" << ev.ports_probed                    << ","
+      << "\"timestamp\":\"" << escape_json(ev.timestamp)           << "\","
+      << "\"auto_banned\":"  << (ev.auto_banned ? "true" : "false")
+      << "}";
+    first = false;
+  }
+  o << "]";
+  return o.str();
+}
+
+std::string ApiServer::handle_get_stealth() const {
+  bool mode = engine_.get_stealth_mode();
+  std::ostringstream o;
+  o << "{\"stealth\":" << (mode ? "true" : "false") << "}";
+  return o.str();
+}
+
+std::string ApiServer::handle_set_stealth(const std::string& body) {
+  // Body: {"stealth":true} or {"stealth":false}
+  std::string search = "\"stealth\":";
+  auto pos = body.find(search);
+  if (pos == std::string::npos)
+    return "{\"ok\":false,\"error\":\"missing stealth field\"}";
+  pos += search.size();
+  // Skip whitespace
+  while (pos < body.size() && body[pos] == ' ') ++pos;
+  bool enabled = (body.substr(pos, 4) == "true");
+  engine_.set_stealth_mode(enabled);
+  return std::string("{\"ok\":true,\"stealth\":") + (enabled ? "true" : "false") + "}";
 }
 
 } // namespace fw
