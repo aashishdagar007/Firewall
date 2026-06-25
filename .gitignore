@@ -1,0 +1,7 @@
+node_modules/
+ui/node_modules/
+build/
+cmake-build-debug/
+cmake-build-release/
+.idea/
+*.exe

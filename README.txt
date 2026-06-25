@@ -1,23 +1,38 @@
 # Firewall v2 — Real Kernel Firewall + Live Web Dashboard
 # Cross-platform: Windows (CLion) + Linux
 
-A production-grade C++17 network firewall with a live, dark-theme web dashboard.
+A production-grade C++17 network firewall with a live, dark-theme web dashboard, Deep Packet Inspection (DPI), Port Scan Detection, and Process Monitoring.
 
 ## Architecture
 
 ```
 [Kernel / Network Layer]
        │
-       ▼  (Linux: Netfilter NFQUEUE)  (Windows: Winsock2 SIO_RCVALL)
+       ▼  (Linux: Netfilter NFQUEUE)  (Windows: Winsock2 SIO_RCVALL / WinDivert)
 [NfqCapture]  ──→  [RuleEngine] ──→ NF_ACCEPT / NF_DROP (Linux)
-                        │               Observe + log     (Windows)
-                  [LiveStats] + [RingBuffer<PacketRecord>]
+                        │           Observe + log / WinDivert block (Windows)
+                        ├── [DPI Engine] (Deep Packet Inspection)
+                        ├── [Port Scan Detector]
+                        └── [Process Monitor] (Windows: iphlpapi/psapi)
                         │
-                  [ApiServer (cpp-httplib)]
-                        │  JSON / HTTP on :8080
+                  [LiveStats] + [RingBuffer<PacketRecord>] + [Tamper-Proof Ledger]
+                        │
+                  [ApiServer (cpp-httplib, OpenSSL HTTPS support)]
+                        │  JSON / HTTP(S) on :8080
                   [Dashboard (index.html)]
-                   Live feed · Charts · Rule CRUD
+                   Live feed · Charts · Rule CRUD · Process Traffic · Threat Alerts
 ```
+
+## Core Features
+- **Cross-Platform Capture**: Netfilter (NFQUEUE) on Linux, raw sockets (Winsock2) or WinDivert on Windows.
+- **Deep Packet Inspection (DPI)**: Analyzes packet payloads for application-layer threats.
+- **Port Scan Detection**: Automatically detects and alerts on port scanning attempts.
+- **Process Monitoring**: Maps network activity to running processes on Windows.
+- **Tamper-Proof Hash-Chain Ledger**: Cryptographically secure logging (SHA-256).
+- **Cloud Control Plane**: Integration with centralized API via `AEGIS_CONTROL_URL`.
+- **BVUDP**: Batch-Verified UDP protocol stack.
+- **Embedded REST API**: Built-in cpp-httplib server, with optional OpenSSL support for HTTPS.
+- **Live Web Dashboard**: Dark-theme dashboard with real-time stats, rule management, and process traffic.
 
 ## Platform Support
 
@@ -25,6 +40,7 @@ A production-grade C++17 network firewall with a live, dark-theme web dashboard.
 |-------------------|--------------------|-------------------|-------------------|
 | Packet capture    | NFQUEUE (blocking) | Raw socket (obs)  | SIO_RCVALL (obs)  |
 | Packet blocking   | ✅ NF_DROP          | ❌ observe only    | ❌ (WinDivert opt)|
+| Process Monitor   | ❌                  | ❌                 | ✅ (iphlpapi)      |
 | REST API          | ✅                  | ✅                 | ✅                 |
 | Web dashboard     | ✅                  | ✅                 | ✅                 |
 | Admin required    | ✅ (root/sudo)      | ✅                 | ✅ (Administrator) |
@@ -41,6 +57,7 @@ A production-grade C++17 network firewall with a live, dark-theme web dashboard.
    - In MSYS2 UCRT64 shell: `pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake`
    - Or use **MSVC** (Visual Studio Build Tools 2019/2022) — also works
 3. **CMake** ≥ 3.20 (bundled with CLion)
+4. *(Optional)* **OpenSSL** — For HTTPS API Server
 
 ### Steps in CLion
 
@@ -96,6 +113,9 @@ sudo apt install build-essential cmake
 
 # Optional: enable real packet blocking
 sudo apt install libnetfilter-queue-dev
+
+# Optional: OpenSSL for HTTPS
+sudo apt install libssl-dev
 ```
 
 ### Compile
@@ -119,7 +139,7 @@ sudo iptables -I FORWARD -j NFQUEUE --queue-num 0
 cd cmake-build-debug
 sudo ./firewall
 
-# Step 4 — Cleanup iptables when done
+# Step 3 — Cleanup iptables when done
 sudo iptables -D INPUT   -j NFQUEUE --queue-num 0
 sudo iptables -D OUTPUT  -j NFQUEUE --queue-num 0
 sudo iptables -D FORWARD -j NFQUEUE --queue-num 0
@@ -132,11 +152,19 @@ sudo iptables -D FORWARD -j NFQUEUE --queue-num 0
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /api/stats | Live counters (total/allowed/blocked/bytes) |
+| GET | /api/stats/history | 60-second rolling stats history |
 | GET | /api/packets?n=100 | Last N packet records (JSON array) |
 | GET | /api/rules | Current rule chain |
 | POST | /api/rules | Add rule (JSON body) |
 | DELETE | /api/rules/:id | Remove rule by ID |
 | POST | /api/policy | Set default policy |
+| GET | /api/processes | All processes with network activity |
+| GET | /api/processes/apps | Process snapshot sorted by traffic |
+| GET | /api/anomalies | Hit counts for all 20 anomaly rules |
+| GET | /api/connections | Snapshot of live connection tracking table |
+| GET | /api/ledger?n=N | Last N lines from tamper-proof ledger |
+| GET | /api/scans | Queue of port scan alerts |
+| GET | /api/stealth | Get stealth mode status |
 
 ### Add Rule (POST /api/rules)
 
@@ -164,29 +192,14 @@ ALLOW  ICMP  *             *   *    "Allow ping"
 
 ---
 
-## Scaling to a Higher Level
+## Phase 2 Architecture (Scaling & Security)
 
-The current architecture is single-node. Here are the natural scaling paths:
+The firewall has been upgraded with a **Phase 2 Architecture**, laying the foundation for enterprise and cloud deployments:
 
-### Phase 1 — Performance (Local)
-- Add a worker thread pool in `NfqCapture` to process packets in parallel
-- Replace the `std::vector<Rule>` in `RuleEngine` with a hash-map for O(1) IP lookups
-- Use lock-free ring buffer (already in place via `RingBuffer`)
-
-### Phase 2 — Real Blocking on Windows
-- Integrate **WinDivert** (set `WINDIVERT_DIR` in CMake) for kernel-level blocking
-- Or use **Windows Filtering Platform (WFP)** callout driver for production-grade enforcement
-
-### Phase 3 — Distributed / Cloud
-- Replace the embedded `httplib` REST API with **gRPC** for low-latency remote management
-- Forward `PacketRecord`s from multiple firewall nodes to a central **time-series database** (InfluxDB, ClickHouse)
-- Add a **Kafka** or **ZeroMQ** message bus between capture nodes and the central analytics engine
-- Deploy via Docker + Kubernetes — the binary is statically linked (MinGW `-static`) and has no runtime deps
-
-### Phase 4 — ML-based Threat Detection
-- Export the ring buffer as a feature stream to a Python/PyTorch threat model
-- Add anomaly scoring per `PacketRecord` returned via the REST API
-- Store PCAP replay captures for offline model training
+- **Pillar 1 — Port Demux**: WinDivert DPI interceptor for advanced application layer filtering.
+- **Pillar 2 — BVUDP**: Batch-Verified UDP protocol stack for high-performance, validated datagram transmission.
+- **Pillar 3 — Cloud Control Plane**: Client to sync config with a central management server (`AEGIS_CONTROL_URL`).
+- **Pillar 4 — Tamper-Proof Ledger**: Uses a header-only SHA-256 implementation to cryptographically chain logs, preventing undetected modifications.
 
 ## License
 MIT

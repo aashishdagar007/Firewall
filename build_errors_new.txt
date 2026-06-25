@@ -1,0 +1,22 @@
+﻿[1/8] Building CXX object CMakeFiles/firewall.dir/src/main.cpp.obj
+FAILED: [code=1] CMakeFiles/firewall.dir/src/main.cpp.obj 
+C:\Users\hp\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00 -ID:/AASHISH/Projects/Firewall/include -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -MD -MT CMakeFiles/firewall.dir/src/main.cpp.obj -MF CMakeFiles\firewall.dir\src\main.cpp.obj.d -o CMakeFiles/firewall.dir/src/main.cpp.obj -c D:/AASHISH/Projects/Firewall/src/main.cpp
+[2/8] Building CXX object CMakeFiles/firewall.dir/src/rule_engine.cpp.obj
+FAILED: [code=1] CMakeFiles/firewall.dir/src/rule_engine.cpp.obj 
+C:\Users\hp\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00 -ID:/AASHISH/Projects/Firewall/include -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -MD -MT CMakeFiles/firewall.dir/src/rule_engine.cpp.obj -MF CMakeFiles\firewall.dir\src\rule_engine.cpp.obj.d -o CMakeFiles/firewall.dir/src/rule_engine.cpp.obj -c D:/AASHISH/Projects/Firewall/src/rule_engine.cpp
+[3/8] Building CXX object CMakeFiles/firewall.dir/src/logger.cpp.obj
+FAILED: [code=1] CMakeFiles/firewall.dir/src/logger.cpp.obj 
+C:\Users\hp\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00 -ID:/AASHISH/Projects/Firewall/include -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -MD -MT CMakeFiles/firewall.dir/src/logger.cpp.obj -MF CMakeFiles\firewall.dir\src\logger.cpp.obj.d -o CMakeFiles/firewall.dir/src/logger.cpp.obj -c D:/AASHISH/Projects/Firewall/src/logger.cpp
+[4/8] Building CXX object CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj
+FAILED: [code=1] CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj 
+C:\Users\hp\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00 -ID:/AASHISH/Projects/Firewall/include -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -MD -MT CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj -MF CMakeFiles\firewall.dir\src\nfq_capture.cpp.obj.d -o CMakeFiles/firewall.dir/src/nfq_capture.cpp.obj -c D:/AASHISH/Projects/Firewall/src/nfq_capture.cpp
+[5/8] Building CXX object CMakeFiles/firewall.dir/src/api_server.cpp.obj
+FAILED: [code=1] CMakeFiles/firewall.dir/src/api_server.cpp.obj 
+C:\Users\hp\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00 -ID:/AASHISH/Projects/Firewall/include -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -MD -MT CMakeFiles/firewall.dir/src/api_server.cpp.obj -MF CMakeFiles\firewall.dir\src\api_server.cpp.obj.d -o CMakeFiles/firewall.dir/src/api_server.cpp.obj -c D:/AASHISH/Projects/Firewall/src/api_server.cpp
+[6/8] Building CXX object CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj
+FAILED: [code=1] CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj 
+C:\Users\hp\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00 -ID:/AASHISH/Projects/Firewall/include -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -MD -MT CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj -MF CMakeFiles\firewall.dir\src\dpi_engine.cpp.obj.d -o CMakeFiles/firewall.dir/src/dpi_engine.cpp.obj -c D:/AASHISH/Projects/Firewall/src/dpi_engine.cpp
+[7/8] Building CXX object CMakeFiles/firewall.dir/src/port_scan_detector.cpp.obj
+FAILED: [code=1] CMakeFiles/firewall.dir/src/port_scan_detector.cpp.obj 
+C:\Users\hp\AppData\Local\Programs\CLion\bin\mingw\bin\g++.exe -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0A00 -ID:/AASHISH/Projects/Firewall/include -std=c++17 -fdiagnostics-color=always -Wall -Wextra -Wpedantic -MD -MT CMakeFiles/firewall.dir/src/port_scan_detector.cpp.obj -MF CMakeFiles\firewall.dir\src\port_scan_detector.cpp.obj.d -o CMakeFiles/firewall.dir/src/port_scan_detector.cpp.obj -c D:/AASHISH/Projects/Firewall/src/port_scan_detector.cpp
+ninja: build stopped: subcommand failed.
