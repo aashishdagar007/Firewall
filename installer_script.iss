@@ -3,7 +3,7 @@
 ; Non-commercial use only
 
 #define MyAppName "AGEIS XII"
-#define MyAppVersion "1"
+#define MyAppVersion "2"
 #define MyAppPublisher "ASD Solutions, Inc."
 #define MyAppURL "https://aegisxii.vercel.app/"
 #define MyAppExeName "firewall.exe"
@@ -39,7 +39,7 @@ InfoAfterFile=D:\AASHISH\Projects\Firewall\readme_after.txt.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only).
 ;PrivilegesRequired=lowest
 OutputDir=C:\Users\hp\OneDrive\Desktop
-OutputBaseFilename=AGEIS_XII_Setup_v1
+OutputBaseFilename=AGEIS_XII_Setup_v2
 SetupIconFile=C:\Users\hp\Downloads\Gemini_Generated_Image_f934ovf934ovf934.ico
 SolidCompression=yes
 WizardStyle=modern dynamic windows11
