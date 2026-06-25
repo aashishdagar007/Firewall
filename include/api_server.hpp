@@ -68,6 +68,9 @@ public:
 
     bool is_running() const { return running_; }
 
+    // push_scan_alert() is called from the rule engine callback (any thread)
+    void        push_scan_alert(ScanEvent ev);
+
 private:
     RuleEngine&              engine_;
     LiveStats&               stats_;
@@ -123,8 +126,6 @@ private:
     std::string handle_stats_history()    const;  // GET /api/stats/history
 
     // ── New: Port Scan Alerts ──────────────────────────────────────
-    // push_scan_alert() is called from the rule engine callback (any thread)
-    void        push_scan_alert(ScanEvent ev);
     std::string handle_get_scans()        const;  // GET /api/scans
     std::string handle_get_stealth()      const;  // GET /api/stealth
     std::string handle_set_stealth(const std::string& body); // POST /api/stealth

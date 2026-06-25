@@ -51,7 +51,7 @@ static void signal_handler(int) {
 }
 
 // ── Open a URL in the default browser without flashing a console window ──
-static void open_browser(const std::string& url) {
+[[maybe_unused]] static void open_browser(const std::string& url) {
 #ifdef _WIN32
     // Convert to wide string for ShellExecuteW
     int wlen = MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, nullptr, 0);

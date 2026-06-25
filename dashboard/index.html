@@ -1540,7 +1540,7 @@
           tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:28px;">No active connections tracked</td></tr>';
           return;
         }
-        conns.sort((a,b) => b.bytes_total - a.bytes_total).forEach(c => {
+        conns.sort((a,b) => (b.bytes_in + b.bytes_out) - (a.bytes_in + a.bytes_out)).forEach(c => {
           tbody.innerHTML += `<tr>
             <td><span class="proto-tag proto-${c.proto}">${c.proto}</span></td>
             <td class="mono-cell">${c.src_ip}:${c.src_port}</td>
@@ -1729,6 +1729,8 @@
       setInterval(pollAnomalies,  8000);
       setInterval(pollThreats,    6000);
       setInterval(pollScans,      3000);  // Port scan detection alerts
+      setInterval(pollConnections, 2000);
+      setInterval(pollLedger,     4000);
 
       pollStealth();  // Sync stealth mode on startup
       loadRateLimit();
