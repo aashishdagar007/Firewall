@@ -49,8 +49,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\dashboard\*"; DestDir: "{app}\dashboard"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "D:\AASHISH\Projects\Firewall\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "D:\AASHISH\Projects\Firewall\dashboard\*"; DestDir: "{app}\dashboard"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
