@@ -315,7 +315,8 @@ private:
                 r.proto       = ConfigParser::parse_proto(gf("proto"));
                 r.src_ip      = ConfigParser::parse_ip(gf("src_ip"));
                 r.dst_ip      = ConfigParser::parse_ip(gf("dst_ip"));
-                r.dst_port    = static_cast<uint16_t>(gi("dst_port"));
+                r.dst_port_start = static_cast<uint16_t>(gi("dst_port"));
+                r.dst_port_end   = r.dst_port_start;
                 r.description = gf("description");
                 out.push_back(std::move(r));
             } catch (...) {}

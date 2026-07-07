@@ -30,6 +30,8 @@ set(SOURCES
     src/process_monitor.cpp
     src/dpi_engine.cpp
     src/port_scan_detector.cpp
+    src/nat_engine.cpp
+    src/vpn_manager.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────

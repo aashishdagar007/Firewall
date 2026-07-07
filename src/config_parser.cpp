@@ -4,17 +4,18 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <regex>
 
 // ──────────────────────────────────────────────────────────────
 //  config_parser.cpp
 //
 //  Rule line format (whitespace-delimited):
-//    ACTION  PROTO  SRC_IP  DST_IP  DST_PORT  "description"
+//    ACTION  PROTO  SRC_IP[/MASK]  DST_IP[/MASK]  DST_PORT[-END]  "description"
 //
 //  Examples:
-//    BLOCK  TCP   192.168.1.66  *    *    "Block attacker"
-//    ALLOW  TCP   *             *    443  "HTTPS"
-//    ALLOW  ICMP  *             *    *    "Allow ping"
+//    BLOCK  TCP   192.168.1.0/24  *          *      "Block subnet"
+//    ALLOW  TCP   *               *          443    "HTTPS"
+//    ALLOW  TCP   *               *          80-88  "HTTP range"
 // ──────────────────────────────────────────────────────────────
 
 namespace fw {
@@ -51,6 +52,70 @@ std::vector<Rule> ConfigParser::load(const std::string& path) {
     return rules;
 }
 
+bool ConfigParser::save(const std::string &path, const std::vector<Rule> &rules) {
+    std::ofstream file(path);
+    if (!file.is_open()) return false;
+
+    file << "# Firewall Rules Configuration\n";
+    file << "# ACTION  PROTO  SRC_IP[/MASK]  DST_IP[/MASK]  DST_PORT[-END]  \"description\"\n\n";
+
+    for (const auto& r : rules) {
+        if (r.action == Action::BLOCK && !r.process_name.empty() && r.src_ip == 0 && r.dst_ip == 0 && r.dst_port_start == 0) {
+            file << "BLOCK_PROCESS \"" << r.process_name << "\" \"" << r.description << "\"\n";
+            continue;
+        }
+        if (r.action == Action::ALLOW && !r.process_name.empty() && r.src_ip == 0 && r.dst_ip == 0 && r.dst_port_start == 0) {
+            file << "ALLOW_PROCESS \"" << r.process_name << "\" \"" << r.description << "\"\n";
+            continue;
+        }
+
+        file << (r.action == Action::ALLOW ? "ALLOW" : "BLOCK") << " ";
+        file << proto_name(r.proto) << " ";
+        
+        // SRC IP / MASK
+        if (r.src_ip == 0 && r.src_ip_mask == 0xFFFFFFFF) {
+            file << "* ";
+        } else {
+            file << ip4_to_string(r.src_ip);
+            if (r.src_ip_mask != 0xFFFFFFFF) {
+                // Count bits in mask
+                uint32_t m = r.src_ip_mask;
+                int bits = 0;
+                while (m) { bits += (m & 1); m >>= 1; }
+                file << "/" << bits;
+            }
+            file << " ";
+        }
+
+        // DST IP / MASK
+        if (r.dst_ip == 0 && r.dst_ip_mask == 0xFFFFFFFF) {
+            file << "* ";
+        } else {
+            file << ip4_to_string(r.dst_ip);
+            if (r.dst_ip_mask != 0xFFFFFFFF) {
+                uint32_t m = r.dst_ip_mask;
+                int bits = 0;
+                while (m) { bits += (m & 1); m >>= 1; }
+                file << "/" << bits;
+            }
+            file << " ";
+        }
+
+        // DST PORT
+        if (r.dst_port_start == 0 && r.dst_port_end == 0) {
+            file << "* ";
+        } else if (r.dst_port_start == r.dst_port_end) {
+            file << r.dst_port_start << " ";
+        } else {
+            file << r.dst_port_start << "-" << r.dst_port_end << " ";
+        }
+
+        file << "\"" << r.description << "\"\n";
+    }
+
+    return true;
+}
+
 bool ConfigParser::parse_line(const std::string& line, Rule& out) {
     std::istringstream ss(line);
     std::string action_s;
@@ -61,8 +126,10 @@ bool ConfigParser::parse_line(const std::string& line, Rule& out) {
         out.proto = Proto::ANY;
         out.src_ip = 0;
         out.dst_ip = 0;
-        out.src_port = 0;
-        out.dst_port = 0;
+        out.src_port_start = 0;
+        out.src_port_end = 0;
+        out.dst_port_start = 0;
+        out.dst_port_end = 0;
 
         std::string proc;
         ss >> std::quoted(proc);
@@ -92,9 +159,9 @@ bool ConfigParser::parse_line(const std::string& line, Rule& out) {
     try {
         out.action   = parse_action(action_s);
         out.proto    = parse_proto(proto_s);
-        out.src_ip   = parse_ip(src_ip_s);
-        out.dst_ip   = parse_ip(dst_ip_s);
-        out.dst_port = parse_port(dst_port_s);
+        parse_ip_cidr(src_ip_s, out.src_ip, out.src_ip_mask);
+        parse_ip_cidr(dst_ip_s, out.dst_ip, out.dst_ip_mask);
+        parse_port_range(dst_port_s, out.dst_port_start, out.dst_port_end);
         out.description = desc;
     } catch (...) {
         return false;
@@ -105,24 +172,85 @@ bool ConfigParser::parse_line(const std::string& line, Rule& out) {
 
 // ── Private helpers ──────────────────────────────────────────
 
-uint32_t ConfigParser::parse_ip(const std::string& s) {
-    if (s == "*" || s == "any") return 0;
-    uint32_t ip = string_to_ip4(s.c_str());
-    if (ip == 0 && s != "0.0.0.0")
-        throw std::invalid_argument("bad IP: " + s);
-    return ip;  // already in host byte order
+// Parse a single dotted-quad IP
+uint32_t ConfigParser::parse_ip(const std::string &s) {
+  if (s == "*" || s.empty())
+    return 0;
+  struct sockaddr_in sa;
+  if (inet_pton(AF_INET, s.c_str(), &sa.sin_addr) == 1) {
+    return ntohl(sa.sin_addr.s_addr);
+  }
+  return 0;
 }
 
-uint16_t ConfigParser::parse_port(const std::string& s) {
-    if (s == "*" || s == "any") return 0;
-    int p;
-    try {
-        p = std::stoi(s);
-    } catch (...) {
-        throw std::invalid_argument("bad port: " + s);
+void ConfigParser::parse_ip_cidr(const std::string& s, uint32_t &ip, uint32_t &mask) {
+    if (s == "*" || s == "any") {
+        ip = 0;
+        mask = 0xFFFFFFFF; // Wait, for wildcard, mask should be 0 to match anything? No, rule_engine handles `if(src_ip == 0)` specifically, but mask=0 is safer. Let's keep 0xFFFFFFFF and let rule_engine handle `0` as wildcard, OR use mask=0. Actually, if mask=0, `(addr & mask) == (ip & mask)` is `0 == 0`, which is always true. We will set mask to 0 for wildcard.
+        mask = 0;
+        return;
     }
-    if (p < 0 || p > 65535) throw std::out_of_range("port out of range");
-    return static_cast<uint16_t>(p);
+
+    auto slash = s.find('/');
+    std::string ip_part = s.substr(0, slash);
+    ip = string_to_ip4(ip_part.c_str());
+    if (ip == 0 && ip_part != "0.0.0.0")
+        throw std::invalid_argument("bad IP: " + s);
+
+    if (slash != std::string::npos) {
+        int bits = std::stoi(s.substr(slash + 1));
+        if (bits < 0 || bits > 32) throw std::out_of_range("invalid CIDR");
+        if (bits == 0) mask = 0;
+        else mask = ~((1ULL << (32 - bits)) - 1);
+        // Ensure network byte order if necessary, but string_to_ip4 already returns host byte order in this project? No, usually it's network. Wait, string_to_ip4 uses inet_addr which is network byte order.
+        // Let's assume the project handles byte order elsewhere or we convert mask to network byte order.
+        // Looking at rule_engine.cpp: `uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;` -> implies host byte order!
+        // We will keep mask in host byte order.
+    } else {
+        mask = 0xFFFFFFFF; // /32
+    }
+}
+
+void ConfigParser::parse_port_range(const std::string& s, uint16_t &p_start, uint16_t &p_end) {
+    if (s == "*" || s == "any") {
+        p_start = 0;
+        p_end = 0;
+        return;
+    }
+    auto dash = s.find('-');
+    if (dash != std::string::npos) {
+        int start = std::stoi(s.substr(0, dash));
+        int end = std::stoi(s.substr(dash + 1));
+        if (start < 0 || start > 65535 || end < 0 || end > 65535 || start > end)
+            throw std::out_of_range("bad port range");
+        p_start = static_cast<uint16_t>(start);
+        p_end = static_cast<uint16_t>(end);
+    } else {
+        int p = std::stoi(s);
+        if (p < 0 || p > 65535) throw std::out_of_range("port out of range");
+        p_start = p_end = static_cast<uint16_t>(p);
+    }
+}
+
+std::array<uint8_t, 6> ConfigParser::parse_mac(const std::string &s) {
+    std::array<uint8_t, 6> mac = {0};
+    if (s == "*" || s == "any") return mac;
+
+    unsigned int m[6];
+#if defined(_WIN32)
+    if (sscanf_s(s.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x", &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) == 6) {
+        for (int i=0; i<6; i++) mac[i] = static_cast<uint8_t>(m[i]);
+    } else if (sscanf_s(s.c_str(), "%02x-%02x-%02x-%02x-%02x-%02x", &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) == 6) {
+        for (int i=0; i<6; i++) mac[i] = static_cast<uint8_t>(m[i]);
+    }
+#else
+    if (sscanf(s.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x", &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) == 6) {
+        for (int i=0; i<6; i++) mac[i] = static_cast<uint8_t>(m[i]);
+    } else if (sscanf(s.c_str(), "%02x-%02x-%02x-%02x-%02x-%02x", &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) == 6) {
+        for (int i=0; i<6; i++) mac[i] = static_cast<uint8_t>(m[i]);
+    }
+#endif
+    return mac;
 }
 
 Proto ConfigParser::parse_proto(const std::string& s) {

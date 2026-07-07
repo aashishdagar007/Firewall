@@ -863,15 +863,15 @@
             </div>
             <div class="form-group">
               <label>Source IP</label>
-              <input type="text" id="r-src" class="form-control" placeholder="* or 192.168.1.1">
+              <input type="text" id="r-src" class="form-control" placeholder="* or 10.0.0.0/24">
             </div>
             <div class="form-group">
               <label>Dest IP</label>
-              <input type="text" id="r-dst" class="form-control" placeholder="* or 10.0.0.1">
+              <input type="text" id="r-dst" class="form-control" placeholder="* or 10.0.0.1/32">
             </div>
             <div class="form-group">
               <label>Dest Port</label>
-              <input type="text" id="r-port" class="form-control" placeholder="e.g. 443, 80">
+              <input type="text" id="r-port" class="form-control" placeholder="e.g. 443, 80-90, *">
             </div>
           </div>
           <div class="form-grid">
@@ -1514,7 +1514,7 @@
         proto:       document.getElementById('r-proto').value,
         src_ip:      document.getElementById('r-src').value   || '*',
         dst_ip:      document.getElementById('r-dst').value   || '*',
-        dst_port:    parseInt(document.getElementById('r-port').value) || 0,
+        dst_port:    document.getElementById('r-port').value  || '*',
         description: document.getElementById('r-desc').value  || 'User deployed policy'
       };
       await apiFetch('/api/rules', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });

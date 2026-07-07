@@ -54,8 +54,18 @@ void Logger::log_verdict(const PacketInfo &pkt, const EvalResult &result) {
       << "\"src_ip\":\"" << ip4_to_string(pkt.src_ip) << "\","
       << "\"dst_ip\":\"" << ip4_to_string(pkt.dst_ip) << "\","
       << "\"src_port\":" << pkt.src_port << ","
-      << "\"dst_port\":" << pkt.dst_port << ","
-      << "\"size\":" << pkt.size;
+      << "\"dst_port\":" << pkt.dst_port << ",";
+
+  // Log MAC addresses
+  auto mac_str = [](const std::array<uint8_t, 6>& m) -> std::string {
+      char buf[18];
+      snprintf(buf, sizeof(buf), "%02x:%02x:%02x:%02x:%02x:%02x", m[0], m[1], m[2], m[3], m[4], m[5]);
+      return std::string(buf);
+  };
+  oss << "\"src_mac\":\"" << mac_str(pkt.src_mac) << "\","
+      << "\"dst_mac\":\"" << mac_str(pkt.dst_mac) << "\",";
+
+  oss << "\"size\":" << pkt.size;
 
   if (result.matched_rule) {
     oss << ",\"rule_id\":" << result.matched_rule->id << ",\"rule_desc\":\""

@@ -138,6 +138,42 @@ Action DpiEngine::scan(const uint8_t *payload, uint16_t len,
     }
   }
 
+  // ── WAF HTTP Parsing ──
+  if (len > 4 && (memcmp(payload, "GET ", 4) == 0 || memcmp(payload, "POST", 4) == 0 || memcmp(payload, "PUT ", 4) == 0)) {
+      // Basic HTTP request found
+      const char* p = reinterpret_cast<const char*>(payload);
+      const char* end = p + len;
+      
+      // Find the end of the URI
+      const char* uri_start = p;
+      while (uri_start < end && *uri_start != ' ') uri_start++; // Skip method
+      if (uri_start < end) uri_start++; // Skip space
+      
+      const char* uri_end = uri_start;
+      while (uri_end < end && *uri_end != ' ' && *uri_end != '\r' && *uri_end != '\n') uri_end++;
+      
+      size_t uri_len = uri_end - uri_start;
+      if (uri_len > 2048) {
+          threat_name = "WAF: URI too long (Buffer Overflow Attempt)";
+          return Action::BLOCK;
+      }
+
+      // Check for directory traversal specifically in URI
+      std::string uri(uri_start, uri_len);
+      if (uri.find("../") != std::string::npos || uri.find("..\\") != std::string::npos || uri.find("%2e%2e%2f") != std::string::npos) {
+          threat_name = "WAF: Directory Traversal in URI";
+          return Action::BLOCK;
+      }
+      
+      // SQLi specifically in URI
+      std::string lower_uri = uri;
+      for (char& c : lower_uri) c = std::tolower(static_cast<unsigned char>(c));
+      if (lower_uri.find("union select") != std::string::npos || lower_uri.find("select * from") != std::string::npos) {
+          threat_name = "WAF: SQL Injection in URI";
+          return Action::BLOCK;
+      }
+  }
+
   for (const auto &sig : signatures_) {
     if (bmh_search(payload, len, sig.pattern, sig.case_insensitive)) {
       threat_name = "DPI Threat: " + sig.name;

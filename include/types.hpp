@@ -2,7 +2,7 @@
 #include <atomic>
 #include <cstdint>
 #include <string>
-
+#include <array>
 
 // ──────────────────────────────────────────────────────────────
 //  types.hpp  –  shared enums and plain structs used everywhere
@@ -65,6 +65,10 @@ struct PacketInfo {
   uint32_t tcp_ack = 0;
   uint8_t ttl = 0; // Time-to-Live field from IP header
 
+  // MAC Addresses (0 = unknown/unset)
+  std::array<uint8_t, 6> src_mac = {0};
+  std::array<uint8_t, 6> dst_mac = {0};
+
   // Fragment Info
   bool is_frag_offset = false;
   bool has_more_frags = false;
@@ -93,9 +97,17 @@ struct Rule {
   Direction direction = Direction::ANY;
 
   uint32_t src_ip = 0; // 0 = wildcard
+  uint32_t src_ip_mask = 0xFFFFFFFF; // CIDR mask, default /32 (exact match)
   uint32_t dst_ip = 0;
-  uint16_t src_port = 0; // 0 = wildcard
-  uint16_t dst_port = 0;
+  uint32_t dst_ip_mask = 0xFFFFFFFF;
+
+  uint16_t src_port_start = 0; // 0 = wildcard
+  uint16_t src_port_end = 0;
+  uint16_t dst_port_start = 0;
+  uint16_t dst_port_end = 0;
+
+  std::array<uint8_t, 6> src_mac = {0}; // {0} = wildcard
+  std::array<uint8_t, 6> dst_mac = {0};
 
   std::string process_name; // empty = wildcard
   std::string description;
@@ -106,13 +118,20 @@ struct Rule {
   Rule() = default;
   Rule(const Rule &o)
       : id(o.id), action(o.action), proto(o.proto), direction(o.direction),
-        src_ip(o.src_ip), dst_ip(o.dst_ip), src_port(o.src_port),
-        dst_port(o.dst_port), process_name(o.process_name),
-        description(o.description), hit_count(o.hit_count.load()) {}
+        src_ip(o.src_ip), src_ip_mask(o.src_ip_mask),
+        dst_ip(o.dst_ip), dst_ip_mask(o.dst_ip_mask),
+        src_port_start(o.src_port_start), src_port_end(o.src_port_end),
+        dst_port_start(o.dst_port_start), dst_port_end(o.dst_port_end),
+        src_mac(o.src_mac), dst_mac(o.dst_mac),
+        process_name(o.process_name), description(o.description), hit_count(o.hit_count.load()) {}
   Rule(Rule &&o) noexcept
       : id(o.id), action(o.action), proto(o.proto), direction(o.direction),
-        src_ip(o.src_ip), dst_ip(o.dst_ip), src_port(o.src_port),
-        dst_port(o.dst_port), process_name(std::move(o.process_name)),
+        src_ip(o.src_ip), src_ip_mask(o.src_ip_mask),
+        dst_ip(o.dst_ip), dst_ip_mask(o.dst_ip_mask),
+        src_port_start(o.src_port_start), src_port_end(o.src_port_end),
+        dst_port_start(o.dst_port_start), dst_port_end(o.dst_port_end),
+        src_mac(o.src_mac), dst_mac(o.dst_mac),
+        process_name(std::move(o.process_name)),
         description(std::move(o.description)), hit_count(o.hit_count.load()) {}
   Rule &operator=(const Rule &o) {
     if (this != &o) {
@@ -121,9 +140,15 @@ struct Rule {
       proto = o.proto;
       direction = o.direction;
       src_ip = o.src_ip;
+      src_ip_mask = o.src_ip_mask;
       dst_ip = o.dst_ip;
-      src_port = o.src_port;
-      dst_port = o.dst_port;
+      dst_ip_mask = o.dst_ip_mask;
+      src_port_start = o.src_port_start;
+      src_port_end = o.src_port_end;
+      dst_port_start = o.dst_port_start;
+      dst_port_end = o.dst_port_end;
+      src_mac = o.src_mac;
+      dst_mac = o.dst_mac;
       process_name = o.process_name;
       description = o.description;
       hit_count.store(o.hit_count.load());
@@ -137,9 +162,15 @@ struct Rule {
       proto = o.proto;
       direction = o.direction;
       src_ip = o.src_ip;
+      src_ip_mask = o.src_ip_mask;
       dst_ip = o.dst_ip;
-      src_port = o.src_port;
-      dst_port = o.dst_port;
+      dst_ip_mask = o.dst_ip_mask;
+      src_port_start = o.src_port_start;
+      src_port_end = o.src_port_end;
+      dst_port_start = o.dst_port_start;
+      dst_port_end = o.dst_port_end;
+      src_mac = o.src_mac;
+      dst_mac = o.dst_mac;
       process_name = std::move(o.process_name);
       description = std::move(o.description);
       hit_count.store(o.hit_count.load());
@@ -150,8 +181,8 @@ struct Rule {
   Rule(uint32_t i, Action a, Proto p, Direction d, uint32_t si, uint32_t di,
        uint16_t sp, uint16_t dp, std::string desc, uint64_t hc)
       : id(i), action(a), proto(p), direction(d), src_ip(si), dst_ip(di),
-        src_port(sp), dst_port(dp), description(std::move(desc)),
-        hit_count(hc) {}
+        src_port_start(sp), src_port_end(sp), dst_port_start(dp), dst_port_end(dp),
+        description(std::move(desc)), hit_count(hc) {}
 };
 
 } // namespace fw

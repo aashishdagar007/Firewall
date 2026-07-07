@@ -452,9 +452,9 @@ std::string ApiServer::handle_add_rule(const std::string &body) {
   try {
     r.action = ConfigParser::parse_action(action_s);
     r.proto = ConfigParser::parse_proto(proto_s);
-    r.src_ip = ConfigParser::parse_ip(src_ip_s);
-    r.dst_ip = ConfigParser::parse_ip(dst_ip_s);
-    r.dst_port = ConfigParser::parse_port(dst_port_s);
+    ConfigParser::parse_ip_cidr(src_ip_s, r.src_ip, r.src_ip_mask);
+    ConfigParser::parse_ip_cidr(dst_ip_s, r.dst_ip, r.dst_ip_mask);
+    ConfigParser::parse_port_range(dst_port_s, r.dst_port_start, r.dst_port_end);
     r.description = desc.length() > 256 ? desc.substr(0, 256) : desc;
   } catch (const std::exception &e) {
     return "{\"ok\":false,\"error\":\"Invalid rule format\"}";
@@ -585,10 +585,22 @@ std::string ApiServer::handle_allow_app(const std::string &body) {
 // ── JSON helpers ─────────────────────────────────────────────
 
 std::string ApiServer::rule_to_json(const Rule &r) {
-  auto ip_str = [](uint32_t ip) -> std::string {
-    if (ip == 0)
-      return "*";
-    return ip4_to_string(ip);
+  auto ip_str = [](uint32_t ip, uint32_t mask) -> std::string {
+    if (ip == 0 && mask == 0) return "*";
+    std::string res = ip4_to_string(ip);
+    if (mask != 0xFFFFFFFF) {
+        uint32_t m = mask;
+        int bits = 0;
+        while (m) { bits += (m & 1); m >>= 1; }
+        res += "/" + std::to_string(bits);
+    }
+    return res;
+  };
+  
+  auto port_str = [](uint16_t start, uint16_t end) -> std::string {
+      if (start == 0 && end == 0) return "\"*\"";
+      if (start == end) return std::to_string(start);
+      return "\"" + std::to_string(start) + "-" + std::to_string(end) + "\"";
   };
 
   std::ostringstream o;
@@ -596,10 +608,10 @@ std::string ApiServer::rule_to_json(const Rule &r) {
     << "\"id\":" << r.id << ","
     << "\"action\":\"" << action_name(r.action) << "\","
     << "\"proto\":\"" << proto_name(r.proto) << "\","
-    << "\"src_ip\":\"" << ip_str(r.src_ip) << "\","
-    << "\"dst_ip\":\"" << ip_str(r.dst_ip) << "\","
-    << "\"src_port\":" << r.src_port << ","
-    << "\"dst_port\":" << r.dst_port << ","
+    << "\"src_ip\":\"" << ip_str(r.src_ip, r.src_ip_mask) << "\","
+    << "\"dst_ip\":\"" << ip_str(r.dst_ip, r.dst_ip_mask) << "\","
+    << "\"src_port\":" << port_str(r.src_port_start, r.src_port_end) << ","
+    << "\"dst_port\":" << port_str(r.dst_port_start, r.dst_port_end) << ","
     << "\"process\":\"" << escape_json(r.process_name) << "\","
     << "\"hit_count\":" << r.hit_count << ","
     << "\"description\":\"" << escape_json(r.description) << "\""

@@ -32,6 +32,8 @@ void RuleEngine::add_rule(Rule r) {
   r.id = next_id_++;
   rules_.push_back(std::move(r));
   rebuild_port_index();
+  std::lock_guard<std::mutex> clock(cache_mtx_);
+  eval_cache_.clear();
 }
 
 bool RuleEngine::remove_rule(uint32_t id) {
@@ -40,6 +42,8 @@ bool RuleEngine::remove_rule(uint32_t id) {
     if (it->id == id) {
       rules_.erase(it);
       rebuild_port_index();
+      std::lock_guard<std::mutex> clock(cache_mtx_);
+      eval_cache_.clear();
       return true;
     }
   }
@@ -358,6 +362,32 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   }
 
   // 2. Stateless Rule Evaluation — port-indexed O(1) lookup
+  ConnectionKey canonical_key;
+  canonical_key.proto = pkt.proto;
+  if (pkt.src_ip < pkt.dst_ip) {
+    canonical_key.src_ip = pkt.src_ip;
+    canonical_key.dst_ip = pkt.dst_ip;
+    canonical_key.src_port = pkt.src_port;
+    canonical_key.dst_port = pkt.dst_port;
+  } else {
+    canonical_key.src_ip = pkt.dst_ip;
+    canonical_key.dst_ip = pkt.src_ip;
+    canonical_key.src_port = pkt.dst_port;
+    canonical_key.dst_port = pkt.src_port;
+  }
+
+  {
+    std::lock_guard<std::mutex> clock(cache_mtx_);
+    auto cit = eval_cache_.find(canonical_key);
+    if (cit != eval_cache_.end()) {
+      // NOTE: We don't have the matched Rule* anymore, but we have the Action.
+      return {cit->second, nullptr};
+    }
+  }
+
+  Action final_action = default_policy_;
+  const Rule* matched_ptr = nullptr;
+
   {
     std::shared_lock<std::shared_mutex> rule_lock(rules_mtx_);
 
@@ -371,19 +401,6 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         if (rule.action == Action::ALLOW &&
             (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP ||
              pkt.proto == Proto::ICMP)) {
-          ConnectionKey canonical_key;
-          canonical_key.proto = pkt.proto;
-          if (pkt.src_ip < pkt.dst_ip) {
-            canonical_key.src_ip = pkt.src_ip;
-            canonical_key.dst_ip = pkt.dst_ip;
-            canonical_key.src_port = pkt.src_port;
-            canonical_key.dst_port = pkt.dst_port;
-          } else {
-            canonical_key.src_ip = pkt.dst_ip;
-            canonical_key.dst_ip = pkt.src_ip;
-            canonical_key.src_port = pkt.dst_port;
-            canonical_key.dst_port = pkt.src_port;
-          }
           std::lock_guard<std::mutex> lock(state_mtx_);
           bool create_state = true;
           if (pkt.proto == Proto::TCP && !(pkt.tcp_flags & TCP_SYN))
@@ -406,62 +423,41 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       return false;
     };
 
+    bool found = false;
     // Check rules matching the exact dst_port first (port-indexed)
     if (pkt.dst_port != 0) {
       auto range = port_index_.equal_range(pkt.dst_port);
       for (auto it = range.first; it != range.second; ++it) {
-        const auto& rule = rules_[it->second];
-        if (matches(rule, pkt)) {
-          rule.hit_count++;
-          if (rule.action == Action::ALLOW &&
-              (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP ||
-               pkt.proto == Proto::ICMP)) {
-            ConnectionKey canonical_key;
-            canonical_key.proto = pkt.proto;
-            if (pkt.src_ip < pkt.dst_ip) {
-              canonical_key.src_ip = pkt.src_ip;
-              canonical_key.dst_ip = pkt.dst_ip;
-              canonical_key.src_port = pkt.src_port;
-              canonical_key.dst_port = pkt.dst_port;
-            } else {
-              canonical_key.src_ip = pkt.dst_ip;
-              canonical_key.dst_ip = pkt.src_ip;
-              canonical_key.src_port = pkt.dst_port;
-              canonical_key.dst_port = pkt.src_port;
-            }
-            std::lock_guard<std::mutex> lock(state_mtx_);
-            bool create_state = true;
-            if (pkt.proto == Proto::TCP && !(pkt.tcp_flags & TCP_SYN))
-              create_state = false;
-            if (create_state &&
-                state_table_.find(canonical_key) == state_table_.end()) {
-              state_table_[canonical_key] = {
-                  FlowState::NEW,
-                  std::chrono::steady_clock::now(),
-                  pkt.src_ip,
-                  static_cast<uint64_t>(pkt.size),
-                  static_cast<uint64_t>(pkt.payload_len),
-                  0,
-                  pkt.tcp_seq + static_cast<uint32_t>(pkt.size),
-                  0};
-            }
-          }
-          return {rule.action, &rule};
+        if (try_rule(it->second)) {
+          matched_ptr = &rules_[it->second];
+          final_action = matched_ptr->action;
+          found = true;
+          break;
         }
       }
     }
 
-    // Then check wildcard (dst_port == 0) rules in order
-    for (size_t idx : wildcard_rule_indices_) {
-      if (try_rule(idx)) {
-        const auto& rule = rules_[idx];
-        return {rule.action, &rule};
+    if (!found) {
+      // Then check wildcard (dst_port == 0) rules in order
+      for (size_t idx : wildcard_rule_indices_) {
+        if (try_rule(idx)) {
+          matched_ptr = &rules_[idx];
+          final_action = matched_ptr->action;
+          found = true;
+          break;
+        }
       }
     }
   }
 
-  // Default policy — no rule matched
-  auto default_result = EvalResult{default_policy_, nullptr};
+  // Update Cache
+  {
+    std::lock_guard<std::mutex> clock(cache_mtx_);
+    if (eval_cache_.size() > 100000) eval_cache_.clear(); // basic LRU protection
+    eval_cache_[canonical_key] = final_action;
+  }
+
+  auto default_result = EvalResult{final_action, matched_ptr};
 
   // ── Port Scan Detection (runs for every packet regardless of verdict) ─
   // We pass the packet through the detector AFTER the main evaluation so
@@ -546,21 +542,43 @@ bool RuleEngine::matches(const Rule &rule, const PacketInfo &pkt) {
   if (rule.proto != Proto::ANY && rule.proto != pkt.proto)
     return false;
 
-  // Source IP  (0 = wildcard)
-  if (rule.src_ip != 0 && rule.src_ip != pkt.src_ip)
-    return false;
+  // Source IP with Mask
+  if (rule.src_ip != 0) {
+    if ((pkt.src_ip & rule.src_ip_mask) != (rule.src_ip & rule.src_ip_mask))
+      return false;
+  }
 
-  // Dest IP
-  if (rule.dst_ip != 0 && rule.dst_ip != pkt.dst_ip)
-    return false;
+  // Dest IP with Mask
+  if (rule.dst_ip != 0) {
+    if ((pkt.dst_ip & rule.dst_ip_mask) != (rule.dst_ip & rule.dst_ip_mask))
+      return false;
+  }
 
-  // Source port (0 = wildcard)
-  if (rule.src_port != 0 && rule.src_port != pkt.src_port)
-    return false;
+  // Source port range
+  if (rule.src_port_start != 0) {
+    if (pkt.src_port < rule.src_port_start || pkt.src_port > rule.src_port_end)
+      return false;
+  }
 
-  // Dest port
-  if (rule.dst_port != 0 && rule.dst_port != pkt.dst_port)
-    return false;
+  // Dest port range
+  if (rule.dst_port_start != 0) {
+    if (pkt.dst_port < rule.dst_port_start || pkt.dst_port > rule.dst_port_end)
+      return false;
+  }
+
+  // Source MAC Address
+  if (rule.src_mac[0] != 0 || rule.src_mac[1] != 0 || rule.src_mac[2] != 0 ||
+      rule.src_mac[3] != 0 || rule.src_mac[4] != 0 || rule.src_mac[5] != 0) {
+    if (pkt.src_mac != rule.src_mac)
+      return false;
+  }
+
+  // Dest MAC Address
+  if (rule.dst_mac[0] != 0 || rule.dst_mac[1] != 0 || rule.dst_mac[2] != 0 ||
+      rule.dst_mac[3] != 0 || rule.dst_mac[4] != 0 || rule.dst_mac[5] != 0) {
+    if (pkt.dst_mac != rule.dst_mac)
+      return false;
+  }
 
   // Process Name (empty = wildcard)
   if (!rule.process_name.empty() && rule.process_name != pkt.process_name)
@@ -583,21 +601,31 @@ void RuleEngine::print_rules() const {
   std::cout << "├────┼────────┼──────┼──────────────────┼──────────────────┼───"
                "───┼────────────────┼──────────────────────────────┤\n";
 
-  auto ip_str = [](uint32_t ip) -> std::string {
-    if (ip == 0)
-      return "*";
-    return ip4_to_string(ip);
+  auto ip_str = [](uint32_t ip, uint32_t mask) -> std::string {
+    if (ip == 0 && mask == 0xFFFFFFFF) return "*";
+    std::string res = ip4_to_string(ip);
+    if (mask != 0xFFFFFFFF) {
+        uint32_t m = mask;
+        int bits = 0;
+        while (m) { bits += (m & 1); m >>= 1; }
+        res += "/" + std::to_string(bits);
+    }
+    return res;
   };
 
   std::shared_lock<std::shared_mutex> lock(rules_mtx_);
   for (const auto &r : rules_) {
-    std::string dport = r.dst_port ? std::to_string(r.dst_port) : "*";
+    std::string dport = "*";
+    if (r.dst_port_start != 0) {
+      if (r.dst_port_start == r.dst_port_end) dport = std::to_string(r.dst_port_start);
+      else dport = std::to_string(r.dst_port_start) + "-" + std::to_string(r.dst_port_end);
+    }
     std::string proc = r.process_name.empty() ? "*" : r.process_name;
     std::cout << "│ " << std::setw(2) << r.id << " │ " << std::setw(6)
               << action_name(r.action) << " │ " << std::setw(4)
               << proto_name(r.proto) << " │ " << std::setw(16)
-              << ip_str(r.src_ip) << " │ " << std::setw(16) << ip_str(r.dst_ip)
-              << " │ " << std::setw(4) << dport << " │ " << std::setw(14)
+              << ip_str(r.src_ip, r.src_ip_mask).substr(0, 16) << " │ " << std::setw(16) << ip_str(r.dst_ip, r.dst_ip_mask).substr(0, 16)
+              << " │ " << std::setw(8) << dport.substr(0, 8) << " │ " << std::setw(14)
               << proc.substr(0, 14) << " │ " << std::setw(28)
               << r.description.substr(0, 28) << " │\n";
   }
@@ -635,10 +663,10 @@ void RuleEngine::rebuild_port_index() {
   port_index_.clear();
   wildcard_rule_indices_.clear();
   for (size_t i = 0; i < rules_.size(); ++i) {
-    if (rules_[i].dst_port == 0) {
+    if (rules_[i].dst_port_start == 0 || rules_[i].dst_port_start != rules_[i].dst_port_end) {
       wildcard_rule_indices_.push_back(i);
     } else {
-      port_index_.emplace(rules_[i].dst_port, i);
+      port_index_.emplace(rules_[i].dst_port_start, i);
     }
   }
 }

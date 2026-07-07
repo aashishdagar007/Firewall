@@ -224,6 +224,9 @@ namespace fw {
 
         mutable std::mutex state_mtx_;
         mutable std::shared_mutex rules_mtx_;
+        mutable std::mutex cache_mtx_; // Protects eval_cache_
+        std::unordered_map<ConnectionKey, Action, ConnectionKeyHash> eval_cache_;
+
         DpiEngine  dpi_;
         uint32_t local_ip_ = 0;
 
