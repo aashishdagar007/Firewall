@@ -33,7 +33,7 @@ void RuleEngine::add_rule(Rule r) {
   r.id = next_id_++;
   rules_.push_back(std::move(r));
   rebuild_port_index();
-  std::lock_guard<std::mutex> clock(cache_mtx_);
+  std::lock_guard<std::shared_mutex> clock(cache_mtx_);
   eval_cache_.clear();
 }
 
@@ -43,7 +43,7 @@ bool RuleEngine::remove_rule(uint32_t id) {
     if (it->id == id) {
       rules_.erase(it);
       rebuild_port_index();
-      std::lock_guard<std::mutex> clock(cache_mtx_);
+      std::lock_guard<std::shared_mutex> clock(cache_mtx_);
       eval_cache_.clear();
       return true;
     }
@@ -384,7 +384,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   }
 
   {
-    std::lock_guard<std::mutex> clock(cache_mtx_);
+    std::shared_lock<std::shared_mutex> clock(cache_mtx_);
     auto cit = eval_cache_.find(canonical_key);
     if (cit != eval_cache_.end()) {
       // NOTE: We don't have the matched Rule* anymore, but we have the Action.
@@ -459,7 +459,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
 
   // Update Cache
   {
-    std::lock_guard<std::mutex> clock(cache_mtx_);
+    std::lock_guard<std::shared_mutex> clock(cache_mtx_);
     if (eval_cache_.size() > 100000) eval_cache_.clear(); // basic LRU protection
     eval_cache_[canonical_key] = final_action;
   }

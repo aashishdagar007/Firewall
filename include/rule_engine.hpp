@@ -237,7 +237,7 @@ namespace fw {
 
         mutable std::mutex state_mtx_;
         mutable std::shared_mutex rules_mtx_;
-        mutable std::mutex cache_mtx_; // Protects eval_cache_
+        mutable std::shared_mutex cache_mtx_; // Protects eval_cache_ for high-concurrency read/write
         std::unordered_map<ConnectionKey, Action, ConnectionKeyHash> eval_cache_;
 
         DpiEngine  dpi_;

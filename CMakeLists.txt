@@ -141,12 +141,58 @@ endif()
 #  Testing
 # ══════════════════════════════════════════════════════════════════════════════
 enable_testing()
-add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp src/port_scan_detector.cpp src/traffic_shaper.cpp)
+
+# Fetch GoogleTest
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+add_executable(test_engine 
+    tests/test_engine.cpp 
+    tests/test_packet.cpp 
+    tests/test_vpn_crypto.cpp 
+    tests/test_traffic_shaper.cpp
+    src/packet.cpp 
+    src/rule_engine.cpp 
+    src/dpi_engine.cpp 
+    src/port_scan_detector.cpp 
+    src/traffic_shaper.cpp 
+    src/vpn_manager.cpp
+)
 if(WIN32)
     target_link_libraries(test_engine PRIVATE ws2_32)
 endif()
+if(OpenSSL_FOUND)
+    target_link_libraries(test_engine PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+endif()
 target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME rule_engine_test COMMAND test_engine)
+target_link_libraries(test_engine PRIVATE gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(test_engine)
+
+# Benchmark Engine
+add_executable(benchmark_engine 
+    tests/benchmark_engine.cpp 
+    src/packet.cpp 
+    src/rule_engine.cpp 
+    src/dpi_engine.cpp 
+    src/port_scan_detector.cpp 
+    src/traffic_shaper.cpp 
+    src/vpn_manager.cpp
+)
+target_include_directories(benchmark_engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
+if(WIN32)
+    target_link_libraries(benchmark_engine PRIVATE ws2_32)
+endif()
+if(OpenSSL_FOUND)
+    target_link_libraries(benchmark_engine PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+endif()
 
 # ── Summary ────────────────────────────────────────────────────────────────
 message(STATUS "")

@@ -38,6 +38,9 @@ ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
 #endif
 
   api_token_ = generate_token();
+  
+  // Security Hardening: Enforce 1MB max payload to prevent DoS memory exhaustion attacks
+  server_->set_payload_max_length(1024 * 1024);
 
   // Ensure logs directory exists
   std::filesystem::create_directories("logs");
