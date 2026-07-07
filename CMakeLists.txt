@@ -32,6 +32,8 @@ set(SOURCES
     src/port_scan_detector.cpp
     src/nat_engine.cpp
     src/vpn_manager.cpp
+    src/traffic_shaper.cpp
+    src/updater.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -139,7 +141,7 @@ endif()
 #  Testing
 # ══════════════════════════════════════════════════════════════════════════════
 enable_testing()
-add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp src/port_scan_detector.cpp)
+add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp src/port_scan_detector.cpp src/traffic_shaper.cpp)
 if(WIN32)
     target_link_libraries(test_engine PRIVATE ws2_32)
 endif()

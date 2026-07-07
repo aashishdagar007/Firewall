@@ -3,6 +3,7 @@
 #include "platform.hpp" // ip4_to_string
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 
 // ──────────────────────────────────────────────────────────────
 //  rule_engine.cpp
@@ -51,6 +52,12 @@ bool RuleEngine::remove_rule(uint32_t id) {
 }
 
 EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
+  // ── Traffic Shaping (QoS) ──
+  if (pkt.src_ip != 0 && !traffic_shaper_.consume(pkt.src_ip, pkt.size)) {
+    qos_drop_rule_.hit_count++;
+    return {Action::BLOCK, &qos_drop_rule_};
+  }
+
   // Layer 3: Land attack (src IP == dst IP)
   if (pkt.src_ip != 0 && pkt.src_ip == pkt.dst_ip) {
     anomaly_land_.hit_count++;
@@ -811,6 +818,7 @@ std::vector<AnomalySnapshot> RuleEngine::get_anomaly_snapshot() const {
     { hijack_rule_.description,        static_cast<uint32_t>(hijack_rule_.hit_count)        },
     { dpi_rule_.description,           static_cast<uint32_t>(dpi_rule_.hit_count)           },
     { threat_rule_.description,        static_cast<uint32_t>(threat_rule_.hit_count)        },
+    { qos_drop_rule_.description,      static_cast<uint32_t>(qos_drop_rule_.hit_count)      },
   };
 }
 
@@ -847,4 +855,61 @@ std::vector<ConnectionSnapshot> RuleEngine::get_connection_snapshot() const {
   return out;
 }
 
-} // namespace fw
+bool RuleEngine::save_state(const std::string& filepath) const {
+    std::ofstream out(filepath, std::ios::binary);
+    if (!out) return false;
+
+    std::lock_guard<std::mutex> lock(state_mtx_);
+    uint64_t count = state_table_.size();
+    out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+
+    for (const auto& [key, state] : state_table_) {
+        out.write(reinterpret_cast<const char*>(&key), sizeof(ConnectionKey));
+        // We do not save `last_seen` as it is session-relative and machine-uptime dependent.
+        out.write(reinterpret_cast<const char*>(&state.state), sizeof(FlowState));
+        out.write(reinterpret_cast<const char*>(&state.originator_ip), sizeof(uint32_t));
+        out.write(reinterpret_cast<const char*>(&state.bytes_transferred), sizeof(uint64_t));
+        out.write(reinterpret_cast<const char*>(&state.bytes_out), sizeof(uint64_t));
+        out.write(reinterpret_cast<const char*>(&state.bytes_in), sizeof(uint64_t));
+        out.write(reinterpret_cast<const char*>(&state.expected_seq), sizeof(uint32_t));
+        out.write(reinterpret_cast<const char*>(&state.expected_ack), sizeof(uint32_t));
+    }
+    return true;
+}
+
+bool RuleEngine::load_state(const std::string& filepath) {
+    std::ifstream in(filepath, std::ios::binary);
+    if (!in) return false;
+
+    std::lock_guard<std::mutex> lock(state_mtx_);
+    state_table_.clear();
+
+    uint64_t count = 0;
+    if (!in.read(reinterpret_cast<char*>(&count), sizeof(count))) return false;
+
+    auto now = std::chrono::steady_clock::now();
+    for (uint64_t i = 0; i < count; ++i) {
+        ConnectionKey key;
+        ConnectionState state;
+        
+        in.read(reinterpret_cast<char*>(&key), sizeof(ConnectionKey));
+        in.read(reinterpret_cast<char*>(&state.state), sizeof(FlowState));
+        in.read(reinterpret_cast<char*>(&state.originator_ip), sizeof(uint32_t));
+        in.read(reinterpret_cast<char*>(&state.bytes_transferred), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&state.bytes_out), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&state.bytes_in), sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(&state.expected_seq), sizeof(uint32_t));
+        in.read(reinterpret_cast<char*>(&state.expected_ack), sizeof(uint32_t));
+        
+        state.last_seen = now;
+        
+        if (in.good()) {
+            state_table_[key] = state;
+        } else {
+            break;
+        }
+    }
+    return true;
+}
+
+} // namespace fw

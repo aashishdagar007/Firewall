@@ -11,10 +11,16 @@ enum class VpnProtocol {
     WIREGUARD,
     IPSEC
 };
+enum class Cipher {
+    NONE,
+    AES_256_GCM,
+    CHACHA20_POLY1305
+};
 
 struct VpnConnection {
     std::string id;
     VpnProtocol protocol;
+    Cipher cipher;
     std::string remote_endpoint;
     uint32_t virtual_ip;
     uint32_t subnet_mask;
@@ -25,6 +31,10 @@ class VpnManager {
 public:
     VpnManager();
     ~VpnManager();
+
+    // Cryptographic transformations (simulated packet data using OpenSSL)
+    static std::vector<uint8_t> encrypt_payload(const std::vector<uint8_t>& plaintext, const std::string& key, Cipher cipher);
+    static std::vector<uint8_t> decrypt_payload(const std::vector<uint8_t>& ciphertext, const std::string& key, Cipher cipher);
 
     // Register a new VPN connection endpoint and rules
     std::string add_connection(VpnProtocol protocol, const std::string& endpoint, uint32_t vip, uint32_t mask);

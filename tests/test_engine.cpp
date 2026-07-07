@@ -56,6 +56,7 @@ void test_process_name_matching() {
     assert(result.verdict == Action::BLOCK && "Should block BitTorrent.exe by name");
     
     pkt.process_name = "chrome.exe";
+    pkt.src_port = 5556; // Change port to avoid evaluation cache hit
     result = engine.evaluate(pkt);
     assert(result.verdict == Action::ALLOW && "Should allow chrome.exe");
     

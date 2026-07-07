@@ -10,6 +10,7 @@
 #include <shared_mutex>
 #include <functional>
 #include "dpi_engine.hpp"
+#include "traffic_shaper.hpp"
 
 // ──────────────────────────────────────────────────────────────
 //  rule_engine.hpp  –  rule chain management and matching
@@ -139,9 +140,15 @@ namespace fw {
         // Cleanup stale connections from the state table
         void purge_stale_connections(std::chrono::seconds timeout = std::chrono::seconds(300));
 
-        // ── Rate Limiting ─────────────────────────────────────────────────
+        // ── Session Persistence ───────────────────────────────────────────
+        bool save_state(const std::string& filepath) const;
+        bool load_state(const std::string& filepath);
+
+        // ── Rate Limiting & QoS ───────────────────────────────────────────
         void set_rate_limit(uint32_t pps);      // set packets-per-second threshold
         uint32_t get_rate_limit() const;         // read current threshold
+        
+        TrafficShaper& get_traffic_shaper() { return traffic_shaper_; }
 
         // ── Geo-Blocking (CIDR) ───────────────────────────────────────────
         void block_cidr(uint32_t network, uint32_t mask, const std::string& label);
@@ -215,9 +222,15 @@ namespace fw {
         Rule anomaly_port_zero_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "Anomaly: Traffic to/from Port 0", 0};
 
         Rule invalid_rule_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "INVALID TCP State (Auto-Drop)", 0};
-        Rule hijack_rule_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Hijack Attempt (Seq Out of Window)", 0};
+        Rule threat_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "Threat: Geo-Block or Blacklist Hit", 0};
+        Rule hijack_rule_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Anomaly: TCP Session Hijacking Attempt", 0};
+        Rule qos_drop_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "QoS: Traffic Shaping Drop (Bandwidth Exceeded)", 0};
+
+        TrafficShaper traffic_shaper_;
+
+        // DPI Engine for deep inspection
+        DpiEngine dpi_engine_;
         Rule dpi_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "DPI: Threat signature match", 0};
-        Rule threat_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "Threat Detected (Auto-Block)", 0};
         
         static constexpr uint32_t MAX_PACKETS_PER_SEC = 1000;
         static constexpr std::chrono::seconds BAN_DURATION{300}; // 5 minutes
