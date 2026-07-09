@@ -207,7 +207,6 @@ int main(int argc, char* argv[]) {
     std::thread conntrack_thread([&]() {
         while (conntrack_running) {
             std::this_thread::sleep_for(std::chrono::seconds(10));
-            if (!conntrack_running) break;
             engine.purge_stale_connections(std::chrono::seconds(300));
         }
     });
@@ -233,13 +232,8 @@ int main(int argc, char* argv[]) {
         : "Raw socket observer (passive — log & stats only)";
     logger.log(fw::LogLevel::LOG_INFO, std::string("Capture mode: ") + mode);
 
-    // ── 6.5 Auto-launch dashboard in the browser ──────────────
-    {
-        std::string url = "http://localhost:" + std::to_string(api_port);
-        logger.log(fw::LogLevel::LOG_INFO, "Dashboard API available at " + url);
-
-        // (Auto-opening browser disabled, using standalone UI instead)
-    }
+    logger.log(fw::LogLevel::LOG_INFO,
+               "Dashboard API available at http://localhost:" + std::to_string(api_port));
 
     // ── 7. Blocking capture loop (main thread) ─────────────────
     capture.run();

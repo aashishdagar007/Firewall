@@ -52,6 +52,21 @@ bool RuleEngine::remove_rule(uint32_t id) {
 }
 
 EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
+  // Build canonical (always src < dst) 5-tuple once — reused for conntrack
+  // lookup, cache read, and cache write.
+  auto make_key = [&]() {
+    ConnectionKey k;
+    k.proto = pkt.proto;
+    if (pkt.src_ip < pkt.dst_ip) {
+      k.src_ip = pkt.src_ip; k.dst_ip = pkt.dst_ip;
+      k.src_port = pkt.src_port; k.dst_port = pkt.dst_port;
+    } else {
+      k.src_ip = pkt.dst_ip; k.dst_ip = pkt.src_ip;
+      k.src_port = pkt.dst_port; k.dst_port = pkt.src_port;
+    }
+    return k;
+  };
+
   // ── Traffic Shaping (QoS) ──
   if (pkt.src_ip != 0 && !traffic_shaper_.consume(pkt.src_ip, pkt.size)) {
     qos_drop_rule_.hit_count++;
@@ -103,18 +118,13 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     return {Action::BLOCK, &anomaly_frag_};
   }
 
-  // Layer 4: ICMP Validation
+  // Layer 4: ICMP Validation (Echo Reply/Req, Dest-Unreach, Time-Exceeded only)
   if (pkt.proto == Proto::ICMP) {
-    bool valid = false;
-    if (pkt.icmp_type == 0 && pkt.icmp_code == 0)
-      valid = true; // Echo Reply
-    else if (pkt.icmp_type == 8 && pkt.icmp_code == 0)
-      valid = true; // Echo Request
-    else if (pkt.icmp_type == 3 && pkt.icmp_code <= 15)
-      valid = true; // Dest Unreach
-    else if (pkt.icmp_type == 11 && pkt.icmp_code <= 1)
-      valid = true; // Time Exceeded
-
+    const bool valid =
+        (pkt.icmp_type == 0  && pkt.icmp_code == 0)         || // Echo Reply
+        (pkt.icmp_type == 8  && pkt.icmp_code == 0)         || // Echo Request
+        (pkt.icmp_type == 3  && pkt.icmp_code <= 15)        || // Dest Unreach
+        (pkt.icmp_type == 11 && pkt.icmp_code <= 1);           // Time Exceeded
     if (!valid) {
       anomaly_icmp_.hit_count++;
       return {Action::BLOCK, &anomaly_icmp_};
@@ -192,19 +202,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   if (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP ||
       pkt.proto == Proto::ICMP) {
 
-    ConnectionKey canonical_key;
-    canonical_key.proto = pkt.proto;
-    if (pkt.src_ip < pkt.dst_ip) {
-      canonical_key.src_ip = pkt.src_ip;
-      canonical_key.dst_ip = pkt.dst_ip;
-      canonical_key.src_port = pkt.src_port;
-      canonical_key.dst_port = pkt.dst_port;
-    } else {
-      canonical_key.src_ip = pkt.dst_ip;
-      canonical_key.dst_ip = pkt.src_ip;
-      canonical_key.src_port = pkt.dst_port;
-      canonical_key.dst_port = pkt.src_port;
-    }
+    const ConnectionKey canonical_key = make_key();
 
     std::lock_guard<std::mutex> lock(state_mtx_);
 
@@ -369,19 +367,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   }
 
   // 2. Stateless Rule Evaluation — port-indexed O(1) lookup
-  ConnectionKey canonical_key;
-  canonical_key.proto = pkt.proto;
-  if (pkt.src_ip < pkt.dst_ip) {
-    canonical_key.src_ip = pkt.src_ip;
-    canonical_key.dst_ip = pkt.dst_ip;
-    canonical_key.src_port = pkt.src_port;
-    canonical_key.dst_port = pkt.dst_port;
-  } else {
-    canonical_key.src_ip = pkt.dst_ip;
-    canonical_key.dst_ip = pkt.src_ip;
-    canonical_key.src_port = pkt.dst_port;
-    canonical_key.dst_port = pkt.src_port;
-  }
+  const ConnectionKey canonical_key = make_key();
 
   {
     std::shared_lock<std::shared_mutex> clock(cache_mtx_);
@@ -515,15 +501,13 @@ void RuleEngine::heuristic_worker() {
     for (auto it = state_table_.begin(); it != state_table_.end();) {
       if (it->second.bytes_out > 2000000 && it->second.bytes_in < 5000) {
         auto &tstate = threat_table_[it->first.src_ip];
-        tstate.is_banned = true;
-        tstate.ban_count += 5;
+        tstate.is_banned   = true;
+        tstate.ban_count  += 5;
         tstate.ban_expires = now + std::chrono::hours(24);
-        std::cout << "[HEURISTIC] Killed asymmetric connection! Possible data "
-                     "exfiltration from IP.\n";
         it = state_table_.erase(it);
-        continue;
+      } else {
+        ++it;
       }
-      ++it;
     }
 
     // 2. Prune expired/inactive threat table entries
@@ -641,11 +625,7 @@ void RuleEngine::print_rules() const {
   std::cout << "  Default policy: " << action_name(default_policy_) << "\n\n";
 }
 
-} // namespace fw (print_rules end)
-
-// ── New method implementations ──────────────────────────────────
-
-namespace fw {
+// ── Additional method implementations ────────────────────────
 
 // ── Stealth Mode ──────────────────────────────────────────────
 
@@ -769,13 +749,10 @@ bool RuleEngine::ban_ip(uint32_t src_ip, const std::string& reason) {
   auto now = std::chrono::steady_clock::now();
   auto &tstate = threat_table_[src_ip];
 
-  // Manual bans are permanent and use a high ban_count to identify them
-  tstate.is_banned = true;
-  tstate.ban_count = 100; // Trigger "Manual Ban" reason
-  tstate.ban_expires = now + std::chrono::hours(24 * 365); // 1-year ban
-  
-  std::cout << "[THREAT] MANUAL BAN: IP " << ip4_to_string(src_ip) 
-            << " blocked. Reason: " << (reason.empty() ? "None" : reason) << "\n";
+  // Manual bans are permanent; ban_count=100 triggers "Manual Ban" label
+  tstate.is_banned   = true;
+  tstate.ban_count   = 100;
+  tstate.ban_expires = now + std::chrono::hours(24 * 365);
   return true;
 }
 
@@ -784,13 +761,10 @@ void RuleEngine::report_tampering_attempt(uint32_t src_ip) {
   auto now = std::chrono::steady_clock::now();
   auto &tstate = threat_table_[src_ip];
 
-  // Instantly lock down the IP permanently across all ports
-  tstate.is_banned = true;
-  tstate.ban_count = 10; // Trigger "Protocol Tampering Attack" reason
-  tstate.ban_expires = now + std::chrono::hours(24 * 365); // 1-year ban
-  
-  std::cout << "[THREAT] ACTIVE BAN: IP " << ip4_to_string(src_ip) 
-            << " blocked for Protocol Tampering (HMAC-SHA256 signature mismatch)!\n";
+  // Instantly lock down the IP permanently; ban_count=10 → tampering label
+  tstate.is_banned   = true;
+  tstate.ban_count   = 10;
+  tstate.ban_expires = now + std::chrono::hours(24 * 365);
 }
 
 // ── Anomaly Snapshot ─────────────────────────────────────────

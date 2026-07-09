@@ -20,6 +20,13 @@
 
 namespace fw {
 
+// Returns the number of set bits in a subnet mask (host byte order).
+static int count_mask_bits(uint32_t m) {
+  int bits = 0;
+  for (; m; m >>= 1) bits += (m & 1);
+  return bits;
+}
+
 std::vector<Rule> ConfigParser::load(const std::string& path) {
     std::vector<Rule> rules;
     std::ifstream file(path);
@@ -77,13 +84,8 @@ bool ConfigParser::save(const std::string &path, const std::vector<Rule> &rules)
             file << "* ";
         } else {
             file << ip4_to_string(r.src_ip);
-            if (r.src_ip_mask != 0xFFFFFFFF) {
-                // Count bits in mask
-                uint32_t m = r.src_ip_mask;
-                int bits = 0;
-                while (m) { bits += (m & 1); m >>= 1; }
-                file << "/" << bits;
-            }
+            if (r.src_ip_mask != 0xFFFFFFFF)
+                file << "/" << count_mask_bits(r.src_ip_mask);
             file << " ";
         }
 
@@ -92,12 +94,8 @@ bool ConfigParser::save(const std::string &path, const std::vector<Rule> &rules)
             file << "* ";
         } else {
             file << ip4_to_string(r.dst_ip);
-            if (r.dst_ip_mask != 0xFFFFFFFF) {
-                uint32_t m = r.dst_ip_mask;
-                int bits = 0;
-                while (m) { bits += (m & 1); m >>= 1; }
-                file << "/" << bits;
-            }
+            if (r.dst_ip_mask != 0xFFFFFFFF)
+                file << "/" << count_mask_bits(r.dst_ip_mask);
             file << " ";
         }
 
@@ -200,12 +198,7 @@ void ConfigParser::parse_ip_cidr(const std::string& s, uint32_t &ip, uint32_t &m
     if (slash != std::string::npos) {
         int bits = std::stoi(s.substr(slash + 1));
         if (bits < 0 || bits > 32) throw std::out_of_range("invalid CIDR");
-        if (bits == 0) mask = 0;
-        else mask = ~((1ULL << (32 - bits)) - 1);
-        // Ensure network byte order if necessary, but string_to_ip4 already returns host byte order in this project? No, usually it's network. Wait, string_to_ip4 uses inet_addr which is network byte order.
-        // Let's assume the project handles byte order elsewhere or we convert mask to network byte order.
-        // Looking at rule_engine.cpp: `uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;` -> implies host byte order!
-        // We will keep mask in host byte order.
+        mask = (bits == 0) ? 0 : ~((1ULL << (32 - bits)) - 1);
     } else {
         mask = 0xFFFFFFFF; // /32
     }

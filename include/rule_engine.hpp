@@ -228,10 +228,6 @@ namespace fw {
 
         TrafficShaper traffic_shaper_;
 
-        // DPI Engine for deep inspection
-        DpiEngine dpi_engine_;
-        Rule dpi_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "DPI: Threat signature match", 0};
-        
         static constexpr uint32_t MAX_PACKETS_PER_SEC = 1000;
         static constexpr std::chrono::seconds BAN_DURATION{300}; // 5 minutes
 

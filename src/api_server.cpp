@@ -95,14 +95,31 @@ void ApiServer::stop() {
 // ── Route setup ───────────────────────────────────────────────
 
 void ApiServer::setup_routes() {
-  // CORS headers for all responses
+  // CORS headers applied to every response.
   auto cors = [](httplib::Response &res) {
     res.set_header("Access-Control-Allow-Origin", "*");
     res.set_header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
     res.set_header("Access-Control-Allow-Headers", "Content-Type");
   };
 
-  // Preflight and Authorization middleware
+  // Convenience wrappers: apply cors + set JSON content in one line.
+  auto get = [&](const char* path, auto handler) {
+    server_->Get(path, [this, cors, handler](const httplib::Request& req, httplib::Response& res) {
+      cors(res); res.set_content(handler(req), "application/json");
+    });
+  };
+  auto post = [&](const char* path, auto handler) {
+    server_->Post(path, [this, cors, handler](const httplib::Request& req, httplib::Response& res) {
+      cors(res); res.set_content(handler(req), "application/json");
+    });
+  };
+  auto del = [&](const char* path, auto handler) {
+    server_->Delete(path, [this, cors, handler](const httplib::Request& req, httplib::Response& res) {
+      cors(res); res.set_content(handler(req), "application/json");
+    });
+  };
+
+  // Preflight + Authorization middleware
   server_->set_pre_routing_handler([this, cors](const httplib::Request &req,
                                                 httplib::Response &res) {
     if (req.method == "OPTIONS") {
@@ -110,250 +127,95 @@ void ApiServer::setup_routes() {
       res.status = 204;
       return httplib::Server::HandlerResponse::Handled;
     }
-
     // Protect all /api/ routes EXCEPT /api/token (used for auto-auth)
     if (req.path.find("/api/") == 0 && req.path != "/api/token") {
       auto it = req.headers.find("Authorization");
       if (it == req.headers.end() || it->second != "Bearer " + api_token_) {
         cors(res);
         res.status = 401;
-        res.set_content(
-            "{\"error\":\"Unauthorized - Invalid or missing Bearer token\"}",
-            "application/json");
+        res.set_content("{\"error\":\"Unauthorized - Invalid or missing Bearer token\"}",
+                        "application/json");
         return httplib::Server::HandlerResponse::Handled;
       }
     }
     return httplib::Server::HandlerResponse::Unhandled;
   });
 
-  // ── GET /api/stats ─────────────────────────────────────────
-  server_->Get("/api/stats",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_stats(), "application/json");
-               });
+  // ── Simple no-parameter routes (GET) ───────────────────────────
+  get("/api/stats",           [this](const httplib::Request&) { return handle_stats(); });
+  get("/api/rules",           [this](const httplib::Request&) { return handle_get_rules(); });
+  get("/api/processes",       [this](const httplib::Request&) { return handle_processes(); });
+  get("/api/processes/tabs",  [this](const httplib::Request&) { return handle_browser_tabs(); });
+  get("/api/threats",         [this](const httplib::Request&) { return handle_get_threats(); });
+  get("/api/geoblocks",       [this](const httplib::Request&) { return handle_get_geoblocks(); });
+  get("/api/ratelimit",       [this](const httplib::Request&) { return handle_get_ratelimit(); });
+  get("/api/anomalies",       [this](const httplib::Request&) { return handle_anomalies(); });
+  get("/api/connections",     [this](const httplib::Request&) { return handle_connections(); });
+  get("/api/stats/history",   [this](const httplib::Request&) { return handle_stats_history(); });
+  get("/api/scans",           [this](const httplib::Request&) { return handle_get_scans(); });
+  get("/api/stealth",         [this](const httplib::Request&) { return handle_get_stealth(); });
+  get("/api/token",           [this](const httplib::Request&) {
+    return "{\"token\":\"" + api_token_ + "\"}";
+  });
 
-  // ── GET /api/packets?n=100 ─────────────────────────────────
-  server_->Get("/api/packets", [this, cors](const httplib::Request &req,
-                                            httplib::Response &res) {
+  // ── Simple body-only routes (POST / DELETE) ─────────────────────
+  post("/api/rules",       [this](const httplib::Request& r) { return handle_add_rule(r.body); });
+  post("/api/policy",      [this](const httplib::Request& r) { return handle_set_policy(r.body); });
+  post("/api/apps/block",  [this](const httplib::Request& r) { return handle_block_app(r.body); });
+  post("/api/apps/allow",  [this](const httplib::Request& r) { return handle_allow_app(r.body); });
+  post("/api/threats",     [this](const httplib::Request& r) { return handle_ban_ip(r.body); });
+  post("/api/geoblocks",   [this](const httplib::Request& r) { return handle_add_geoblock(r.body); });
+  post("/api/ratelimit",   [this](const httplib::Request& r) { return handle_set_ratelimit(r.body); });
+  post("/api/stealth",     [this](const httplib::Request& r) { return handle_set_stealth(r.body); });
+  del("/api/threats",      [this](const httplib::Request& r) { return handle_unban_ip(r.body); });
+
+  // ── Routes with query params or custom status codes ─────────────
+  server_->Get("/api/packets", [this, cors](const httplib::Request &req, httplib::Response &res) {
     cors(res);
     int n = 100;
-    if (req.has_param("n")) {
-      try {
-        n = std::stoi(req.get_param_value("n"));
-      } catch (...) {
-      }
-    }
+    if (req.has_param("n")) try { n = std::stoi(req.get_param_value("n")); } catch (...) {}
     n = std::max(1, std::min(n, 1000));
     res.set_content(handle_packets(n), "application/json");
   });
 
-  // ── GET /api/rules ─────────────────────────────────────────
-  server_->Get("/api/rules",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_get_rules(), "application/json");
-               });
-
-  // ── POST /api/rules ────────────────────────────────────────
-  server_->Post("/api/rules", [this, cors](const httplib::Request &req,
-                                           httplib::Response &res) {
-    cors(res);
-    std::string body = handle_add_rule(req.body);
-    res.set_content(body, "application/json");
-  });
-
-  // ── DELETE /api/rules/:id ──────────────────────────────────
-  server_->Delete(
-      R"(/api/rules/(\d+))",
-      [this, cors](const httplib::Request &req, httplib::Response &res) {
-        cors(res);
-        uint32_t id = std::stoul(req.matches[1].str());
-        bool ok = handle_delete_rule(id);
-        res.set_content(ok ? "{\"ok\":true}"
-                           : "{\"ok\":false,\"error\":\"not found\"}",
-                        "application/json");
-        if (!ok)
-          res.status = 404;
-      });
-
-  // ── POST /api/policy ───────────────────────────────────────
-  server_->Post("/api/policy", [this, cors](const httplib::Request &req,
-                                            httplib::Response &res) {
-    cors(res);
-    res.set_content(handle_set_policy(req.body), "application/json");
-  });
-
-  // ── GET /api/processes ───────────────────────────────────
-  server_->Get("/api/processes",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_processes(), "application/json");
-               });
-
-  // ── GET /api/processes/tabs ──────────────────────────────
-  server_->Get("/api/processes/tabs",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_browser_tabs(), "application/json");
-               });
-
-  // ── POST /api/apps/block ──────────────────────────────────
-  server_->Post("/api/apps/block", [this, cors](const httplib::Request &req,
-                                                httplib::Response &res) {
-    cors(res);
-    res.set_content(handle_block_app(req.body), "application/json");
-  });
-
-  // ── POST /api/apps/allow ──────────────────────────────────
-  server_->Post("/api/apps/allow", [this, cors](const httplib::Request &req,
-                                                httplib::Response &res) {
-    cors(res);
-    res.set_content(handle_allow_app(req.body), "application/json");
-  });
-
-  // ── GET /api/token — self-service token for dashboard auto-auth ──────────
-  server_->Get("/api/token", [this, cors](const httplib::Request &,
-                                          httplib::Response &res) {
-    cors(res);
-    res.set_content("{\"token\":\"" + api_token_ + "\"}", "application/json");
-  });
-
-  // ── GET /api/threats ─────────────────────────────────────
-  server_->Get("/api/threats",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_get_threats(), "application/json");
-               });
-
-  // ── POST /api/threats (body: {"ip":"1.2.3.4", "reason":"manual"}) ──
-  server_->Post("/api/threats",
-                  [this, cors](const httplib::Request &req,
-                               httplib::Response &res) {
-                    cors(res);
-                    res.set_content(handle_ban_ip(req.body),
-                                    "application/json");
-                  });
-
-  // ── DELETE /api/threats (body: {"ip":"1.2.3.4"}) ──────────
-  server_->Delete("/api/threats",
-                  [this, cors](const httplib::Request &req,
-                               httplib::Response &res) {
-                    cors(res);
-                    res.set_content(handle_unban_ip(req.body),
-                                    "application/json");
-                  });
-
-  // ── GET /api/geoblocks ───────────────────────────────────
-  server_->Get("/api/geoblocks",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_get_geoblocks(), "application/json");
-               });
-
-  // ── POST /api/geoblocks ──────────────────────────────────
-  server_->Post("/api/geoblocks",
-                [this, cors](const httplib::Request &req,
-                             httplib::Response &res) {
-                  cors(res);
-                  res.set_content(handle_add_geoblock(req.body),
-                                  "application/json");
-                });
-
-  // ── DELETE /api/geoblocks/:idx ───────────────────────────
-  server_->Delete(
-      R"(/api/geoblocks/(\d+))",
-      [this, cors](const httplib::Request &req, httplib::Response &res) {
-        cors(res);
-        size_t idx = std::stoul(req.matches[1].str());
-        std::string body = handle_delete_geoblock(idx);
-        res.set_content(body, "application/json");
-        if (body.find("false") != std::string::npos)
-          res.status = 404;
-      });
-
-  // ── GET /api/ratelimit ───────────────────────────────────
-  server_->Get("/api/ratelimit",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_get_ratelimit(), "application/json");
-               });
-
-  // ── POST /api/ratelimit ──────────────────────────────────
-  server_->Post("/api/ratelimit",
-                [this, cors](const httplib::Request &req,
-                             httplib::Response &res) {
-                  cors(res);
-                  res.set_content(handle_set_ratelimit(req.body),
-                                  "application/json");
-                });
-
-  // ── GET /api/anomalies ─────────────────────────────────
-  server_->Get("/api/anomalies",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_anomalies(), "application/json");
-               });
-
-  // ── GET /api/connections ──────────────────────────────
-  server_->Get("/api/connections",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_connections(), "application/json");
-               });
-
-  // ── GET /api/ledger?n=N ──────────────────────────────
-  server_->Get("/api/ledger", [this, cors](const httplib::Request &req,
-                                           httplib::Response &res) {
+  server_->Get("/api/ledger", [this, cors](const httplib::Request &req, httplib::Response &res) {
     cors(res);
     int n = 50;
-    if (req.has_param("n")) {
-      try { n = std::stoi(req.get_param_value("n")); } catch (...) {}
-    }
+    if (req.has_param("n")) try { n = std::stoi(req.get_param_value("n")); } catch (...) {}
     n = std::max(1, std::min(n, 500));
     res.set_content(handle_ledger(n), "application/json");
   });
 
-  // ── GET /api/stats/history ───────────────────────────
-  server_->Get("/api/stats/history",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_stats_history(), "application/json");
-               });
+  server_->Delete(R"(/api/rules/(\d+))",
+    [this, cors](const httplib::Request &req, httplib::Response &res) {
+      cors(res);
+      uint32_t id = std::stoul(req.matches[1].str());
+      bool ok = handle_delete_rule(id);
+      res.set_content(ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"not found\"}",
+                      "application/json");
+      if (!ok) res.status = 404;
+    });
 
-  // ── GET /api/scans ────────────────────────────────────
-  server_->Get("/api/scans",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_get_scans(), "application/json");
-               });
+  server_->Delete(R"(/api/geoblocks/(\d+))",
+    [this, cors](const httplib::Request &req, httplib::Response &res) {
+      cors(res);
+      size_t idx = std::stoul(req.matches[1].str());
+      std::string body = handle_delete_geoblock(idx);
+      res.set_content(body, "application/json");
+      if (body.find("false") != std::string::npos) res.status = 404;
+    });
 
-  // ── GET /api/stealth ──────────────────────────────────
-  server_->Get("/api/stealth",
-               [this, cors](const httplib::Request &, httplib::Response &res) {
-                 cors(res);
-                 res.set_content(handle_get_stealth(), "application/json");
-               });
-
-  // ── POST /api/stealth ─────────────────────────────────
-  server_->Post("/api/stealth",
-                [this, cors](const httplib::Request &req, httplib::Response &res) {
-                  cors(res);
-                  res.set_content(handle_set_stealth(req.body), "application/json");
-                });
-
-  // ── Static file serving (dashboard) ────────────────────────
-  if (!dashboard_root_.empty()) {
+  // ── Static file serving (dashboard) ────────────────────────────
+  if (!dashboard_root_.empty())
     server_->set_mount_point("/", dashboard_root_);
-  }
 
-  // ── Fallback 404 ──────────────────────────────────────
-  server_->set_error_handler(
-      [cors](const httplib::Request &, httplib::Response &res) {
-        cors(res);
-        res.set_content("{\"error\":\"not found\"}", "application/json");
-      });
+  // ── Fallback 404 ───────────────────────────────────────────────
+  server_->set_error_handler([cors](const httplib::Request &, httplib::Response &res) {
+    cors(res);
+    res.set_content("{\"error\":\"not found\"}", "application/json");
+  });
 }
+
 
 // ── Handler implementations ───────────────────────────────────
 
