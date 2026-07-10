@@ -97,7 +97,7 @@ void ApiServer::stop() {
 void ApiServer::setup_routes() {
   // CORS headers applied to every response.
   auto cors = [](httplib::Response &res) {
-    res.set_header("Access-Control-Allow-Origin", "*");
+    res.set_header("Access-Control-Allow-Origin", "http://localhost:8080");
     res.set_header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
     res.set_header("Access-Control-Allow-Headers", "Content-Type");
   };
@@ -127,8 +127,8 @@ void ApiServer::setup_routes() {
       res.status = 204;
       return httplib::Server::HandlerResponse::Handled;
     }
-    // Protect all /api/ routes EXCEPT /api/token (used for auto-auth)
-    if (req.path.find("/api/") == 0 && req.path != "/api/token") {
+    // Protect all /api/ routes with Bearer token authentication
+    if (req.path.find("/api/") == 0) {
       auto it = req.headers.find("Authorization");
       if (it == req.headers.end() || it->second != "Bearer " + api_token_) {
         cors(res);
@@ -154,9 +154,8 @@ void ApiServer::setup_routes() {
   get("/api/stats/history",   [this](const httplib::Request&) { return handle_stats_history(); });
   get("/api/scans",           [this](const httplib::Request&) { return handle_get_scans(); });
   get("/api/stealth",         [this](const httplib::Request&) { return handle_get_stealth(); });
-  get("/api/token",           [this](const httplib::Request&) {
-    return "{\"token\":\"" + api_token_ + "\"}";
-  });
+  // NOTE: /api/token endpoint removed — the token is printed to stdout on startup
+  //       and saved to logs/api.token (which must NOT be committed to version control).
 
   // ── Simple body-only routes (POST / DELETE) ─────────────────────
   post("/api/rules",       [this](const httplib::Request& r) { return handle_add_rule(r.body); });

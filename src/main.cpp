@@ -25,6 +25,10 @@
 
 #ifdef _WIN32
 #include <shellapi.h>
+#else
+// POSIX headers needed by open_browser (fork, execlp, open, dup2)
+#include <unistd.h>
+#include <fcntl.h>
 #endif
 // ──────────────────────────────────────────────────────────────
 //  main.cpp  (v2 — Real Firewall + GUI  |  Windows + Linux)
@@ -75,8 +79,21 @@ static void signal_handler(int) {
     // Final fallback: system default browser
     ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 #else
-    std::string cmd = "xdg-open '" + url + "' 2>/dev/null &";
-    std::system(cmd.c_str());
+    // Use fork+execlp instead of std::system to avoid shell injection.
+    // std::system("xdg-open '"+url+"'") would allow injection if url is
+    // ever derived from user-controlled input. execlp does not invoke a shell.
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child: redirect stderr to /dev/null and exec xdg-open
+        int dev_null = open("/dev/null", O_WRONLY);
+        if (dev_null >= 0) {
+            dup2(dev_null, STDERR_FILENO);
+            close(dev_null);
+        }
+        execlp("xdg-open", "xdg-open", url.c_str(), nullptr);
+        _exit(127); // execlp failed
+    }
+    // Parent: don't wait — fire-and-forget (equivalent to the trailing &)
 #endif
 }
 

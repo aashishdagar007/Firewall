@@ -5,3 +5,5 @@ cmake-build-debug/
 cmake-build-release/
 .idea/
 *.exe
+# Runtime-generated logs and secrets — never commit these
+logs/

@@ -29,6 +29,15 @@ static int count_mask_bits(uint32_t m) {
 
 std::vector<Rule> ConfigParser::load(const std::string& path) {
     std::vector<Rule> rules;
+
+    // ── Path traversal guard ─────────────────────────────────────────────────
+    // Reject any path containing null bytes or directory traversal sequences.
+    if (path.find('\0') != std::string::npos ||
+        path.find("..") != std::string::npos) {
+        std::cerr << "[ConfigParser] Rejected unsafe path: " << path << "\n";
+        return rules;
+    }
+
     std::ifstream file(path);
     if (!file.is_open()) {
         std::cerr << "[ConfigParser] Cannot open: " << path << "\n";
@@ -60,6 +69,13 @@ std::vector<Rule> ConfigParser::load(const std::string& path) {
 }
 
 bool ConfigParser::save(const std::string &path, const std::vector<Rule> &rules) {
+    // ── Path traversal guard ─────────────────────────────────────────────────
+    if (path.find('\0') != std::string::npos ||
+        path.find("..") != std::string::npos) {
+        std::cerr << "[ConfigParser] Rejected unsafe save path: " << path << "\n";
+        return false;
+    }
+
     std::ofstream file(path);
     if (!file.is_open()) return false;
 

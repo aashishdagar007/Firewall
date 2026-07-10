@@ -12,7 +12,28 @@ if(MSVC)
     # Suppress common warnings from third-party headers (httplib)
     add_compile_options(/wd4996 /wd4267 /wd4244)
 else()
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+    # ── Hardening flags ────────────────────────────────────────────────────
+    # -fstack-protector-strong: detects stack buffer overflows at runtime.
+    # -D_FORTIFY_SOURCE=2:      enables glibc buffer-overflow checks in string/mem fns.
+    # Both are lightweight and suitable for all build types.
+    add_compile_options(-fstack-protector-strong)
+    add_compile_definitions(_FORTIFY_SOURCE=2)
+endif()
+
+# ── Sanitizer build option ─────────────────────────────────────────────────
+# Usage: cmake -DSANITIZE=ON ...
+# Builds with AddressSanitizer + UndefinedBehaviorSanitizer.
+# Run your test suite under this build to catch memory bugs and UB.
+option(SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if(SANITIZE)
+    if(MSVC)
+        message(WARNING "SANITIZE=ON is not supported on MSVC; ignoring.")
+    else()
+        message(STATUS "Sanitizers enabled: ASan + UBSan")
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
+        add_link_options(-fsanitize=address,undefined)
+    endif()
 endif()
 
 # ── Include paths ──────────────────────────────────────────────────────────
