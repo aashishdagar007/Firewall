@@ -330,8 +330,9 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
     // Override verdict if this application is explicitly administratively blocked
     // (We also have a rule engine BLOCK_PROCESS but this is a fallback for dynamic dashboard blocks)
     if (!rec.process_name.empty() && proc_mon_->is_app_blocked(rec.process_name)) {
-      result.verdict = Action::BLOCK;
-      result.matched_rule = nullptr;
+      result.verdict           = Action::BLOCK;
+      result.matched_rule_id   = 0;    // app-block override: no specific rule matched
+      result.matched_rule_desc = {};
       rec.result = result;
     }
   }
@@ -348,9 +349,9 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
   // const char *vs = (result.verdict == Action::ALLOW) ? "ALLOW" : "BLOCK";
   // std::cout << rec.timestamp << "  " << vs << "  "
   //           << PacketParser::to_string(pkt);
-  // if (result.matched_rule)
-  //   std::cout << "  [rule #" << result.matched_rule->id << ": "
-  //             << result.matched_rule->description << "]";
+  // if (result.has_matched_rule())
+  //   std::cout << "  [rule #" << result.matched_rule_id << ": "
+  //             << result.matched_rule_desc << "]";
   // else
   //   std::cout << "  [default policy]";
   // std::cout << "\n";

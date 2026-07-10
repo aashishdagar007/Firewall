@@ -18,10 +18,21 @@
 
 namespace fw {
 
-    // Result of evaluating a packet against the rule chain
+    // Result of evaluating a packet against the rule chain.
+    // NOTE: matched_rule_id == 0 and matched_rule_desc.empty() means "default
+    // policy or established connection" (equivalent to the old nullptr case).
+    // We deliberately store the rule identity by value here — NOT a raw pointer
+    // into the rules_ vector — so the result is safe to use after the
+    // shared_lock on rules_mtx_ has been released.  (A concurrent add_rule /
+    // remove_rule can reallocate the vector's backing store, invalidating any
+    // pointer taken while holding only a shared lock.)
     struct EvalResult {
-        Action      verdict;
-        const Rule* matched_rule;   // nullptr = default policy or established connection
+        Action      verdict           = Action::BLOCK;
+        uint32_t    matched_rule_id   = 0;     // 0 = no matched user rule
+        std::string matched_rule_desc;         // empty = no matched user rule
+
+        // Convenience helper so call-sites can test "did a rule match?"
+        bool has_matched_rule() const { return matched_rule_id != 0 || !matched_rule_desc.empty(); }
     };
 
     // CIDR geo-block entry

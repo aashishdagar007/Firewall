@@ -67,9 +67,9 @@ void Logger::log_verdict(const PacketInfo &pkt, const EvalResult &result) {
 
   oss << "\"size\":" << pkt.size;
 
-  if (result.matched_rule) {
-    oss << ",\"rule_id\":" << result.matched_rule->id << ",\"rule_desc\":\""
-        << escape_json(result.matched_rule->description) << "\"";
+  if (result.has_matched_rule()) {
+    oss << ",\"rule_id\":" << result.matched_rule_id << ",\"rule_desc\":\""
+        << escape_json(result.matched_rule_desc) << "\"";
   } else {
     oss << ",\"rule_id\":-1,\"rule_desc\":\"default policy\"";
   }

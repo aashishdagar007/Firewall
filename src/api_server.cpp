@@ -485,8 +485,8 @@ std::string ApiServer::rule_to_json(const Rule &r) {
 
 std::string ApiServer::record_to_json(const PacketRecord &pr) const {
   std::string rule_desc;
-  if (pr.result.matched_rule) {
-    rule_desc = escape_json(pr.result.matched_rule->description);
+  if (pr.result.has_matched_rule()) {
+    rule_desc = escape_json(pr.result.matched_rule_desc);
   } else if (pr.result.verdict == Action::BLOCK && !pr.process_name.empty() &&
              proc_mon_.is_app_blocked(pr.process_name)) {
     rule_desc = "Application Blocked";
@@ -512,7 +512,7 @@ std::string ApiServer::record_to_json(const PacketRecord &pr) const {
                                               : pr.process_display)
     << "\","
     << "\"rule_id\":"
-    << (pr.result.matched_rule ? (int)pr.result.matched_rule->id : -1) << ","
+    << (pr.result.has_matched_rule() ? (int)pr.result.matched_rule_id : -1) << ","
     << "\"rule_desc\":\"" << rule_desc << "\""
     << "}";
   return o.str();

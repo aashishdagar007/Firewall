@@ -70,20 +70,20 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   // ── Traffic Shaping (QoS) ──
   if (pkt.src_ip != 0 && !traffic_shaper_.consume(pkt.src_ip, pkt.size)) {
     qos_drop_rule_.hit_count++;
-    return {Action::BLOCK, &qos_drop_rule_};
+    return {Action::BLOCK, qos_drop_rule_.id, qos_drop_rule_.description};
   }
 
   // Layer 3: Land attack (src IP == dst IP)
   if (pkt.src_ip != 0 && pkt.src_ip == pkt.dst_ip) {
     anomaly_land_.hit_count++;
-    return {Action::BLOCK, &anomaly_land_};
+    return {Action::BLOCK, anomaly_land_.id, anomaly_land_.description};
   }
 
   // Layer 3: Invalid TTL
   if (pkt.ttl > 0 &&
       pkt.ttl < 5) { // ttl is 0 if not extracted correctly, so only check > 0
     anomaly_ttl_.hit_count++;
-    return {Action::BLOCK, &anomaly_ttl_};
+    return {Action::BLOCK, anomaly_ttl_.id, anomaly_ttl_.description};
   }
 
   // Layer 3: Strict Bogon Check (Unroutable and Multicast only)
@@ -98,7 +98,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
 
     if (is_bogon) {
       anomaly_bogon_.hit_count++;
-      return {Action::BLOCK, &anomaly_bogon_};
+      return {Action::BLOCK, anomaly_bogon_.id, anomaly_bogon_.description};
     }
   }
 
@@ -108,14 +108,14 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       std::lock_guard<std::mutex> lock(state_mtx_);
       threat_rule_.description = "Geo-Block: CIDR range blocked";
       threat_rule_.hit_count++;
-      return {Action::BLOCK, &threat_rule_};
+      return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
     }
   }
 
   // Layer 3: Fragment Validation (Strict drop for unreassembled fragments)
   if (pkt.is_frag_offset || pkt.has_more_frags) {
     anomaly_frag_.hit_count++;
-    return {Action::BLOCK, &anomaly_frag_};
+    return {Action::BLOCK, anomaly_frag_.id, anomaly_frag_.description};
   }
 
   // Layer 4: ICMP Validation (Echo Reply/Req, Dest-Unreach, Time-Exceeded only)
@@ -127,7 +127,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         (pkt.icmp_type == 11 && pkt.icmp_code <= 1);           // Time Exceeded
     if (!valid) {
       anomaly_icmp_.hit_count++;
-      return {Action::BLOCK, &anomaly_icmp_};
+      return {Action::BLOCK, anomaly_icmp_.id, anomaly_icmp_.description};
     }
   }
 
@@ -136,39 +136,39 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     // NULL scan
     if (pkt.tcp_flags == 0) {
       anomaly_tcp_null_.hit_count++;
-      return {Action::BLOCK, &anomaly_tcp_null_};
+      return {Action::BLOCK, anomaly_tcp_null_.id, anomaly_tcp_null_.description};
     }
     // FIN scan
     if ((pkt.tcp_flags & TCP_FIN) && !(pkt.tcp_flags & TCP_ACK)) {
       anomaly_tcp_fin_.hit_count++;
-      return {Action::BLOCK, &anomaly_tcp_fin_};
+      return {Action::BLOCK, anomaly_tcp_fin_.id, anomaly_tcp_fin_.description};
     }
     // XMAS scan
     if ((pkt.tcp_flags & (TCP_FIN | TCP_PSH | TCP_URG)) ==
         (TCP_FIN | TCP_PSH | TCP_URG)) {
       anomaly_tcp_xmas_.hit_count++;
-      return {Action::BLOCK, &anomaly_tcp_xmas_};
+      return {Action::BLOCK, anomaly_tcp_xmas_.id, anomaly_tcp_xmas_.description};
     }
     // SYN-FIN combination
     if ((pkt.tcp_flags & (TCP_SYN | TCP_FIN)) == (TCP_SYN | TCP_FIN)) {
       anomaly_tcp_synfin_.hit_count++;
-      return {Action::BLOCK, &anomaly_tcp_synfin_};
+      return {Action::BLOCK, anomaly_tcp_synfin_.id, anomaly_tcp_synfin_.description};
     }
     // SYN-RST combination
     if ((pkt.tcp_flags & (TCP_SYN | TCP_RST)) == (TCP_SYN | TCP_RST)) {
       anomaly_tcp_synrst_.hit_count++;
-      return {Action::BLOCK, &anomaly_tcp_synrst_};
+      return {Action::BLOCK, anomaly_tcp_synrst_.id, anomaly_tcp_synrst_.description};
     }
     // Strict SYN: Should not have PSH or URG
     if ((pkt.tcp_flags & TCP_SYN) && (pkt.tcp_flags & (TCP_PSH | TCP_URG))) {
       anomaly_tcp_syn_flags_.hit_count++;
-      return {Action::BLOCK, &anomaly_tcp_syn_flags_};
+      return {Action::BLOCK, anomaly_tcp_syn_flags_.id, anomaly_tcp_syn_flags_.description};
     }
     // Strict SYN: Should not contain payload data (mitigates SYN floods with
     // data)
     if ((pkt.tcp_flags & TCP_SYN) && pkt.payload_len > 0) {
       anomaly_tcp_syn_data_.hit_count++;
-      return {Action::BLOCK, &anomaly_tcp_syn_data_};
+      return {Action::BLOCK, anomaly_tcp_syn_data_.id, anomaly_tcp_syn_data_.description};
     }
   }
 
@@ -176,7 +176,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   if (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP) {
     if (pkt.src_port == 0 || pkt.dst_port == 0) {
       anomaly_port_zero_.hit_count++;
-      return {Action::BLOCK, &anomaly_port_zero_};
+      return {Action::BLOCK, anomaly_port_zero_.id, anomaly_port_zero_.description};
     }
   }
 
@@ -184,7 +184,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   if (pkt.proto == Proto::UDP) {
     if (pkt.dst_port == 53 && pkt.size > 4096) {
       anomaly_udp_dns_.hit_count++;
-      return {Action::BLOCK, &anomaly_udp_dns_};
+      return {Action::BLOCK, anomaly_udp_dns_.id, anomaly_udp_dns_.description};
     }
   }
 
@@ -195,7 +195,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     std::lock_guard<std::mutex> lock(state_mtx_);
     dpi_rule_.description = dpi_threat_name;
     dpi_rule_.hit_count++;
-    return {Action::BLOCK, &dpi_rule_};
+    return {Action::BLOCK, dpi_rule_.id, dpi_threat_name};
   }
 
   // 1. Connection Tracking (Stateful Inspection)
@@ -221,7 +221,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       if (is_tcp) {
         if (tcp_fin_rst) {
           state_table_.erase(it);
-          return {Action::ALLOW, nullptr};
+          return {Action::ALLOW, 0, {}};
         }
         if (is_originator) {
           // TCP Sequence Window Validation (Session Hijacking check)
@@ -229,7 +229,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
               static_cast<int32_t>(pkt.tcp_seq - state.expected_seq);
           if (seq_diff < -131072 || seq_diff > 131072) {
             hijack_rule_.hit_count++;
-            return {Action::BLOCK, &hijack_rule_};
+            return {Action::BLOCK, hijack_rule_.id, hijack_rule_.description};
           }
           state.expected_seq = pkt.tcp_seq + pkt.size; // approximation
         } else {
@@ -242,7 +242,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
             if (state.state == FlowState::ESTABLISHED &&
                 (seq_diff < -131072 || seq_diff > 131072)) {
               hijack_rule_.hit_count++;
-              return {Action::BLOCK, &hijack_rule_};
+              return {Action::BLOCK, hijack_rule_.id, hijack_rule_.description};
             }
             state.expected_ack = pkt.tcp_seq + pkt.size;
           }
@@ -261,7 +261,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       else
         state.bytes_in += pkt.payload_len;
 
-      return {Action::ALLOW, nullptr};
+      return {Action::ALLOW, 0, {}};
     }
 
     // --- INVALID State Check ---
@@ -270,7 +270,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       // Bare ACK or other non-SYN packets with no matching flow are INVALID.
       // This drops state-exhaustion probes.
       invalid_rule_.hit_count++;
-      return {Action::BLOCK, &invalid_rule_};
+      return {Action::BLOCK, invalid_rule_.id, invalid_rule_.description};
     }
   }
 
@@ -297,7 +297,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         tstate.window_start = now;
       } else {
         threat_rule_.hit_count++;
-        return {Action::BLOCK, &threat_rule_};
+        return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
       }
     }
 
@@ -320,7 +320,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         threat_rule_.description =
             "Threat Detected: Rate Limit Exceeded (Auto-Ban)";
         threat_rule_.hit_count++;
-        return {Action::BLOCK, &threat_rule_};
+        return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
       }
 
       // SYN Flood / Port Scan protection
@@ -336,7 +336,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
                 ? "Threat Detected: SYN Flood (Permanent Ban Escalate)"
                 : "Threat Detected: SYN Flood / Port Scan (Auto-Ban)";
         threat_rule_.hit_count++;
-        return {Action::BLOCK, &threat_rule_};
+        return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
       }
 
       // UDP Flood protection (excluding DNS and QUIC)
@@ -345,7 +345,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         tstate.ban_count++;
         tstate.ban_expires = now + std::chrono::seconds(120);
         anomaly_udp_flood_.hit_count++;
-        return {Action::BLOCK, &anomaly_udp_flood_};
+        return {Action::BLOCK, anomaly_udp_flood_.id, anomaly_udp_flood_.description};
       }
 
       // ICMP (Ping) Flood / Smurf protection
@@ -354,7 +354,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         tstate.ban_count++;
         tstate.ban_expires = now + std::chrono::seconds(300);
         anomaly_icmp_flood_.hit_count++;
-        return {Action::BLOCK, &anomaly_icmp_flood_};
+        return {Action::BLOCK, anomaly_icmp_flood_.id, anomaly_icmp_flood_.description};
       }
     }
 
@@ -362,7 +362,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     if (pkt.dst_port == 445 || pkt.dst_port == 135 || pkt.dst_port == 23) {
       threat_rule_.description = "Threat Detected: Probing Vulnerable Port";
       threat_rule_.hit_count++;
-      return {Action::BLOCK, &threat_rule_};
+      return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
     }
   }
 
@@ -373,13 +373,14 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     std::shared_lock<std::shared_mutex> clock(cache_mtx_);
     auto cit = eval_cache_.find(canonical_key);
     if (cit != eval_cache_.end()) {
-      // NOTE: We don't have the matched Rule* anymore, but we have the Action.
-      return {cit->second, nullptr};
+      // Cache stores only the verdict action; no rule metadata is cached.
+      return {cit->second, 0, {}};
     }
   }
 
-  Action final_action = default_policy_;
-  const Rule* matched_ptr = nullptr;
+  Action   final_action  = default_policy_;
+  uint32_t matched_id    = 0;    // copied from matched rule while lock is held
+  std::string matched_desc;      // copied from matched rule while lock is held
 
   {
     std::shared_lock<std::shared_mutex> rule_lock(rules_mtx_);
@@ -422,8 +423,14 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       auto range = port_index_.equal_range(pkt.dst_port);
       for (auto it = range.first; it != range.second; ++it) {
         if (try_rule(it->second)) {
-          matched_ptr = &rules_[it->second];
-          final_action = matched_ptr->action;
+          // Copy id and description while still holding the shared lock on
+          // rules_mtx_. This is the key fix: we must NOT store a raw pointer
+          // into rules_ because add_rule/remove_rule (which write-lock
+          // rules_mtx_) can reallocate the vector's backing array.
+          const auto& matched = rules_[it->second];
+          final_action  = matched.action;
+          matched_id    = matched.id;
+          matched_desc  = matched.description;
           found = true;
           break;
         }
@@ -434,8 +441,11 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       // Then check wildcard (dst_port == 0) rules in order
       for (size_t idx : wildcard_rule_indices_) {
         if (try_rule(idx)) {
-          matched_ptr = &rules_[idx];
-          final_action = matched_ptr->action;
+          // Same fix: copy by value while the shared lock is still held.
+          const auto& matched = rules_[idx];
+          final_action  = matched.action;
+          matched_id    = matched.id;
+          matched_desc  = matched.description;
           found = true;
           break;
         }
@@ -450,7 +460,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     eval_cache_[canonical_key] = final_action;
   }
 
-  auto default_result = EvalResult{final_action, matched_ptr};
+  auto default_result = EvalResult{final_action, matched_id, std::move(matched_desc)};
 
   // ── Port Scan Detection (runs for every packet regardless of verdict) ─
   // We pass the packet through the detector AFTER the main evaluation so
