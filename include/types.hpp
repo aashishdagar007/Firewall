@@ -80,6 +80,12 @@ struct PacketInfo {
 
   bool is_ipv6 = false;     // Set by capture layer for IPv6 packets (groundwork)
   std::string process_name; // Looked up via ProcessMonitor before evaluation
+  
+  // Phase 2 XDR
+  uint32_t pid = 0;
+  uint32_t ppid = 0;
+  std::string image_hash;
+  std::string command_line;
 
   // Raw payload for DPI
   const uint8_t *payload_ptr = nullptr;

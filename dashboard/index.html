@@ -1614,19 +1614,28 @@
         container.innerHTML = '';
         if (!entries.length) { container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:24px;">No ledger entries yet</div>'; return; }
         [...entries].reverse().forEach(e => {
-          const ev = (e.event || '').toLowerCase();
+          const ev = String(e.event || e.data || '').toLowerCase();
           let cls = 'rule';
           if (ev.includes('start')) cls='start';
           else if (ev.includes('stop')) cls='stop';
           else if (ev.includes('ban') || ev.includes('threat')) cls='ban';
           else if (ev.includes('bvudp') || ev.includes('batch')) cls='bvudp';
+          
+          let timeStr = '';
+          let tsVal = e.ts || e.timestamp;
+          if (typeof tsVal === 'number') timeStr = new Date(tsVal).toISOString().replace('T', ' ').substring(0, 19);
+          else timeStr = String(tsVal || '').substring(0, 19);
+
+          let detailText = e.detail || e.data || {};
+          if (typeof detailText === 'object') detailText = JSON.stringify(detailText);
+
           const div = document.createElement('div');
           div.className = 'ledger-entry '+cls;
           div.innerHTML = `
-            <span class="ledger-time">${(e.ts||e.timestamp||'').substring(0,19)}</span>
+            <span class="ledger-time">${timeStr}</span>
             <span class="ledger-event">${e.event||e.type||'EVENT'}</span>
-            <span class="ledger-detail">${JSON.stringify(e.detail||e.data||{})}</span>
-            <span class="ledger-hash">#${(e.hash||'').substring(0,10)}</span>
+            <span class="ledger-detail">${detailText}</span>
+            <span class="ledger-hash">#${String(e.hash||'').substring(0,10)}</span>
           `;
           container.appendChild(div);
         });

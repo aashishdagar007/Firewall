@@ -23,8 +23,11 @@ namespace fw {
 // Information about one running process that has network activity
 struct ProcessNetInfo {
   uint32_t pid = 0;
+  uint32_t ppid = 0;
   std::string exe_name;     // "chrome.exe"
   std::string display_name; // "Google Chrome"
+  std::string image_hash;
+  std::string command_line;
   uint64_t bytes_rx = 0;    // updated by NfqCapture per packet
   uint64_t bytes_tx = 0;
   uint32_t pkt_count = 0;
@@ -35,9 +38,11 @@ struct ProcessNetInfo {
   std::vector<uint16_t> udp_ports;
 };
 
+class LocalGraphStore;
+
 class ProcessMonitor {
 public:
-  ProcessMonitor();
+  ProcessMonitor(LocalGraphStore* graph_store = nullptr);
   ~ProcessMonitor();
 
   void start(); // begin background refresh thread (every 2s)
@@ -88,6 +93,8 @@ private:
   std::unordered_map<uint32_t, ProcessNetInfo> procs_;
 
   std::unordered_set<std::string> blocked_apps_;
+
+  LocalGraphStore* graph_store_ = nullptr;
 
   std::thread thread_;
   std::atomic<bool> running_{false};

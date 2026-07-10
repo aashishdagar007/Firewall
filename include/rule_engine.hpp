@@ -225,6 +225,7 @@ namespace fw {
         Rule threat_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "Threat: Geo-Block or Blacklist Hit", 0};
         Rule hijack_rule_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Anomaly: TCP Session Hijacking Attempt", 0};
         Rule qos_drop_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "QoS: Traffic Shaping Drop (Bandwidth Exceeded)", 0};
+        Rule dpi_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "DPI: Blocked by Deep Packet Inspection", 0};
 
         TrafficShaper traffic_shaper_;
 

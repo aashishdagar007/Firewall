@@ -34,6 +34,8 @@ set(SOURCES
     src/vpn_manager.cpp
     src/traffic_shaper.cpp
     src/updater.cpp
+    src/correlation_engine.cpp
+    src/local_graph_store.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -48,6 +50,18 @@ endif()
 # ── Threads ────────────────────────────────────────────────────────────────
 find_package(Threads REQUIRED)
 target_link_libraries(firewall PRIVATE Threads::Threads)
+
+# ── SQLite3 ────────────────────────────────────────────────────────────────
+include(FetchContent)
+FetchContent_Declare(
+    sqlite3
+    GIT_REPOSITORY https://github.com/azadkuh/sqlite-amalgamation.git
+    GIT_TAG        master
+)
+FetchContent_MakeAvailable(sqlite3)
+include_directories(${sqlite3_SOURCE_DIR})
+target_link_libraries(firewall PRIVATE SQLite3)
+
 
 # ── OpenSSL (Optional for HTTPS API Server) ────────────────────────────────
 find_package(OpenSSL)

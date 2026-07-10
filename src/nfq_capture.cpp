@@ -1,6 +1,8 @@
 #include "nfq_capture.hpp"
 #include "packet.hpp"
 #include "platform.hpp"
+#include "correlation_engine.hpp"
+#include "local_graph_store.hpp"
 
 #ifdef _WIN32
 #include "win_packet.hpp"
@@ -41,9 +43,11 @@ static constexpr int BUFSIZE = 65535;
 NfqCapture::NfqCapture(RuleEngine& engine, LiveStats& stats,
                        RingBuffer<PacketRecord>& ring,
                        ProcessMonitor* proc_mon,
+                       CorrelationEngine* correlation,
+                       LocalGraphStore* graph_store,
                        int queue_num)
     : engine_(engine), stats_(stats), ring_(ring),
-      proc_mon_(proc_mon), queue_num_(queue_num) {}
+      proc_mon_(proc_mon), correlation_(correlation), graph_store_(graph_store), queue_num_(queue_num) {}
 
 NfqCapture::~NfqCapture() {
   stop();
@@ -333,6 +337,12 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
   }
 
   ring_.push(rec);
+
+  if (correlation_) correlation_->push_network_event(rec);
+  if (graph_store_) graph_store_->log_connection(rec);
+  if (callback_) {
+      callback_(rec);
+  }
 
   // ── Stdout logging (Disabled for performance) ────────────────
   // const char *vs = (result.verdict == Action::ALLOW) ? "ALLOW" : "BLOCK";

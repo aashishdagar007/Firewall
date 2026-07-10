@@ -6,12 +6,16 @@
 #include "api_server.hpp"
 #include "ring_buffer.hpp"
 #include "process_monitor.hpp"
+#include "local_graph_store.hpp"
+#include "correlation_engine.hpp"
 // ── Phase 2: Four Pillars ─────────────────────────────────────
 #include "sha256.hpp"          // Pillar 2+4: cryptographic primitive
 #include "bvudp.hpp"           // Pillar 2:   Batch-Verified UDP protocol
 #include "port_demux.hpp"      // Pillar 1:   DPI port demultiplexer
 #include "chain_ledger.hpp"    // Pillar 4:   tamper-proof event ledger
 #include "control_plane.hpp"   // Pillar 3:   cloud control plane client
+#include "local_graph_store.hpp"
+#include "correlation_engine.hpp"
 #include <csignal>
 #include <atomic>
 #include <thread>
@@ -185,10 +189,23 @@ int main(int argc, char* argv[]) {
     control_plane.start();
     logger.log(fw::LogLevel::LOG_INFO, "[Pillar 3] Control plane started");
 
+    // ── XDR: Local Graph Store ────────────────────────────────
+    fw::LocalGraphStore graph_store("logs/xdr_graph.db");
+    if (graph_store.open()) {
+        logger.log(fw::LogLevel::LOG_INFO, "LocalGraphStore opened at logs/xdr_graph.db");
+    } else {
+        logger.log(fw::LogLevel::LOG_ERROR, "Failed to open LocalGraphStore");
+    }
+
     // ── 4. Start process monitor ──────────────────────────────
-    fw::ProcessMonitor proc_mon;
+    fw::ProcessMonitor proc_mon(&graph_store);
     proc_mon.start();
     logger.log(fw::LogLevel::LOG_INFO, "ProcessMonitor started (port->PID->process mapping active)");
+
+    // ── XDR: Correlation Engine ────────────────────────────────
+    fw::CorrelationEngine correlation(engine, proc_mon);
+    correlation.start();
+    logger.log(fw::LogLevel::LOG_INFO, "CorrelationEngine started");
 
     // ── 5. Start API server ──────────────────────────────────
     fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port);
@@ -212,8 +229,22 @@ int main(int argc, char* argv[]) {
     });
 
     // ── 6. Open packet capture ─────────────────────────────────
-    fw::NfqCapture capture(engine, stats, ring, &proc_mon);
+    fw::NfqCapture capture(engine, stats, ring, &proc_mon, &correlation, &graph_store);
     g_capture = &capture;
+
+    capture.set_callback([&](const fw::PacketRecord& rec) {
+        if (rec.pid != 0) {
+            auto snapshot = proc_mon.snapshot();
+            for (const auto& info : snapshot) {
+                if (info.pid == rec.pid) {
+                    graph_store.log_process(info);
+                    break;
+                }
+            }
+        }
+        graph_store.log_connection(rec);
+        correlation.push_network_event(rec);
+    });
 
     std::signal(SIGINT,  signal_handler);
     std::signal(SIGTERM, signal_handler);
@@ -241,10 +272,13 @@ int main(int argc, char* argv[]) {
     // ── 8. Shutdown ───────────────────────────────────────────
     api.stop();
     proc_mon.stop();
+    correlation.stop();
     conntrack_running = false;
     if (conntrack_thread.joinable()) conntrack_thread.join();
 
     // Phase 2 shutdown (order: control plane → demux → bvudp → ledger)
+    correlation.stop();
+    graph_store.close();
     control_plane.stop();
     demux.stop();
     bvudp_rx.stop();

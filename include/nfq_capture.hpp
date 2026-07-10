@@ -25,6 +25,9 @@ struct nfq_data;
 
 namespace fw {
 
+class CorrelationEngine;
+class LocalGraphStore;
+
 // ── Extended packet record (stored in the ring buffer) ────────
 struct PacketRecord {
     PacketInfo  info;
@@ -59,6 +62,8 @@ public:
                         LiveStats&         stats,
                         RingBuffer<PacketRecord>& ring,
                         ProcessMonitor*    proc_mon = nullptr,
+                        CorrelationEngine* correlation = nullptr,
+                        LocalGraphStore*   graph_store = nullptr,
                         int                queue_num = 0);
     ~NfqCapture();
 
@@ -73,11 +78,16 @@ public:
 
     bool is_nfq_mode() const { return nfq_mode_; }
 
+    void set_callback(PacketCallback cb) { callback_ = std::move(cb); }
+
 private:
+    PacketCallback callback_;
     RuleEngine&              engine_;
     LiveStats&               stats_;
     RingBuffer<PacketRecord>& ring_;
     ProcessMonitor*          proc_mon_  = nullptr; // optional — may be null
+    CorrelationEngine*       correlation_ = nullptr;
+    LocalGraphStore*         graph_store_ = nullptr;
     int                      queue_num_;
 
     // ── Linux NFQ handles ──────────────────────────────────────
