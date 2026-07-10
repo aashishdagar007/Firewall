@@ -4,6 +4,26 @@ build/
 cmake-build-debug/
 cmake-build-release/
 .idea/
-*.exe
+
 # Runtime-generated logs and secrets — never commit these
 logs/
+
+# Compiled binaries and debug symbols
+*.exe
+*.dll
+*.pdb
+*.lib
+*.a
+*.o
+
+# Scratch / build-output text files committed by mistake
+err.txt
+build_errors.txt
+build_errors_new.txt
+dashboard/test.txt
+license.txt.txt
+readme_before.txt.txt
+readme_after.txt.txt
+
+# Website installer binaries
+Website/*.exe

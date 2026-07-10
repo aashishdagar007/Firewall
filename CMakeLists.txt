@@ -8,8 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ── Compiler warnings ──────────────────────────────────────────────────────
 if(MSVC)
-    add_compile_options(/W4 /WX- /utf-8 /permissive-)
-    # Suppress common warnings from third-party headers (httplib)
+    # /WX  = warnings as errors (matches -Werror on GCC/Clang)
+    # /W4  = highest practical warning level
+    # /wd* = suppress specific warnings that fire in third-party headers only
+    add_compile_options(/W4 /WX /utf-8 /permissive-)
+    # Suppress noisy warnings from cpp-httplib and other vendored headers
     add_compile_options(/wd4996 /wd4267 /wd4244)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Werror)
