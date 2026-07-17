@@ -25,28 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Terminal Simulator Logic
-    const termPkts = document.getElementById('term-pkts');
-    const termThreats = document.getElementById('term-threats');
+    // Bento Card Mouse Glow Tracking Effect
+    const bentoCards = document.querySelectorAll('.bento-card');
     
-    if (termPkts && termThreats) {
-        let pkts = 84920;
-        let threats = 42;
-
-        setInterval(() => {
-            // Randomly increase packets
-            pkts += Math.floor(Math.random() * 500) + 100;
-            termPkts.textContent = pkts.toLocaleString();
+    bentoCards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            // Calculate mouse position relative to the card
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
             
-            // Occasionally find a threat
-            if (Math.random() > 0.8) {
-                threats += 1;
-                termThreats.textContent = threats.toLocaleString();
-                
-                // Add alert class temporarily
-                termThreats.classList.add('alert');
-                setTimeout(() => termThreats.classList.remove('alert'), 500);
-            }
-        }, 1000);
-    }
+            // Set CSS variables for the pseudo-element glow
+            card.style.setProperty('--mouse-x', `${x}px`);
+            card.style.setProperty('--mouse-y', `${y}px`);
+        });
+    });
 });
