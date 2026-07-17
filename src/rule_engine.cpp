@@ -358,9 +358,118 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       }
     }
 
-    // Suspicious Ports Check (Known malware/vulnerability ports)
+    // ── Enhanced Suspicious Port Checks ──────────────────────────────────
+
+    // SMB/Windows legacy attack surface (EternalBlue, WannaCry, ransomware)
     if (pkt.dst_port == 445 || pkt.dst_port == 135 || pkt.dst_port == 23) {
-      threat_rule_.description = "Threat Detected: Probing Vulnerable Port";
+      threat_rule_.description = "Threat Detected: Probing Vulnerable Port (SMB/RPC/Telnet)";
+      threat_rule_.hit_count.fetch_add(1, std::memory_order_relaxed);
+      return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
+    }
+
+    // DNS Zone Transfer (threat 21): TCP port 53 from external source
+    // Legitimate DNS uses UDP/53; TCP/53 is only for zone transfers.
+    if (pkt.proto == Proto::TCP && pkt.dst_port == 53) {
+      anomaly_dns_zone_xfer_.hit_count.fetch_add(1, std::memory_order_relaxed);
+      return {Action::BLOCK, anomaly_dns_zone_xfer_.id, anomaly_dns_zone_xfer_.description};
+    }
+
+    // SNMP Enumeration (threat 22): Block inbound UDP 161/162
+    // SNMP carries device configuration and MIB trees — prime recon target.
+    if (pkt.proto == Proto::UDP &&
+        (pkt.dst_port == 161 || pkt.dst_port == 162)) {
+      anomaly_snmp_enum_.hit_count.fetch_add(1, std::memory_order_relaxed);
+      return {Action::BLOCK, anomaly_snmp_enum_.id, anomaly_snmp_enum_.description};
+    }
+
+    // NetBIOS Enumeration (threat 23): Block TCP/UDP 137-139 from non-RFC1918 sources
+    if ((pkt.dst_port >= 137 && pkt.dst_port <= 139)) {
+      // Allow from RFC1918 private ranges: 10.x, 172.16-31.x, 192.168.x
+      uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;
+      uint8_t b2 = (pkt.src_ip >> 16) & 0xFF;
+      bool is_rfc1918 = (b1 == 10) ||
+                        (b1 == 172 && b2 >= 16 && b2 <= 31) ||
+                        (b1 == 192 && b2 == 168);
+      if (!is_rfc1918) {
+        anomaly_netbios_.hit_count.fetch_add(1, std::memory_order_relaxed);
+        return {Action::BLOCK, anomaly_netbios_.id, anomaly_netbios_.description};
+      }
+    }
+
+    // LDAP Enumeration (threat 41 — BloodHound, AD recon):
+    // Block external access to LDAP/LDAPS/Global Catalog ports.
+    if (pkt.proto == Proto::TCP &&
+        (pkt.dst_port == 389  || pkt.dst_port == 636 ||
+         pkt.dst_port == 3268 || pkt.dst_port == 3269)) {
+      uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;
+      uint8_t b2 = (pkt.src_ip >> 16) & 0xFF;
+      bool is_rfc1918 = (b1 == 10) ||
+                        (b1 == 172 && b2 >= 16 && b2 <= 31) ||
+                        (b1 == 192 && b2 == 168) ||
+                        (b1 == 127);
+      if (!is_rfc1918) {
+        anomaly_ldap_enum_.hit_count.fetch_add(1, std::memory_order_relaxed);
+        return {Action::BLOCK, anomaly_ldap_enum_.id, anomaly_ldap_enum_.description};
+      }
+    }
+
+    // RDP (threat 28-class remote exploitation): Block TCP 3389 from all external
+    if (pkt.proto == Proto::TCP && pkt.dst_port == 3389) {
+      threat_rule_.description = "Threat Detected: RDP Access Blocked (External)";
+      threat_rule_.hit_count.fetch_add(1, std::memory_order_relaxed);
+      return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
+    }
+
+    // WinRM (lateral movement vector — threat 38-41)
+    if (pkt.proto == Proto::TCP &&
+        (pkt.dst_port == 5985 || pkt.dst_port == 5986)) {
+      threat_rule_.description = "Threat Detected: WinRM Port Blocked (Lateral Movement Vector)";
+      threat_rule_.hit_count.fetch_add(1, std::memory_order_relaxed);
+      return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
+    }
+
+    // Known C2 / backdoor ports (threats 38-41)
+    constexpr uint16_t known_c2_ports[] = {
+      4444,  // Metasploit default
+      4445,  // Metasploit alt
+      1337,  // leet C2
+      31337, // Back Orifice / elite
+      9001,  // Tor OR port
+      9050,  // Tor SOCKS
+      9051,  // Tor control port
+      6667,  // IRC C2
+      6697,  // IRC SSL C2
+      4899,  // Radmin backdoor
+      5900,  // VNC (unauthorized remote)
+      5800,  // VNC HTTP
+      8888,  // RTL-SDR web / Jupyter
+    };
+    for (uint16_t c2p : known_c2_ports) {
+      if (pkt.dst_port == c2p || pkt.src_port == c2p) {
+        threat_rule_.description = "Threat Detected: Known C2/Backdoor Port (" +
+                                   std::to_string(c2p) + ")";
+        threat_rule_.hit_count.fetch_add(1, std::memory_order_relaxed);
+        return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
+      }
+    }
+
+    // UPnP SSDP (IoT device discovery / exploitation — threat IoT/43)
+    if (pkt.proto == Proto::UDP && pkt.dst_port == 1900) {
+      threat_rule_.description = "Threat Detected: UPnP SSDP Discovery Blocked";
+      threat_rule_.hit_count.fetch_add(1, std::memory_order_relaxed);
+      return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
+    }
+
+    // LLMNR (Link-Local Multicast Name Resolution — credential theft vector)
+    if (pkt.proto == Proto::UDP && pkt.dst_port == 5355) {
+      threat_rule_.description = "Threat Detected: LLMNR Query Blocked (Credential Theft Vector)";
+      threat_rule_.hit_count.fetch_add(1, std::memory_order_relaxed);
+      return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
+    }
+
+    // mDNS (device discovery — threat 10, 12)
+    if (pkt.proto == Proto::UDP && pkt.dst_port == 5353) {
+      threat_rule_.description = "Threat Detected: mDNS Discovery Blocked";
       threat_rule_.hit_count.fetch_add(1, std::memory_order_relaxed);
       return {Action::BLOCK, threat_rule_.id, threat_rule_.description};
     }
@@ -803,8 +912,14 @@ std::vector<AnomalySnapshot> RuleEngine::get_anomaly_snapshot() const {
     { dpi_rule_.description,           static_cast<uint32_t>(dpi_rule_.hit_count)           },
     { threat_rule_.description,        static_cast<uint32_t>(threat_rule_.hit_count)        },
     { qos_drop_rule_.description,      static_cast<uint32_t>(qos_drop_rule_.hit_count)      },
+    // ── Phase 3 Hardening: New anomaly rules ──────────────────────────────
+    { anomaly_dns_zone_xfer_.description, static_cast<uint32_t>(anomaly_dns_zone_xfer_.hit_count) },
+    { anomaly_snmp_enum_.description,     static_cast<uint32_t>(anomaly_snmp_enum_.hit_count)     },
+    { anomaly_netbios_.description,       static_cast<uint32_t>(anomaly_netbios_.hit_count)       },
+    { anomaly_ldap_enum_.description,     static_cast<uint32_t>(anomaly_ldap_enum_.hit_count)     },
   };
 }
+
 
 // ── Connection Snapshot ──────────────────────────────────────
 

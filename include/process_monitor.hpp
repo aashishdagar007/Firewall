@@ -1,7 +1,9 @@
 #pragma once
 #include "platform.hpp"
 #include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -33,9 +35,22 @@ struct ProcessNetInfo {
   uint32_t pkt_count = 0;
   bool is_browser = false;
   bool is_blocked = false; // whether the application is administratively blocked
+  bool is_lolbin = false;  // whether this process is a known LOLBin
   std::vector<std::string> browser_tabs; // window titles for this PID
   std::vector<uint16_t> tcp_ports;       // local TCP ports owned by PID
   std::vector<uint16_t> udp_ports;
+};
+
+// ── LOLBin network access event ──────────────────────────────────────────────
+// Recorded whenever a Living-Off-the-Land binary is detected making a
+// network connection. Exposed via GET /api/lolbins.
+struct LolBinEvent {
+  std::string timestamp;       // epoch ms string
+  uint32_t    pid;
+  std::string exe_name;        // e.g. "certutil.exe"
+  std::string dst_ip;          // destination IP (human-readable)
+  uint16_t    dst_port;        // destination port
+  std::string threat_detail;   // human-readable description
 };
 
 class LocalGraphStore;
@@ -57,6 +72,17 @@ public:
   // --- Application Blocking ---
   void set_app_blocked(const std::string& exe_name, bool blocked);
   bool is_app_blocked(const std::string& exe_name) const;
+
+  // --- LOLBin Detection ---
+  // Returns true if exe_name is a known Living-Off-the-Land binary
+  static bool is_lolbin(const std::string& exe_name);
+
+  // Record a LOLBin making a network connection (called from packet path)
+  void log_lolbin_event(const std::string& exe_name, uint32_t pid,
+                        uint32_t dst_ip, uint16_t dst_port);
+
+  // Returns recent LOLBin events (for GET /api/lolbins)
+  std::vector<LolBinEvent> get_lolbin_events() const;
 
   // --- Called from API endpoints ---
 
@@ -93,6 +119,10 @@ private:
   std::unordered_map<uint32_t, ProcessNetInfo> procs_;
 
   std::unordered_set<std::string> blocked_apps_;
+
+  // LOLBin event ring buffer (max 200 events)
+  std::deque<LolBinEvent> lolbin_events_;
+  static constexpr size_t MAX_LOLBIN_EVENTS = 200;
 
   LocalGraphStore* graph_store_ = nullptr;
 

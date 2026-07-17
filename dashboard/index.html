@@ -667,6 +667,23 @@
           <div class="nav-badge" id="scan-badge" style="background:var(--accent-orange);">0</div>
           <span class="kbd" style="position:absolute;bottom:2px;right:3px;font-size:7px;">N</span>
         </div>
+        <div class="nav-btn" id="nav-dns" onclick="switchTab('dns')" title="DNS Threats">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/></svg>
+          <div class="nav-badge" id="dns-badge" style="background:var(--accent-red);display:none;">!</div>
+        </div>
+        <div class="nav-btn" id="nav-mac" onclick="switchTab('mac')" title="MAC/ARP Conflicts">
+          <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4 2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+          <div class="nav-badge" id="mac-badge" style="background:var(--accent-orange);display:none;">!</div>
+        </div>
+        <div class="nav-btn" id="nav-lolbins" onclick="switchTab('lolbins')" title="LOLBin Alerts">
+          <svg viewBox="0 0 24 24"><path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17a5.93 5.93 0 0 0-2.84 0L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09A5.937 5.937 0 0 0 6 11v1h12v-1c0-.34-.03-.67-.09-1H20V8zm-6 6H10v-2h4v2z"/></svg>
+          <div class="nav-badge" id="lolbin-badge" style="background:var(--accent-red);display:none;">!</div>
+        </div>
+        <div class="nav-btn" id="nav-hardware" onclick="switchTab('hardware')" title="Hardware Security (H)">
+          <svg viewBox="0 0 24 24"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zM7 4V3h10v1H7zm0 14V6h10v12H7zm0 3v-1h10v1H7z"/></svg>
+          <div class="nav-badge" id="hardware-badge" style="background:var(--accent-red);display:none;">!</div>
+          <span class="kbd" style="position:absolute;bottom:2px;right:3px;font-size:7px;">H</span>
+        </div>
         <div class="nav-btn" id="nav-ledger" onclick="switchTab('ledger')" title="Chain Ledger (L)">
           <svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 14H8v-2h8v2zm0-4H8v-2h8v2zm0-4H8V6h8v2z"/></svg>
           <span class="kbd" style="position:absolute;bottom:2px;right:3px;font-size:7px;">L</span>
@@ -1083,7 +1100,31 @@
           </div>
 
         </div>
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <!-- Hardware Security View -->
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <section id="view-hardware" class="view-area" style="display:none;flex-direction:column;gap:16px;">
+        <div class="glass-card" style="flex:1;">
+          <div class="card-header">
+            <div class="card-title">🖧 Hardware Security Alerts (USB/Bluetooth/NFC)</div>
+          </div>
+          <div id="hardware-alerts" style="display:flex;flex-direction:column;gap:10px;">
+            <div class="empty-state">No pending hardware alerts.</div>
+          </div>
+        </div>
+        <div class="glass-card" style="flex:1;">
+          <div class="card-header">
+            <div class="card-title">🚫 Persistently Blocked Devices (HWIDs)</div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Hardware ID</th><th style="text-align:right;">Action</th></tr></thead>
+              <tbody id="hardware-blocked"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
+
     </main>
   </div>
 
@@ -1181,12 +1222,15 @@
       if (id === 'connections') pollConnections();
       if (id === 'ledger')      pollLedger();
       if (id === 'scans')       { pollScans(); pollStealth(); }
+      if (id === 'dns')         { pollDnsThreats(); }
+      if (id === 'mac')         { pollMacConflicts(); }
+      if (id === 'lolbins')     { pollLolbins(); }
     }
 
     // ── Keyboard shortcuts ──────────────────────────────────────
     document.addEventListener('keydown', e => {
       if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
-      const map = { d:'dashboard', a:'apps', r:'rules', c:'connections', t:'threats', l:'ledger', s:'settings', n:'scans' };
+      const map = { d:'dashboard', a:'apps', r:'rules', c:'connections', t:'threats', l:'ledger', s:'settings', n:'scans', q:'dns', m:'mac', b:'lolbins' };
       if (map[e.key.toLowerCase()]) switchTab(map[e.key.toLowerCase()]);
     });
 
@@ -1740,9 +1784,113 @@
       setInterval(pollScans,      3000);  // Port scan detection alerts
       setInterval(pollConnections, 2000);
       setInterval(pollLedger,     4000);
+      setInterval(pollHardwareAlerts, 5000); // Phase 4 OS Hardening
+      setInterval(pollBlockedHardware, 8000);
 
       pollStealth();  // Sync stealth mode on startup
       loadRateLimit();
+      pollBlockedHardware(); // Load initial blocked devices
+    }
+
+    // ── Phase 4: Hardware Security ────────────────────────────
+    let displayedAlerts = new Set();
+    async function pollHardwareAlerts() {
+      try {
+        const res = await apiFetch('/api/hardware_alerts');
+        if (!res.ok) return;
+        const alerts = await res.json();
+        
+        // Update badge
+        const badge = document.getElementById('hardware-badge');
+        if (alerts.length > 0) {
+          badge.textContent = alerts.length > 9 ? '9+' : alerts.length;
+          badge.style.display = 'flex';
+        } else {
+          badge.style.display = 'none';
+        }
+        
+        const container = document.getElementById('hardware-alerts');
+        if (!container) return;
+        container.innerHTML = '';
+        if (alerts.length === 0) {
+          container.innerHTML = '<div class="empty-state">No pending hardware alerts.</div>';
+          return;
+        }
+        
+        alerts.forEach(a => {
+          const el = document.createElement('div');
+          el.className = 'glass-card';
+          el.style.borderLeft = '3px solid ' + (a.auto_blocked ? 'var(--accent-cyan)' : 'var(--accent-orange)');
+          
+          let actionsHTML = '';
+          if (a.auto_blocked) {
+            actionsHTML = `<div style="color:var(--accent-cyan);font-size:11px;font-weight:bold;margin-top:8px;">✓ Threat Neutralized</div>`;
+          } else {
+            actionsHTML = `
+              <div style="display:flex;gap:10px;margin-top:12px;">
+                <button class="action-btn btn-allow" onclick="resolveHardwareAlert('${a.id}', 'allow')">Allow Connection</button>
+                <button class="action-btn btn-block" onclick="resolveHardwareAlert('${a.id}', 'block')">Block Device</button>
+              </div>`;
+          }
+          
+          el.innerHTML = `
+            <div style="font-weight:bold;color:${a.auto_blocked ? 'var(--accent-cyan)' : 'var(--accent-orange)'};">${a.title}</div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-top:4px;">HWID: ${a.hwid}</div>
+            <div style="margin-top:8px;font-size:12px;">${a.description}</div>
+            ${actionsHTML}
+          `;
+          container.appendChild(el);
+          
+          if (!displayedAlerts.has(a.id) && !a.auto_blocked) {
+             showToast('New Hardware Alert: ' + a.title, 'var(--accent-orange)');
+             displayedAlerts.add(a.id);
+          }
+        });
+      } catch(e) {}
+    }
+    
+    async function resolveHardwareAlert(id, action) {
+      await apiFetch('/api/hardware_action', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id, action})
+      });
+      pollHardwareAlerts();
+      if (action === 'block') pollBlockedHardware();
+      showToast('Alert resolved: ' + action.toUpperCase());
+    }
+    
+    async function pollBlockedHardware() {
+      try {
+        const res = await apiFetch('/api/blocked_hardware');
+        if (!res.ok) return;
+        const hwids = await res.json();
+        
+        const tbody = document.getElementById('hardware-blocked');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (hwids.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);padding:20px;">No devices persistently blocked.</td></tr>';
+          return;
+        }
+        
+        hwids.forEach(hwid => {
+          tbody.innerHTML += `<tr>
+            <td class="mono-cell">${hwid}</td>
+            <td style="text-align:right;"><button class="action-btn btn-allow" style="padding:5px 10px;font-size:10px;" onclick="unblockHardware('${hwid}')">Unblock</button></td>
+          </tr>`;
+        });
+      } catch(e) {}
+    }
+    
+    async function unblockHardware(hwid) {
+      await apiFetch('/api/hardware_unblock', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({hwid})
+      });
+      pollBlockedHardware();
+      showToast('Hardware unblocked at OS level');
     }
 
     // ── Stealth Mode ──────────────────────────────────────────
@@ -1892,6 +2040,108 @@
         });
       } catch(e) {}
     }
+
+    // ── Phase 3: DNS Threats polling ─────────────────────────
+    async function pollDnsThreats() {
+      try {
+        const r = await apiFetch('/api/dns_threats');
+        if (!r.ok) return;
+        const events = await r.json();
+        const list  = document.getElementById('dns-threats-list');
+        const empty = document.getElementById('dns-empty');
+        if (!list) return;
+        const badge = document.getElementById('dns-badge');
+        if (badge) badge.style.display = events.length ? 'block' : 'none';
+        if (events.length === 0) {
+          if (empty) empty.style.display = 'block';
+          Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+          return;
+        }
+        if (empty) empty.style.display = 'none';
+        Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+        [...events].reverse().forEach(ev => {
+          const row = document.createElement('div');
+          row.className = 'scan-alert-row';
+          row.innerHTML = `
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan);">${ev.src_ip}</div>
+            <div><span class="scan-type-badge" style="background:var(--accent-red);">${ev.type}</span></div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.domain}">${ev.domain}</div>
+            <div style="font-size:10px;color:var(--text-muted);">${ev.detail}</div>
+          `;
+          list.appendChild(row);
+        });
+      } catch(e) {}
+    }
+
+    // ── Phase 3: MAC Conflict polling ─────────────────────────
+    async function pollMacConflicts() {
+      try {
+        const r = await apiFetch('/api/mac_conflicts');
+        if (!r.ok) return;
+        const events = await r.json();
+        const list  = document.getElementById('mac-conflicts-list');
+        const empty = document.getElementById('mac-empty');
+        if (!list) return;
+        const badge = document.getElementById('mac-badge');
+        if (badge) badge.style.display = events.length ? 'block' : 'none';
+        if (events.length === 0) {
+          if (empty) empty.style.display = 'block';
+          Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+          return;
+        }
+        if (empty) empty.style.display = 'none';
+        Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+        [...events].reverse().forEach(ev => {
+          const row = document.createElement('div');
+          row.className = 'scan-alert-row';
+          row.innerHTML = `
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan);">${ev.src_ip}</div>
+            <div><span class="scan-type-badge" style="background:${ev.type==='ARP_Poison'?'var(--accent-red)':'var(--accent-orange)'}">${ev.type}</span></div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">${ev.old_mac} → ${ev.new_mac}</div>
+            <div style="font-size:10px;color:var(--text-muted);">${ev.detail}</div>
+            <div><span class="threat-badge ${ev.banned?'threat-high':'threat-med'}">${ev.banned?'Banned':'Detected'}</span></div>
+          `;
+          list.appendChild(row);
+        });
+      } catch(e) {}
+    }
+
+    // ── Phase 3: LOLBin polling ──────────────────────────────
+    async function pollLolbins() {
+      try {
+        const r = await apiFetch('/api/lolbins');
+        if (!r.ok) return;
+        const events = await r.json();
+        const list  = document.getElementById('lolbins-list');
+        const empty = document.getElementById('lolbins-empty');
+        if (!list) return;
+        const badge = document.getElementById('lolbin-badge');
+        if (badge) badge.style.display = events.length ? 'block' : 'none';
+        if (events.length === 0) {
+          if (empty) empty.style.display = 'block';
+          Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+          return;
+        }
+        if (empty) empty.style.display = 'none';
+        Array.from(list.children).forEach(c => { if (c !== empty) c.remove(); });
+        [...events].reverse().forEach(ev => {
+          const row = document.createElement('div');
+          row.className = 'scan-alert-row';
+          row.innerHTML = `
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent-red);">PID ${ev.pid}</div>
+            <div><span class="scan-type-badge" style="background:var(--accent-red);">${ev.exe}</span></div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">${ev.dst_ip}:${ev.dst_port}</div>
+            <div style="font-size:10px;color:var(--text-muted);">${ev.detail}</div>
+          `;
+          list.appendChild(row);
+        });
+      } catch(e) {}
+    }
+
+    // Auto-refresh Phase 3 panels every 5 seconds
+    setInterval(pollDnsThreats,   5000);
+    setInterval(pollMacConflicts, 5000);
+    setInterval(pollLolbins,      5000);
 
     init();
   </script>

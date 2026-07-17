@@ -235,6 +235,20 @@ namespace fw {
         Rule invalid_rule_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "INVALID TCP State (Auto-Drop)", 0};
         Rule threat_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "Threat: Geo-Block or Blacklist Hit", 0};
         Rule hijack_rule_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0, "Anomaly: TCP Session Hijacking Attempt", 0};
+
+        // ── Phase 3 Hardening: New Anomaly Rules ─────────────────────────────
+        // Threat 21: DNS Zone Transfer (TCP/53 — AXFR requests)
+        Rule anomaly_dns_zone_xfer_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0,
+            "Anomaly: DNS Zone Transfer (AXFR) Attempt via TCP/53", 0};
+        // Threat 22: SNMP Enumeration (UDP 161/162)
+        Rule anomaly_snmp_enum_{0, Action::BLOCK, Proto::UDP, Direction::ANY, 0, 0, 0, 0,
+            "Anomaly: SNMP Enumeration Attempt (UDP 161/162)", 0};
+        // Threat 23: NetBIOS/SMB Enumeration from external IPs
+        Rule anomaly_netbios_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0,
+            "Anomaly: NetBIOS Enumeration from External IP (Ports 137-139)", 0};
+        // Threat 41: LDAP Enumeration (BloodHound-style AD recon) from external IPs
+        Rule anomaly_ldap_enum_{0, Action::BLOCK, Proto::TCP, Direction::ANY, 0, 0, 0, 0,
+            "Anomaly: LDAP Enumeration from External IP (Ports 389/636/3268/3269)", 0};
         Rule qos_drop_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "QoS: Traffic Shaping Drop (Bandwidth Exceeded)", 0};
         Rule dpi_rule_{0, Action::BLOCK, Proto::ANY, Direction::ANY, 0, 0, 0, 0, "DPI: Blocked by Deep Packet Inspection", 0};
 

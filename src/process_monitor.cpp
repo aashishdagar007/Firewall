@@ -139,6 +139,78 @@ bool ProcessMonitor::is_app_blocked(const std::string& exe_name) const {
   return blocked_apps_.find(exe_name) != blocked_apps_.end();
 }
 
+// ── LOLBin Detection ─────────────────────────────────────────────────────────
+
+// Curated list of Living-Off-the-Land binaries known to be abused for
+// network C2, lateral movement, and payload download/execution.
+// Sources: LOLBAS Project (https://lolbas-project.github.io/)
+bool ProcessMonitor::is_lolbin(const std::string& exe_name) {
+  // Normalize to lowercase for case-insensitive comparison
+  std::string lower = exe_name;
+  for (char& c : lower)
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+  // Strip path — only compare the basename
+  auto slash = lower.rfind('\\');
+  if (slash == std::string::npos) slash = lower.rfind('/');
+  if (slash != std::string::npos) lower = lower.substr(slash + 1);
+
+  static const std::unordered_set<std::string> lolbins = {
+    // Download / execution via trusted binary
+    "certutil.exe",      // -urlcache download, -decode base64
+    "bitsadmin.exe",     // /transfer download
+    "mshta.exe",         // HTA execution, VBScript/JScript
+    "regsvr32.exe",      // scrobj.dll COM scriptlet execution
+    "rundll32.exe",      // arbitrary DLL loading
+    "installutil.exe",   // .NET assembly execution via InstallUtil
+    "cmstp.exe",         // INF file execution (UAC bypass)
+    "msiexec.exe",       // remote MSI / /q silent install
+    "wscript.exe",       // Windows Script Host execution
+    "cscript.exe",       // Console Script Host execution
+    "powershell.exe",    // Encoded commands, download cradles
+    "pwsh.exe",          // PowerShell Core
+    "cmd.exe",           // Command shell (when spawned by Office/browser)
+    "wmic.exe",          // /node: remote execution
+    "forfiles.exe",      // /c parameter code execution
+    "pcalua.exe",        // Program Compatibility Assistant LOLBin
+    "msdeploy.exe",      // Web deployment tool abuse
+    "appsyncpublishingserver.exe", // XSLT transformation execution
+    "dnscmd.exe",        // DNS server enumeration + DLL injection
+    "ieexec.exe",        // IE-based download execution
+    "extrac32.exe",      // CAB file extraction download abuse
+    "findstr.exe",       // /S file search for credential harvest
+    "gpscript.exe",      // Group Policy script execution
+  };
+
+  return lolbins.count(lower) > 0;
+}
+
+void ProcessMonitor::log_lolbin_event(const std::string& exe_name, uint32_t pid,
+                                       uint32_t dst_ip, uint16_t dst_port) {
+  std::lock_guard<std::mutex> lock(mtx_);
+
+  LolBinEvent ev;
+  auto tp = std::chrono::steady_clock::now().time_since_epoch();
+  ev.timestamp    = std::to_string(
+      std::chrono::duration_cast<std::chrono::milliseconds>(tp).count());
+  ev.pid          = pid;
+  ev.exe_name     = exe_name;
+  ev.dst_ip       = ip4_to_string(dst_ip);
+  ev.dst_port     = dst_port;
+  ev.threat_detail = "LOLBin network access: " + exe_name +
+                     " (PID " + std::to_string(pid) +
+                     ") → " + ev.dst_ip + ":" + std::to_string(dst_port);
+
+  if (lolbin_events_.size() >= MAX_LOLBIN_EVENTS)
+    lolbin_events_.pop_front();
+  lolbin_events_.push_back(std::move(ev));
+}
+
+std::vector<LolBinEvent> ProcessMonitor::get_lolbin_events() const {
+  std::lock_guard<std::mutex> lock(mtx_);
+  return std::vector<LolBinEvent>(lolbin_events_.begin(), lolbin_events_.end());
+}
+
 // ── Background poll loop ─────────────────────────────────────────────────────
 
 void ProcessMonitor::poll_loop() {

@@ -60,6 +60,11 @@ set(SOURCES
     src/updater.cpp
     src/correlation_engine.cpp
     src/local_graph_store.cpp
+    # ── Phase 3: Hardening ─────────────────────────────────────
+    src/dns_firewall.cpp
+    src/mac_watchdog.cpp
+    # ── Phase 4: Hardware Security ─────────────────────────────
+    src/hardware_monitor.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -195,12 +200,18 @@ add_executable(test_engine
     tests/test_packet.cpp 
     tests/test_vpn_crypto.cpp 
     tests/test_traffic_shaper.cpp
+    tests/test_dns_firewall.cpp
+    tests/test_mac_watchdog.cpp
+    tests/test_hardware_monitor.cpp
     src/packet.cpp 
     src/rule_engine.cpp 
     src/dpi_engine.cpp 
     src/port_scan_detector.cpp 
     src/traffic_shaper.cpp 
     src/vpn_manager.cpp
+    src/dns_firewall.cpp
+    src/mac_watchdog.cpp
+    src/hardware_monitor.cpp
 )
 if(WIN32)
     target_link_libraries(test_engine PRIVATE ws2_32)

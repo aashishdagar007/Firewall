@@ -69,6 +69,155 @@ DpiEngine::DpiEngine() {
   add_sig("User-Agent: curl (Suspicious)", "User-Agent: curl", true);
   add_sig("User-Agent: Wget (Suspicious)", "User-Agent: Wget", true);
   add_sig("User-Agent: PowerShell (Suspicious)", "User-Agent: WindowsPowerShell", true);
+
+  // ── Phase 6: Network Recon / Banner Grabbing (threats 19, 20, 23, 24) ──
+  add_sig("Scanner: Nmap Service Probe",       "Nmap service detection",   true);
+  add_sig("Scanner: Nmap HTTP Probe",          "GET / HTTP/1.0\r\n\r\n",   false);
+  add_sig("Scanner: Nmap SYN Probe Header",    "nmaplowercheck",           true);
+  add_sig("Scanner: Masscan Probe",            "masscan",                  true);
+  add_sig("Scanner: ZMap Probe",               "zmap",                     true);
+  add_sig("Scanner: gobuster User-Agent",      "User-Agent: gobuster",     true);
+  add_sig("Scanner: ffuf User-Agent",          "User-Agent: ffuf",         true);
+  add_sig("Scanner: dirbuster User-Agent",     "User-Agent: DirBuster",    true);
+  add_sig("Scanner: nikto User-Agent",         "User-Agent: Nikto",        true);
+  add_sig("Scanner: sqlmap User-Agent",        "User-Agent: sqlmap",       true);
+  add_sig("Scanner: nuclei User-Agent",        "User-Agent: nuclei",       true);
+  add_sig("Scanner: wfuzz User-Agent",         "User-Agent: Wfuzz",        true);
+  add_sig("Scanner: Acunetix User-Agent",      "User-Agent: Acunetix",     true);
+  add_sig("Scanner: Burp Suite Probe",         "User-Agent: BurpSuite",    true);
+  add_sig("Scanner: OpenVAS Probe",            "User-Agent: OpenVAS",      true);
+
+  // ── Phase 6: SMB / NetBIOS Enumeration (threat 23) ──────────────────────
+  // SMB1 negotiate request magic bytes
+  add_sig("SMB: Negotiate Protocol Request",
+          "\xff\x53\x4d\x42\x72\x00\x00\x00", false);
+  // SMB2 negotiate
+  add_sig("SMB2: Negotiate Request",
+          "\xfe\x53\x4d\x42\x40\x00\x00\x00", false);
+  // WannaCry / EternalBlue specific SMB patterns
+  add_sig("SMB: EternalBlue NTLM Blob",         "NTLMSSP\x00\x01\x00\x00\x00", false);
+  // NetBIOS name query
+  add_sig("NetBIOS: Name Query (NBNS)",          "CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", false);
+
+  // ── Phase 6: Web Fingerprinting / Tech Discovery (threats 25, 27) ────────
+  add_sig("Fingerprint: WhatWeb Scanner",        "User-Agent: WhatWeb",      true);
+  add_sig("Fingerprint: Wappalyzer Extension",   "wappalyzer",               true);
+  add_sig("Fingerprint: .git directory probe",   "GET /.git/config",         true);
+  add_sig("Fingerprint: .git HEAD probe",        "GET /.git/HEAD",           true);
+  add_sig("Fingerprint: .env file probe",        "GET /.env",                true);
+  add_sig("Fingerprint: docker-compose probe",   "GET /docker-compose.yml",  true);
+  add_sig("Fingerprint: package.json probe",     "GET /package.json",        true);
+  add_sig("Fingerprint: webpack config probe",   "GET /webpack.config.js",   true);
+  add_sig("Fingerprint: AWS credentials probe",  "GET /.aws/credentials",    true);
+  add_sig("Fingerprint: SSH key probe",          "GET /.ssh/id_rsa",         true);
+  add_sig("Fingerprint: wp-config probe",        "GET /wp-config.php",       true);
+  add_sig("Fingerprint: phpinfo probe",          "phpinfo()",                true);
+  add_sig("Fingerprint: robots.txt recon",       "GET /robots.txt",          true);
+  add_sig("Fingerprint: sitemap.xml recon",      "GET /sitemap.xml",         true);
+
+  // ── Phase 6: LOLBin C2 / Post-Exploitation Patterns (threat 38) ──────────
+  add_sig("LOLBin: certutil URL download",
+          "certutil -urlcache",                                               true);
+  add_sig("LOLBin: certutil -decode",
+          "certutil -decode",                                                 true);
+  add_sig("LOLBin: bitsadmin transfer",
+          "bitsadmin /transfer",                                              true);
+  add_sig("LOLBin: regsvr32 scrobj",
+          "regsvr32 /s /n /u /i:",                                           true);
+  add_sig("LOLBin: mshta VBScript",
+          "mshta vbscript:",                                                  true);
+  add_sig("LOLBin: mshta JavaScript",
+          "mshta javascript:",                                                true);
+  add_sig("LOLBin: installutil AppDomain",
+          "AppDomain.CurrentDomain",                                          true);
+  add_sig("LOLBin: rundll32 javascript",
+          "rundll32 javascript:",                                             true);
+  add_sig("LOLBin: cmstp INF launch",
+          "cmstp /ni /s",                                                     true);
+  add_sig("LOLBin: wmic /node remote exec",
+          "wmic /node:",                                                       true);
+
+  // ── Phase 6: Credential Dumping / Lateral Movement (threats 39-41) ───────
+  add_sig("Mimikatz: sekurlsa module",           "sekurlsa::",               true);
+  add_sig("Mimikatz: lsadump module",            "lsadump::",                true);
+  add_sig("Mimikatz: kerberos module",           "kerberos::",               true);
+  add_sig("Mimikatz: privilege::debug",          "privilege::debug",         true);
+  add_sig("Mimikatz: token::elevate",            "token::elevate",           true);
+  add_sig("BloodHound: LDAP computer query",
+          "(&(objectCategory=computer)",                                       true);
+  add_sig("BloodHound: LDAP user query",
+          "(&(objectCategory=person)(objectClass=user)",                       true);
+  add_sig("BloodHound: LDAP group query",
+          "(objectClass=group)",                                               true);
+  add_sig("PsExec: Remote service install",      "PSEXESVC",                 true);
+  add_sig("WCE: Windows Credential Editor",      "wce.exe",                  true);
+  add_sig("DCSync: DRS replication request",     "DRS_MSG_GETCHGREQ",        false);
+
+  // ── Phase 6: Process Injection / DLL Sideloading (threats 39-40) ─────────
+  add_sig("Injection: VirtualAllocEx marker",    "VirtualAllocEx",           true);
+  add_sig("Injection: WriteProcessMemory",        "WriteProcessMemory",       true);
+  add_sig("Injection: CreateRemoteThread",        "CreateRemoteThread",       true);
+  add_sig("DLL Hijack: DLL search order abuse",  "LoadLibraryA",             false);
+  add_sig("Reflective DLL: ReflectiveDLL magic",
+          "ReflectiveLoader",                                                  false);
+
+  // ── Phase 6: Supply Chain / Dependency Confusion (threat 42) ─────────────
+  add_sig("Supply Chain: npm install over HTTP",
+          "GET /npm/",                                                         true);
+  add_sig("Supply Chain: PyPI HTTP endpoint",
+          "GET /simple/",                                                      true);
+  add_sig("Supply Chain: Typosquatting npm UA",
+          "npm/",                                                              true);
+  // Malicious package install usually POSTs credentials or telemetry
+  add_sig("Supply Chain: NPM token exfil pattern",
+          "npm_authToken",                                                     true);
+
+  // ── Phase 6: Insecure Update Channel (threat 43) ──────────────────────────
+  add_sig("Insecure Update: HTTP Content-Disposition attachment",
+          "Content-Disposition: attachment",                                   true);
+  add_sig("Insecure Update: HTTP firmware download",
+          "firmware.bin",                                                      true);
+  add_sig("Insecure Update: HTTP OTA pattern",
+          "/ota/update",                                                       true);
+
+  // ── Phase 6: SDR / RF Tool Fingerprints (threat 14) ──────────────────────
+  add_sig("SDR Tool: RTL-SDR web server UA",
+          "RTL-SDR",                                                           true);
+  add_sig("SDR Tool: GNU Radio HTTP UA",
+          "GNU Radio",                                                         true);
+  add_sig("SDR Tool: HackRF web interface",
+          "HackRF",                                                            true);
+  add_sig("SDR Tool: gqrx web endpoint",
+          "gqrx",                                                              true);
+
+  // ── Phase 6: C2 Frameworks — Extended (threats 38-41) ────────────────────
+  add_sig("C2: Empire framework indicator",      "EmPyre",                   true);
+  add_sig("C2: Sliver C2 HTTP indicator",        "X-Sliver-",                false);
+  add_sig("C2: Havoc C2 beacon header",          "X-Havoc-",                 false);
+  add_sig("C2: Brute Ratel indicator",           "BRC4",                     false);
+  add_sig("C2: Covenant C2 indicator",           "Covenant",                 true);
+  add_sig("C2: Merlin C2 indicator",             "X-Merlin-Id",              false);
+  add_sig("C2: Poshc2 Payload Pattern",          "Poshc2",                   true);
+  add_sig("C2: TrevorC2 pattern",               "Trevor C2",                 true);
+  add_sig("C2: Deimos C2 header",               "X-Deimos-",                 false);
+  add_sig("C2: Chisel tunnel indicator",         "chisel-",                   true);
+
+  // ── Phase 6: Tunnel / Proxy Evasion (threats 9, 14) ─────────────────────
+  add_sig("Tunnel: ngrok HTTP header",           "X-Forwarded-For: ngrok",   true);
+  add_sig("Tunnel: Cloudflare tunnel UA",        "cloudflared",               true);
+  add_sig("Tunnel: frp tunnel header",           "X-Frp-",                    false);
+  add_sig("Tunnel: SSH -D SOCKS in payload",     "SSH-2.0-OpenSSH",           false);
+  add_sig("Tunnel: Tor SOCKS greeting",
+          "\x05\x01\x00",                                                      false); // SOCKS5 no-auth
+  add_sig("Tunnel: I2P HTTP header",             "X-I2P-",                    false);
+
+  // ── Phase 6: Ransomware patterns ──────────────────────────────────────────
+  add_sig("Ransomware: CryptoLocker extension",  ".encrypted",                true);
+  add_sig("Ransomware: LockBit beacon",          "LockBit",                   true);
+  add_sig("Ransomware: REvil beacon",            "REvil",                     true);
+  add_sig("Ransomware: Ryuk marker",             "RYUK",                      true);
+  add_sig("Ransomware: CONTI HTTP C2",           "CONTI_",                    true);
+  add_sig("Ransomware: RDP note drop",           "readme.txt",                true);
 }
 
 bool DpiEngine::bmh_search(const uint8_t *payload, uint16_t len,

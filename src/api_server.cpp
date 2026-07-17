@@ -22,10 +22,13 @@
 
 namespace fw {
 
-ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
-                     RingBuffer<PacketRecord> &ring, ProcessMonitor &proc_mon,
-                     const std::string &dashboard_root, int port)
+ApiServer::ApiServer(RuleEngine& engine, LiveStats& stats,
+                     RingBuffer<PacketRecord>& ring, ProcessMonitor& proc_mon,
+                     DnsFirewall& dns_fw, MacWatchdog& mac_watchdog,
+                     HardwareMonitor* hw_mon,
+                     const std::string& dashboard_root, int port)
     : engine_(engine), stats_(stats), ring_(ring), proc_mon_(proc_mon),
+      dns_fw_(dns_fw), mac_watchdog_(mac_watchdog), hw_mon_(hw_mon),
       dashboard_root_(dashboard_root), port_(port) {
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
@@ -154,6 +157,15 @@ void ApiServer::setup_routes() {
   get("/api/stats/history",   [this](const httplib::Request&) { return handle_stats_history(); });
   get("/api/scans",           [this](const httplib::Request&) { return handle_get_scans(); });
   get("/api/stealth",         [this](const httplib::Request&) { return handle_get_stealth(); });
+  // ── Phase 3 Hardening: New endpoints ────────────────────────────────────
+  get("/api/dns_threats",     [this](const httplib::Request&) { return handle_dns_threats(); });
+  get("/api/mac_conflicts",   [this](const httplib::Request&) { return handle_mac_conflicts(); });
+  get("/api/lolbins",         [this](const httplib::Request&) { return handle_lolbins(); });
+  // ── Phase 4 Hardware Security ───────────────────────────────────────────
+  get("/api/hardware_alerts",     [this](const httplib::Request&) { return handle_get_hardware_alerts(); });
+  post("/api/hardware_action",    [this](const httplib::Request& req) { return handle_post_hardware_action(req.body); });
+  get("/api/blocked_hardware",    [this](const httplib::Request&) { return handle_get_blocked_hardware(); });
+  post("/api/hardware_unblock",   [this](const httplib::Request& req) { return handle_post_hardware_unblock(req.body); });
   // NOTE: /api/token endpoint removed — the token is printed to stdout on startup
   //       and saved to logs/api.token (which must NOT be committed to version control).
 
@@ -930,6 +942,145 @@ std::string ApiServer::handle_set_stealth(const std::string& body) {
   bool enabled = (body.substr(pos, 4) == "true");
   engine_.set_stealth_mode(enabled);
   return std::string("{\"ok\":true,\"stealth\":") + (enabled ? "true" : "false") + "}";
+}
+
+// ── Phase 3: DNS Threats ──────────────────────────────────────
+
+std::string ApiServer::handle_dns_threats() const {
+  auto events = dns_fw_.get_recent_events();
+  std::ostringstream o;
+  o << "[";
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (i) o << ",";
+    const auto& ev = events[i];
+    o << "{"
+      << "\"ts\":\""         << escape_json(ev.timestamp)   << "\","
+      << "\"src_ip\":\""     << escape_json(ev.src_ip)      << "\","
+      << "\"domain\":\""     << escape_json(ev.domain)      << "\","
+      << "\"type\":\""       << escape_json(ev.threat_type) << "\","
+      << "\"detail\":\""     << escape_json(ev.detail)      << "\""
+      << "}";
+  }
+  o << "]";
+  return o.str();
+}
+
+// ── Phase 3: MAC Conflicts ────────────────────────────────────
+
+std::string ApiServer::handle_mac_conflicts() const {
+  auto events = mac_watchdog_.get_conflicts();
+  std::ostringstream o;
+  o << "[";
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (i) o << ",";
+    const auto& ev = events[i];
+    o << "{"
+      << "\"ts\":\""         << escape_json(ev.timestamp)   << "\","
+      << "\"src_ip\":\""     << escape_json(ev.src_ip)      << "\","
+      << "\"old_mac\":\""    << escape_json(ev.old_mac)     << "\","
+      << "\"new_mac\":\""    << escape_json(ev.new_mac)     << "\","
+      << "\"type\":\""       << escape_json(ev.threat_type) << "\","
+      << "\"detail\":\""     << escape_json(ev.detail)      << "\","
+      << "\"banned\":"       << (ev.auto_banned ? "true" : "false")
+      << "}";
+  }
+  o << "]";
+  return o.str();
+}
+
+// ── Phase 3: LOLBin Events ────────────────────────────────────
+
+std::string ApiServer::handle_lolbins() const {
+  auto events = proc_mon_.get_lolbin_events();
+  std::ostringstream o;
+  o << "[";
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (i) o << ",";
+    const auto& ev = events[i];
+    o << "{"
+      << "\"ts\":\""         << escape_json(ev.timestamp)     << "\","
+      << "\"pid\":"          << ev.pid                         << ","
+      << "\"exe\":\""        << escape_json(ev.exe_name)      << "\","
+      << "\"dst_ip\":\""     << escape_json(ev.dst_ip)        << "\","
+      << "\"dst_port\":"     << ev.dst_port                    << ","
+      << "\"detail\":\""     << escape_json(ev.threat_detail) << "\""
+      << "}";
+  }
+  o << "]";
+  return o.str();
+}
+
+// ── Phase 4: Hardware Security ────────────────────────────────
+
+std::string ApiServer::handle_get_hardware_alerts() const {
+    if (!hw_mon_) return "[]";
+    auto alerts = hw_mon_->get_pending_alerts();
+    std::ostringstream o;
+    o << "[";
+    for (size_t i = 0; i < alerts.size(); ++i) {
+        if (i) o << ",";
+        o << "{"
+          << "\"id\":\"" << escape_json(alerts[i].id) << "\","
+          << "\"type\":\"" << escape_json(alerts[i].type) << "\","
+          << "\"hwid\":\"" << escape_json(alerts[i].hwid) << "\","
+          << "\"title\":\"" << escape_json(alerts[i].title) << "\","
+          << "\"description\":\"" << escape_json(alerts[i].description) << "\","
+          << "\"auto_blocked\":" << (alerts[i].auto_blocked ? "true" : "false") << ","
+          << "\"timestamp\":\"" << escape_json(alerts[i].timestamp) << "\""
+          << "}";
+    }
+    o << "]";
+    return o.str();
+}
+
+std::string ApiServer::handle_post_hardware_action(const std::string& body) {
+    if (!hw_mon_) return "{\"ok\":false}";
+    
+    // Expect body like {"id":"alert_123", "action":"block" or "allow"}
+    std::string search_id = "\"id\":\"";
+    auto pos_id = body.find(search_id);
+    if (pos_id == std::string::npos) return "{\"ok\":false}";
+    pos_id += search_id.size();
+    auto end_id = body.find("\"", pos_id);
+    std::string id = body.substr(pos_id, end_id - pos_id);
+    
+    std::string search_act = "\"action\":\"";
+    auto pos_act = body.find(search_act);
+    if (pos_act == std::string::npos) return "{\"ok\":false}";
+    pos_act += search_act.size();
+    auto end_act = body.find("\"", pos_act);
+    std::string act = body.substr(pos_act, end_act - pos_act);
+    
+    bool block = (act == "block");
+    hw_mon_->resolve_alert(id, block);
+    
+    return "{\"ok\":true}";
+}
+
+std::string ApiServer::handle_get_blocked_hardware() const {
+    if (!hw_mon_) return "[]";
+    auto blocked = hw_mon_->get_blocked_devices();
+    std::ostringstream o;
+    o << "[";
+    for (size_t i = 0; i < blocked.size(); ++i) {
+        if (i) o << ",";
+        o << "\"" << escape_json(blocked[i]) << "\"";
+    }
+    o << "]";
+    return o.str();
+}
+
+std::string ApiServer::handle_post_hardware_unblock(const std::string& body) {
+    if (!hw_mon_) return "{\"ok\":false}";
+    std::string search = "\"hwid\":\"";
+    auto pos = body.find(search);
+    if (pos == std::string::npos) return "{\"ok\":false}";
+    pos += search.size();
+    auto end = body.find("\"", pos);
+    std::string hwid = body.substr(pos, end - pos);
+    
+    hw_mon_->unblock_device(hwid);
+    return "{\"ok\":true}";
 }
 
 } // namespace fw

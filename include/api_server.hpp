@@ -5,6 +5,9 @@
 #include "nfq_capture.hpp"
 #include "process_monitor.hpp"
 #include "port_scan_detector.hpp"
+#include "dns_firewall.hpp"
+#include "mac_watchdog.hpp"
+#include "hardware_monitor.hpp"
 #include <string>
 #include <thread>
 #include <atomic>
@@ -56,6 +59,9 @@ public:
               LiveStats&               stats,
               RingBuffer<PacketRecord>& ring,
               ProcessMonitor&          proc_mon,
+              DnsFirewall&             dns_fw,
+              MacWatchdog&             mac_watchdog,
+              HardwareMonitor*         hw_mon,
               const std::string&       dashboard_root,
               int                      port = 8080);
     ~ApiServer();
@@ -76,6 +82,9 @@ private:
     LiveStats&               stats_;
     RingBuffer<PacketRecord>& ring_;
     ProcessMonitor&          proc_mon_;
+    DnsFirewall&             dns_fw_;
+    MacWatchdog&             mac_watchdog_;
+    HardwareMonitor*         hw_mon_;
     std::string              dashboard_root_;
     int                      port_;
 
@@ -129,6 +138,17 @@ private:
     std::string handle_get_scans()        const;  // GET /api/scans
     std::string handle_get_stealth()      const;  // GET /api/stealth
     std::string handle_set_stealth(const std::string& body); // POST /api/stealth
+
+    // ── New: Phase 3 Hardening endpoints ──────────────────────────────────
+    std::string handle_dns_threats()      const;  // GET /api/dns_threats
+    std::string handle_mac_conflicts()    const;  // GET /api/mac_conflicts
+    std::string handle_lolbins()          const;  // GET /api/lolbins
+
+    // ── Phase 4: Hardware Security ────────────────────────────────────────
+    std::string handle_get_hardware_alerts() const;             // GET /api/hardware_alerts
+    std::string handle_post_hardware_action(const std::string& body); // POST /api/hardware_action
+    std::string handle_get_blocked_hardware() const;            // GET /api/blocked_hardware
+    std::string handle_post_hardware_unblock(const std::string& body); // POST /api/hardware_unblock
 
     // Rolling 60-second stats history (filled by background ticker)
     mutable std::mutex          history_mtx_;

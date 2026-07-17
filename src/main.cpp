@@ -16,6 +16,10 @@
 #include "control_plane.hpp"   // Pillar 3:   cloud control plane client
 #include "local_graph_store.hpp"
 #include "correlation_engine.hpp"
+// ── Phase 3: Hardening ────────────────────────────────────────
+#include "dns_firewall.hpp"    // Pillar P4: DNS Firewall
+#include "mac_watchdog.hpp"    // Pillar P5: MAC/ARP Watchdog
+#include "hardware_monitor.hpp" // Phase 4: OS Hardening
 #include <csignal>
 #include <atomic>
 #include <thread>
@@ -224,8 +228,42 @@ int main(int argc, char* argv[]) {
     correlation.start();
     logger.log(fw::LogLevel::LOG_INFO, "CorrelationEngine started");
 
+    // ── Phase 3: DNS Firewall (Pillar P4) ─────────────────────
+    fw::DnsFirewall dns_fw;
+    logger.log(fw::LogLevel::LOG_INFO,
+               "[P4] DNS Firewall active (AXFR/ANY/DGA/Tunnel detection)");
+
+    // ── Phase 3: MAC Watchdog (Pillar P5) ─────────────────────
+    fw::MacWatchdog mac_watchdog;
+    // Auto-ban any IP caught ARP-poisoning / spoofing MACs
+    mac_watchdog.set_callback([&engine, &ledger, &logger](const fw::MacConflictEvent& ev) {
+        if (ev.threat_type == "ARP_Poison" || ev.threat_type == "LAA_Change") {
+            // Parse IP string back to uint32_t
+            struct in_addr addr;
+            if (inet_pton(AF_INET, ev.src_ip.c_str(), &addr) == 1) {
+                uint32_t ip = ntohl(addr.s_addr);
+                engine.ban_ip(ip, "MAC Watchdog: " + ev.threat_type + " detected");
+                ledger.log_threat_banned(ev.src_ip, ev.detail);
+                logger.log(fw::LogLevel::LOG_WARN,
+                           "[P5] ARP spoof detected and banned: " + ev.src_ip);
+            }
+        }
+    });
+    logger.log(fw::LogLevel::LOG_INFO,
+               "[P5] MAC Watchdog active (ARP poison / MitM detection)");
+
+    // ── Phase 4: OS Hardware Monitor ──────────────────────────
+    fw::HardwareMonitor hw_mon;
+    if (fw::HardwareMonitor::is_admin()) {
+        hw_mon.start();
+        logger.log(fw::LogLevel::LOG_INFO, "[P4-OS] HardwareMonitor active (USB/BT monitoring)");
+    } else {
+        logger.log(fw::LogLevel::LOG_WARN, "[P4-OS] Not running as Admin. Hardware monitoring disabled.");
+    }
+
     // ── 5. Start API server ──────────────────────────────────
-    fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port);
+    fw::ApiServer api(engine, stats, ring, proc_mon, dns_fw, mac_watchdog, &hw_mon,
+                      dashboard_root, api_port);
     api.start();
 
     // ── 5.1 Wire port scan alerts: engine → API → dashboard ──
@@ -261,6 +299,27 @@ int main(int argc, char* argv[]) {
         }
         graph_store.log_connection(rec);
         correlation.push_network_event(rec);
+
+        // ── Phase 3: LOLBin detection via process name ────────
+        // If the process making this network call is a known LOLBin,
+        // log the event for the /api/lolbins endpoint.
+        if (!rec.process_name.empty() && fw::ProcessMonitor::is_lolbin(rec.process_name)) {
+            proc_mon.log_lolbin_event(rec.process_name, rec.pid,
+                                       rec.info.dst_ip, rec.info.dst_port);
+            logger.log(fw::LogLevel::LOG_WARN,
+                       "[P6] LOLBin network access: " + rec.process_name +
+                       " -> " + ip4_to_string(rec.info.dst_ip) +
+                       ":" + std::to_string(rec.info.dst_port));
+        }
+
+        // ── Phase 3: MAC Watchdog feed ────────────────────────
+        // Feed every packet's src MAC + IP into the watchdog to detect
+        // ARP poisoning / MAC rebinding / MitM attacks.
+        bool mac_nonzero = false;
+        for (auto b : rec.info.src_mac) if (b) { mac_nonzero = true; break; }
+        if (mac_nonzero) {
+            mac_watchdog.record(rec.info.src_mac, rec.info.src_ip);
+        }
     });
 
     std::signal(SIGINT,  signal_handler);
@@ -288,6 +347,7 @@ int main(int argc, char* argv[]) {
 
     // ── 8. Shutdown ───────────────────────────────────────────
     api.stop();
+    hw_mon.stop();
     proc_mon.stop();
     correlation.stop();
     conntrack_running = false;
