@@ -864,6 +864,7 @@ bool RuleEngine::unban_ip(uint32_t src_ip) {
 }
 
 bool RuleEngine::ban_ip(uint32_t src_ip, const std::string& reason) {
+  (void)reason;
   std::lock_guard<std::mutex> lock(state_mtx_);
   auto now = std::chrono::steady_clock::now();
   auto &tstate = threat_table_[src_ip];

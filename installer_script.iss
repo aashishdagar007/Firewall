@@ -3,63 +3,63 @@
 ; Non-commercial use only
 
 #define MyAppName "AGEIS XII"
-#define MyAppVersion "2"
+#define MyAppVersion "2.0"
 #define MyAppPublisher "ASD Solutions, Inc."
 #define MyAppURL "https://aegisxii.vercel.app/"
 #define MyAppExeName "firewall.exe"
-#expr EmitLanguagesSection
 
 [Setup]
-; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
-; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
+; NOTE: The value of AppId uniquely identifies this application.
 AppId={{B105FD15-8A21-4CC3-8AA9-C36CD5C8EC0C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
-; "ArchitecturesAllowed=x64compatible" specifies that Setup cannot run
-; on anything but x64 and Windows 11 on Arm.
+
+; Architecture settings
 ArchitecturesAllowed=x64compatible
-; "ArchitecturesInstallIn64BitMode=x64compatible" requests that the
-; install be done in "64-bit mode" on x64 or Windows 11 on Arm,
-; meaning it should use the native 64-bit Program Files directory and
-; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
-; Uncomment the following line to use a 64-bit installer.
-;SetupArchitecture=x64
+
+; Installer privileges and styling
+PrivilegesRequired=admin
 DisableProgramGroupPage=yes
+WizardStyle=modern
+SolidCompression=yes
+
+; Files and Outputs
 LicenseFile=D:\AASHISH\Projects\Firewall\license.txt.txt
 InfoBeforeFile=D:\AASHISH\Projects\Firewall\readme_before.txt.txt
 InfoAfterFile=D:\AASHISH\Projects\Firewall\readme_after.txt.txt
-; Uncomment the following line to run in non administrative install mode (install for current user only).
-;PrivilegesRequired=lowest
 OutputDir=C:\Users\hp\OneDrive\Desktop
 OutputBaseFilename=AGEIS_XII_Setup_v2
 SetupIconFile=C:\Users\hp\Downloads\Gemini_Generated_Image_f934ovf934ovf934.ico
-SolidCompression=yes
-WizardStyle=modern dynamic windows11
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
+; Main Executable
 Source: "D:\AASHISH\Projects\Firewall\cmake-build-release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+
+; Configuration and Dashboard Assets
 Source: "D:\AASHISH\Projects\Firewall\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "D:\AASHISH\Projects\Firewall\dashboard\*"; DestDir: "{app}\dashboard"; Flags: ignoreversion recursesubdirs createallsubdirs
-; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
-[Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-
 [Dirs]
+; Creates the logs directory inside the installation folder
 Name: "{app}\logs"
 
+[Run]
+; Runs the firewall immediately after install with proper privileges
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent runascurrentuser

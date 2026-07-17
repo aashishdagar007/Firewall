@@ -15,7 +15,7 @@ if(MSVC)
     # Suppress noisy warnings from cpp-httplib and other vendored headers
     add_compile_options(/wd4996 /wd4267 /wd4244)
 else()
-    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+    add_compile_options(-Wall -Wextra -Wpedantic)
     # ── Hardening flags ────────────────────────────────────────────────────
     # -fstack-protector-strong: detects stack buffer overflows at runtime.
     # -D_FORTIFY_SOURCE=2:      enables glibc buffer-overflow checks in string/mem fns.

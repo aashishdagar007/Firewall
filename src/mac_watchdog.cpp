@@ -67,7 +67,7 @@ bool MacWatchdog::record(const MacAddr& src_mac, uint32_t src_ip) {
     auto mac_it = mac_to_ip_.find(mac_hash);
     if (mac_it != mac_to_ip_.end() && mac_it->second != src_ip) {
         // This MAC was previously bound to a different IP — spoofing signal
-        MacAddr zero_mac = {};
+        // MacAddr zero_mac = {};
         emit_event(ip_str, src_mac, src_mac,
                    "MAC_Reuse",
                    "MAC " + mac_to_string(src_mac) +

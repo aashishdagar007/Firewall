@@ -336,7 +336,7 @@ static std::string hash_file(const std::string& path) {
 static std::string get_cmdline(HANDLE hProc) {
     HMODULE hNtdll = GetModuleHandleA("ntdll.dll");
     if (!hNtdll) return "";
-    auto pNtQuery = (NtQueryInformationProcess_t)GetProcAddress(hNtdll, "NtQueryInformationProcess");
+    auto pNtQuery = (NtQueryInformationProcess_t)(void*)GetProcAddress(hNtdll, "NtQueryInformationProcess");
     if (!pNtQuery) return "";
 
     PROCESS_BASIC_INFORMATION pbi;
