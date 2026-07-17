@@ -1,107 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AEGIS XII — Advanced Threat Management</title>
-    <meta name="description"
-        content="AEGIS XII is a real-time packet-level firewall for Windows that tracks, inspects, and blocks malicious network traffic — silently running in the background.">
+    <title>AEGIS XII — Advanced Threat Management v3</title>
+    <meta name="description" content="AEGIS XII v3 is a real-time packet-level firewall for Windows that tracks, inspects, and blocks malicious network traffic.">
 
-    <!-- Anti-theft: block direct file:// access -->
+    <!-- Anti-theft -->
     <script>
         if (window.location.protocol === 'file:') {
-            document.documentElement.innerHTML = '<body style="background:#060910;color:#ff3b5c;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:monospace;margin:0;"><p style="font-size:1.2rem;letter-spacing:2px;">UNAUTHORIZED ACCESS</p></body>';
+            document.documentElement.innerHTML = '<body style="background:#060910;color:#ff3b5c;display:flex;justify-content:center;align-items:center;height:100vh;font-family:monospace;"><p>UNAUTHORIZED ACCESS</p></body>';
             window.stop();
         }
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
     <!-- Ambient Background -->
     <div class="ambient-bg">
-        <div class="orb orb-blue"></div>
-        <div class="orb orb-teal"></div>
-        <div class="orb orb-purple"></div>
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
     </div>
 
     <!-- Navigation -->
     <nav class="navbar" id="navbar">
-        <div class="nav-inner">
+        <div class="nav-inner container">
             <a href="#home" class="nav-brand">
-                <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    <path d="M9 12l2 2 4-4" />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M9 12l2 2 4-4"/>
                 </svg>
                 <span>AEGIS XII</span>
             </a>
             <div class="nav-links">
                 <a href="#features" class="nav-link">Features</a>
-                <a href="#how-it-works" class="nav-link">How It Works</a>
-                <a href="#download" class="nav-link nav-link-cta">Download</a>
+                <a href="#download" class="nav-cta">Get Version 3.0</a>
             </div>
-            <!-- Mobile menu button -->
-            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
-                <span></span><span></span><span></span>
-            </button>
-        </div>
-        <!-- Mobile drawer -->
-        <div class="mobile-drawer" id="mobileDrawer">
-            <a href="#features" class="mobile-nav-link">Features</a>
-            <a href="#how-it-works" class="mobile-nav-link">How It Works</a>
-            <a href="#download" class="mobile-nav-link">Download</a>
         </div>
     </nav>
 
     <!-- Hero -->
-    <section id="home" class="hero">
-        <div class="hero-bg-image"></div>
-        <div class="container hero-container">
+    <section id="home" class="hero container">
+        <div class="hero-grid">
             <div class="hero-text reveal">
-                <div class="pill">v2.0 — The Desktop Edition</div>
-                <h1>Your Network.<br><span class="gradient-text">Under Control.</span></h1>
-                <p class="hero-sub">AEGIS XII v2 is a real-time packet firewall and native desktop application for
-                    Windows. Track packets, apply intelligent rules, and block malicious traffic via a seamless
-                    standalone UI.</p>
-                <div class="hero-actions">
-                    <a href="#download" class="btn-solid">Download Free</a>
-                    <a href="#features" class="btn-ghost">See Features</a>
-                </div>
-                <div class="hero-meta">
-                    <span class="meta-item"><span class="dot-green"></span> Windows 10 / 11</span>
-                    <span class="meta-divider">·</span>
-                    <span class="meta-item">Requires Administrator</span>
-                    <span class="meta-divider">·</span>
-                    <span class="meta-item">100% Free</span>
+                <div class="version-pill">v3.0 — The Ultimate Shield</div>
+                <h1>Your Network.<br><span class="gradient">Under Control.</span></h1>
+                <p>AEGIS XII v3 is a real-time packet firewall and native desktop application for Windows. Track packets, apply intelligent rules, and block malicious traffic silently.</p>
+                <div class="hero-btns">
+                    <a href="#download" class="btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Free
+                    </a>
+                    <a href="#features" class="btn-secondary">Explore Features</a>
                 </div>
             </div>
+            
             <div class="hero-visual reveal delay-1">
-                <div class="terminal-card glass">
-                    <div class="terminal-header">
-                        <span class="t-dot t-red"></span>
-                        <span class="t-dot t-yellow"></span>
-                        <span class="t-dot t-green"></span>
-                        <span class="t-title">aegis-monitor</span>
+                <div class="terminal glass">
+                    <div class="term-header">
+                        <div class="term-dot dot-r"></div>
+                        <div class="term-dot dot-y"></div>
+                        <div class="term-dot dot-g"></div>
                     </div>
-                    <div class="terminal-body">
-                        <div class="t-row"><span class="t-label">STATUS</span><span class="t-val ok">ACTIVE</span></div>
-                        <div class="t-row"><span class="t-label">THREATS BLOCKED</span><span class="t-val warn"
-                                id="heroThreats">0</span></div>
-                        <div class="t-row"><span class="t-label">PACKETS/SEC</span><span class="t-val mono pulse"
-                                id="heroPkts">48,291</span></div>
-                        <div class="t-row"><span class="t-label">PROCESSES TRACKED</span><span class="t-val mono"
-                                id="heroProcs">12</span></div>
-                        <div class="t-bar-wrap">
-                            <div class="t-bar" id="heroBar"></div>
+                    <div class="term-body">
+                        <div class="term-line">
+                            <span class="term-prefix">aegis></span>
+                            <span class="term-text">Initializing packet capture... [OK]</span>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-prefix">aegis></span>
+                            <span class="term-text">Loading DNS & MAC Watchdog... [OK]</span>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-prefix">aegis></span>
+                            <span class="term-text">Monitoring live traffic<span class="term-cursor"></span></span>
+                        </div>
+                    </div>
+                    <div class="term-stats">
+                        <div class="stat-box">
+                            <div class="stat-label">Packets Inspected</div>
+                            <div class="stat-val" id="term-pkts">84,920</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Threats Blocked</div>
+                            <div class="stat-val" id="term-threats">42</div>
                         </div>
                     </div>
                 </div>
@@ -112,297 +99,94 @@
     <!-- Features -->
     <section id="features" class="section">
         <div class="container">
-            <div class="section-label reveal">Core Capabilities</div>
-            <h2 class="section-title reveal">Built for Real Threat Scenarios</h2>
-            <p class="section-desc reveal">AEGIS XII combines packet inspection, process awareness, and an intelligent
-                rule engine into a single lightweight executable.</p>
+            <div class="section-header reveal">
+                <h2>Built for Real Threat Scenarios</h2>
+                <p>AEGIS XII combines packet inspection, process awareness, and an intelligent rule engine into a single lightweight application.</p>
+            </div>
+            
             <div class="features-grid">
                 <div class="feature-card glass reveal">
-                    <div class="feature-icon icon-orange">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-                            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-                            <line x1="6" y1="1" x2="6" y2="4" />
-                            <line x1="10" y1="1" x2="10" y2="4" />
-                            <line x1="14" y1="1" x2="14" y2="4" />
-                        </svg>
+                    <div class="feature-icon icon-blue">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
                     </div>
                     <h3>Deep Packet Inspection</h3>
-                    <p>Every packet is analyzed at the application layer. Malicious payloads are identified and dropped
-                        before they reach your system.</p>
+                    <p>Analyzes traffic at the application layer to drop malicious payloads before they execute.</p>
                 </div>
+                
                 <div class="feature-card glass reveal delay-1">
-                    <div class="feature-icon icon-blue">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                    </div>
-                    <h3>Real-Time Process Monitor</h3>
-                    <p>Maps every active process to its network connections. Instantly block or allow entire
-                        applications with a single click in the dashboard.</p>
-                </div>
-                <div class="feature-card glass reveal delay-2">
-                    <div class="feature-icon icon-teal">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                        </svg>
-                    </div>
-                    <h3>Adaptive Rule Engine</h3>
-                    <p>Define IP, port, protocol, and process-level rules. Rules are loaded from a plain-text config and
-                        hot-applied without restarting.</p>
-                </div>
-                <div class="feature-card glass reveal">
                     <div class="feature-icon icon-purple">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
-                    <h3>Geo-IP Blocking</h3>
-                    <p>Block entire countries or CIDR ranges in one step. Ideal for stopping nation-state lateral
-                        movement and botnets at the edge.</p>
+                    <h3>DNS Firewall (NEW)</h3>
+                    <p>Filters and blocks requests to malicious or untrusted domains instantly.</p>
                 </div>
-                <div class="feature-card glass reveal delay-1">
-                    <div class="feature-icon icon-red">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path
-                                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                            <line x1="12" y1="9" x2="12" y2="13" />
-                            <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                    </div>
-                    <h3>Threat Auto-Ban</h3>
-                    <p>IPs triggering port-scan or flood heuristics are automatically banned. Bans are timed and expire
-                        cleanly — zero manual intervention.</p>
-                </div>
+                
                 <div class="feature-card glass reveal delay-2">
+                    <div class="feature-icon icon-red">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <h3>MAC Watchdog (NEW)</h3>
+                    <p>Continuously monitors for and stops ARP spoofing and MITM attacks on your local network.</p>
+                </div>
+
+                <div class="feature-card glass reveal">
+                    <div class="feature-icon icon-orange">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                    <h3>Hardware Monitor (NEW)</h3>
+                    <p>Alerts you when unauthorized or rogue devices join your local network.</p>
+                </div>
+
+                <div class="feature-card glass reveal delay-1">
                     <div class="feature-icon icon-green">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                            <path d="M9 12l2 2 4-4" />
-                        </svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     </div>
-                    <h3>Silent Background Operation</h3>
-                    <p>No console window. No system tray clutter. AEGIS XII runs silently as a background process and
-                        opens its live dashboard directly in your browser.</p>
+                    <h3>Adaptive Auto-Ban</h3>
+                    <p>Detects port scans and flood attacks, automatically banning malicious IP addresses.</p>
+                </div>
+
+                <div class="feature-card glass reveal delay-2">
+                    <div class="feature-icon icon-blue">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    </div>
+                    <h3>Silent Operation</h3>
+                    <p>Runs seamlessly as a background process with a real-time native desktop UI.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Version Comparison -->
-    <section id="comparison" class="section">
+    <!-- Download Section -->
+    <section id="download" class="download-section section">
         <div class="container">
-            <div class="section-label reveal">The Evolution</div>
-            <h2 class="section-title reveal">Why Version 2.0 is Better</h2>
-            <p class="section-desc reveal">We listened to feedback. Version 2.0 completely transforms AEGIS XII from a
-                headless service into a premium standalone desktop application.</p>
-
-            <div class="compare-grid">
-                <div class="compare-card v1-card reveal">
-                    <div class="compare-header">
-                        <h3>Version 1.0</h3>
-                        <span class="compare-badge legacy">Legacy</span>
-                    </div>
-                    <ul class="compare-list">
-                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg> Background service only</li>
-                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg> Requires web browser to view UI</li>
-                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg> Manual page refreshes required</li>
-                        <li class="negative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg> Unsorted connection tracking</li>
-                    </ul>
+            <div class="dl-card glass reveal">
+                <h2 class="dl-title">Deploy AEGIS XII v3 Today</h2>
+                <p class="dl-desc">The ultimate real-time packet-level firewall for Windows. Packed with new features including DNS Filtering and MAC Watchdog.</p>
+                
+                <a href="AGEIS_XII_Setup_v3.exe" class="dl-btn" download>
+                    <svg viewBox="0 0 24 24" fill="none" width="24" height="24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download v3.0 Installer
+                </a>
+                
+                <div class="dl-meta">
+                    <span>Windows 10 / 11 (64-bit)</span>
+                    <span>|</span>
+                    <span>Requires Administrator</span>
                 </div>
-
-                <div class="compare-card v2-card reveal delay-1">
-                    <div class="compare-header">
-                        <h3>Version 2.0</h3>
-                        <span class="compare-badge current">Current</span>
-                    </div>
-                    <ul class="compare-list">
-                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg> Native Electron Desktop App</li>
-                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg> Frameless, standalone UI</li>
-                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg> Real-time auto-refreshing tables</li>
-                        <li class="positive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg> Dynamic connection sorting</li>
-                    </ul>
+                
+                <div style="margin-top: 30px; font-size: 0.85rem; color: var(--text-tertiary);">
+                    <a href="AGEIS_XII_Setup_v2.exe" style="text-decoration: underline; margin-right: 15px;">Download v2.0</a>
+                    <a href="AGEIS_XII_Setup_v1.exe" style="text-decoration: underline;">Download v1.0</a>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works -->
-    <section id="how-it-works" class="section section-alt">
-        <div class="container">
-            <div class="section-label reveal">Under The Hood</div>
-            <h2 class="section-title reveal">How AEGIS XII Works</h2>
-            <div class="steps-grid">
-                <div class="step reveal">
-                    <div class="step-num">01</div>
-                    <h3>Capture</h3>
-                    <p>AEGIS XII binds to your network adapter using raw sockets (Windows) or NFQUEUE (Linux) and
-                        intercepts every packet before it is processed.</p>
-                </div>
-                <div class="step-arrow reveal delay-1">→</div>
-                <div class="step reveal delay-1">
-                    <div class="step-num">02</div>
-                    <h3>Inspect</h3>
-                    <p>The DPI engine and rule engine evaluate each packet against your configured rules, geo-blocks,
-                        rate-limits, and behavioral heuristics.</p>
-                </div>
-                <div class="step-arrow reveal delay-2">→</div>
-                <div class="step reveal delay-2">
-                    <div class="step-num">03</div>
-                    <h3>Verdict</h3>
-                    <p>Packets are either allowed or dropped. All events are logged, stats are updated live, and the
-                        dashboard reflects the decision instantly.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Download -->
-    <section id="download" class="section">
-        <div class="container">
-            <div class="section-label reveal">Get Started</div>
-            <h2 class="section-title reveal">Download AEGIS XII</h2>
-            <p class="section-desc reveal">The first stable release — free, no signup required. Run it as Administrator
-                and your live dashboard opens automatically.</p>
-
-            <div class="download-card glass reveal">
-                <div class="download-left">
-                    <div class="version-badge">Version 2.0</div>
-                    <h3 class="download-title">AEGIS XII — Windows Native Release</h3>
-                    <p class="download-desc">Includes the firewall engine, native Electron desktop UI, rule engine,
-                        process monitor, DPI module, and geo-IP blocking out of the box.</p>
-                    <ul class="download-requirements">
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            Windows 10 or Windows 11 (64-bit)
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            Must be run as Administrator
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            Full system installer included
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            Standalone frameless desktop experience
-                        </li>
-                    </ul>
-                </div>
-                <div class="download-right">
-                    <div class="download-meta">
-                        <div class="meta-row">
-                            <span class="meta-key">File</span>
-                            <span class="meta-value mono">AGEIS_XII_Setup_v2.exe</span>
-                        </div>
-                        <div class="meta-row">
-                            <span class="meta-key">Size</span>
-                            <span class="meta-value">75.5 MB</span>
-                        </div>
-                        <div class="meta-row">
-                            <span class="meta-key">Platform</span>
-                            <span class="meta-value">Windows x64</span>
-                        </div>
-                        <div class="meta-row">
-                            <span class="meta-key">Release</span>
-                            <span class="meta-value">June 2026</span>
-                        </div>
-                    </div>
-                    <a href="AGEIS_XII_Setup_v2.exe" class="btn-download" download>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        Download v2.0
-                    </a>
-                    <a href="AGEIS_XII_Setup_v1.exe" class="btn-download btn-alt"
-                        style="margin-top: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-soft);"
-                        download>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        Download v1.0 (Legacy)
-                    </a>
-                    <p class="download-note" style="margin-top: 16px;">Observer mode by default. For real packet
-                        blocking on Windows, see the README included in the download.</p>
-                </div>
-            </div>
-
-            <!-- Quick Start -->
-            <div class="quickstart glass reveal">
-                <h3 class="qs-title">Quick Start</h3>
-                <ol class="qs-steps">
-                    <li><span class="qs-num">1</span><span>Run the installer <code>AGEIS_XII_Setup_v2.exe</code></span>
-                    </li>
-                    <li><span class="qs-num">2</span><span>Launch <strong>AEGIS XII</strong> from your Start Menu</span>
-                    </li>
-                    <li><span class="qs-num">3</span><span>The application handles background processes
-                            automatically</span></li>
-                    <li><span class="qs-num">4</span><span>Monitor traffic, set rules, and block threats from the native
-                            UI</span></li>
-                </ol>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="container footer-inner">
-            <div class="footer-brand">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    <path d="M9 12l2 2 4-4" />
-                </svg>
-                AEGIS XII
-            </div>
-            <p class="footer-copy">© 2026 ASD SOlutions · All rights reserved</p>
-        </div>
+    <footer style="text-align: center; padding: 40px 0; border-top: 1px solid var(--border); margin-top: 40px;">
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">© 2026 ASD Solutions · All rights reserved.</p>
     </footer>
 
     <script src="script.js"></script>
 </body>
-
 </html>
