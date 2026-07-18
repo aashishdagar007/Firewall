@@ -1,105 +1,160 @@
-const { app, BrowserWindow, Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, dialog, nativeImage, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 
-let mainWindow;
+// ── Single instance lock ────────────────────────────────────────────────────
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+  process.exit(0);
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let firewallProcess = null;
+let firewallRestartCount = 0;
+const MAX_FIREWALL_RESTARTS = 3;
 
-// Determine path to firewall executable based on environment (packaged vs dev)
+// ── Paths (packaged vs dev) ─────────────────────────────────────────────────
 const isPackaged = app.isPackaged;
-let firewallExePath;
-let dashboardPath;
 
-if (isPackaged) {
-  // In production, extraFiles places it in process.resourcesPath/bin
-  firewallExePath = path.join(process.resourcesPath, 'bin', 'firewall.exe');
-  dashboardPath = path.join(process.resourcesPath, 'dashboard');
-} else {
-  // In development
-  firewallExePath = path.join(__dirname, '..', 'cmake-build-debug', 'firewall.exe');
-  dashboardPath = path.join(__dirname, '..', 'dashboard');
-  if (!fs.existsSync(firewallExePath)) {
-    firewallExePath = path.join(__dirname, '..', 'cmake-build-release', 'firewall.exe');
+const firewallExePath = isPackaged
+  ? path.join(process.resourcesPath, 'bin', 'firewall.exe')
+  : (() => {
+      const rel  = path.join(__dirname, '..', 'cmake-build-release', 'firewall.exe');
+      const dbg  = path.join(__dirname, '..', 'cmake-build-debug',   'firewall.exe');
+      return fs.existsSync(rel) ? rel : dbg;
+    })();
+
+const websitePath   = isPackaged
+  ? path.join(process.resourcesPath, 'website', 'index.html')
+  : path.join(__dirname, '..', 'Website', 'index.html');
+
+const dashboardRoot = isPackaged
+  ? path.join(process.resourcesPath, 'dashboard')
+  : path.join(__dirname, '..', 'dashboard');
+
+const configPath = isPackaged
+  ? path.join(process.resourcesPath, 'config', 'rules.conf')
+  : path.join(__dirname, '..', 'config', 'rules.conf');
+
+const logsDir = isPackaged
+  ? path.join(process.resourcesPath, 'logs')
+  : path.join(__dirname, '..', 'logs');
+
+const logFile = path.join(logsDir, 'firewall.log');
+
+const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+
+// ── Ensure logs directory exists ────────────────────────────────────────────
+function ensureLogsDir() {
+  try {
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+  } catch (e) {
+    console.error('Could not create logs directory:', e);
   }
 }
 
+// ── Spawn firewall.exe (with restart-on-crash) ──────────────────────────────
 function spawnFirewall() {
   if (!fs.existsSync(firewallExePath)) {
-    dialog.showErrorBox('Missing Firewall Core', `Could not find firewall.exe at:\n${firewallExePath}\nPlease build the project first.`);
+    dialog.showErrorBox(
+      'AEGIS XII — Missing Engine',
+      `Could not find firewall.exe at:\n${firewallExePath}\n\nPlease reinstall AEGIS XII.`
+    );
     app.quit();
     return;
   }
 
-  // Determine working directory (to load config, rules, etc.)
   const cwd = isPackaged ? process.resourcesPath : path.join(__dirname, '..');
 
-  console.log(`Starting firewall.exe from: ${firewallExePath}`);
-  
-  firewallProcess = spawn(firewallExePath, ['config/rules.conf', 'logs/firewall.log', isPackaged ? 'dashboard/' : 'dashboard/'], {
-    cwd: cwd,
-    windowsHide: true,
-  });
+  console.log(`[AEGIS] Starting firewall engine: ${firewallExePath}`);
+
+  firewallProcess = spawn(
+    firewallExePath,
+    [configPath, logFile, dashboardRoot + path.sep],
+    { cwd, windowsHide: true }
+  );
 
   firewallProcess.stdout.on('data', (data) => {
-    console.log(`[FW]: ${data}`);
+    console.log(`[FW]: ${data.toString().trim()}`);
   });
 
   firewallProcess.stderr.on('data', (data) => {
-    console.error(`[FW ERR]: ${data}`);
+    console.error(`[FW ERR]: ${data.toString().trim()}`);
   });
 
   firewallProcess.on('close', (code) => {
-    console.log(`firewall.exe exited with code ${code}`);
+    console.log(`[AEGIS] firewall.exe exited with code ${code}`);
     if (!isQuitting) {
-      dialog.showErrorBox('Firewall Engine Terminated', `The backend engine stopped unexpectedly (Code: ${code}).\nThe UI will now close.`);
-      app.quit();
+      if (firewallRestartCount < MAX_FIREWALL_RESTARTS) {
+        firewallRestartCount++;
+        console.log(`[AEGIS] Restarting firewall engine (attempt ${firewallRestartCount}/${MAX_FIREWALL_RESTARTS})...`);
+        setTimeout(spawnFirewall, 2000);
+      } else {
+        dialog.showErrorBox(
+          'AEGIS XII — Engine Failure',
+          `The firewall engine stopped unexpectedly (exit code: ${code}) and could not be restarted.\n\nThe application will now close.`
+        );
+        app.quit();
+      }
     }
   });
 }
 
+// ── Poll backend until ready ────────────────────────────────────────────────
 function pollBackend(retries, delayMs, callback) {
-  const req = http.get('http://127.0.0.1:8080/api/token', (res) => {
+  http.get('http://127.0.0.1:8080/api/token', (res) => {
     if (res.statusCode === 200) {
       callback(true);
     } else {
       if (retries > 0) setTimeout(() => pollBackend(retries - 1, delayMs, callback), delayMs);
       else callback(false);
     }
-  }).on('error', (err) => {
+  }).on('error', () => {
     if (retries > 0) setTimeout(() => pollBackend(retries - 1, delayMs, callback), delayMs);
     else callback(false);
-  });
-  req.end();
+  }).end();
 }
 
+// ── Create main window ──────────────────────────────────────────────────────
 function createWindow() {
+  const icon = fs.existsSync(iconPath)
+    ? nativeImage.createFromPath(iconPath)
+    : nativeImage.createEmpty();
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    title: "Aegis XII",
+    width: 1280,
+    height: 820,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'AEGIS XII',
+    icon: icon,
     autoHideMenuBar: true,
-    show: false, // hide until loaded
+    show: false,
+    backgroundColor: '#030509',
     webPreferences: {
-      nodeIntegration: false
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false,   // allows loadFile to load local CSS/JS/fonts
     }
   });
 
-  // Wait for the backend to bind to 8080 before loading
-  pollBackend(10, 500, (isUp) => {
-    if (isUp) {
-      mainWindow.loadURL('http://localhost:8080');
-      mainWindow.show();
-    } else {
-      dialog.showErrorBox('Connection Failed', 'Could not connect to the firewall backend on port 8080.');
-      app.quit();
-    }
+  // Load the marketing website as the home page
+  mainWindow.loadFile(websitePath);
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
   });
 
-  mainWindow.on('close', function (event) {
+  // Clicking close hides the window — app lives in the tray
+  mainWindow.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault();
       mainWindow.hide();
@@ -107,63 +162,93 @@ function createWindow() {
   });
 }
 
+// ── Create system tray icon ─────────────────────────────────────────────────
 function createTray() {
-  const { nativeImage } = require('electron');
-  // Load icon if available, otherwise fallback
-  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
-  if (fs.existsSync(iconPath)) {
-    tray = new Tray(iconPath);
-  } else {
-    tray = new Tray(nativeImage.createEmpty()); 
-  }
-  
-  tray.setToolTip('Aegis XII');
+  const icon = fs.existsSync(iconPath)
+    ? nativeImage.createFromPath(iconPath)
+    : nativeImage.createEmpty();
+
+  tray = new Tray(icon);
+  tray.setToolTip('AEGIS XII — Active');
 
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Show Dashboard',
-      click: () => mainWindow.show()
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        } else {
+          createWindow();
+        }
+      }
     },
     { type: 'separator' },
     {
-      label: 'Quit Aegis',
+      label: 'Terminate AEGIS XII',
       click: () => {
         isQuitting = true;
+        if (firewallProcess) {
+          try { firewallProcess.kill(); } catch (e) { /* already dead */ }
+        }
         app.quit();
       }
     }
   ]);
 
   tray.setContextMenu(contextMenu);
-  tray.on('double-click', () => mainWindow.show());
-}
 
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
+  // Double-click tray icon → show window
+  tray.on('double-click', () => {
     if (mainWindow) {
-      if (!mainWindow.isVisible()) mainWindow.show();
-      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
       mainWindow.focus();
+    } else {
+      createWindow();
     }
   });
-
-  app.whenReady().then(() => {
-    spawnFirewall();
-    createWindow();
-    createTray();
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
-  });
 }
+
+// ── Auto-start on Windows login ─────────────────────────────────────────────
+function configureAutoStart() {
+  if (isPackaged) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      openAsHidden: true,  // start minimised to tray, no window popup
+    });
+  }
+}
+
+// ── App lifecycle ───────────────────────────────────────────────────────────
+app.on('second-instance', () => {
+  // Someone tried to launch a second instance — focus existing window
+  if (mainWindow) {
+    if (!mainWindow.isVisible()) mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
+app.whenReady().then(() => {
+  ensureLogsDir();
+  spawnFirewall();
+  createWindow();
+  createTray();
+  configureAutoStart();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+// Prevent the app from quitting when all windows are closed (live in tray)
+app.on('window-all-closed', (e) => {
+  if (!isQuitting) e.preventDefault();
+});
 
 app.on('before-quit', () => {
   isQuitting = true;
   if (firewallProcess) {
-    firewallProcess.kill();
+    try { firewallProcess.kill(); } catch (e) { /* already dead */ }
   }
 });
