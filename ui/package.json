@@ -6,8 +6,7 @@
   "author": "ASD Solutions",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "pack": "electron-builder --dir --config.publish=null --config.directories.output=packed"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -16,48 +15,22 @@
   "build": {
     "appId": "com.asd.aegis-xii",
     "productName": "AEGIS XII",
-    "copyright": "Copyright © 2026 ASD Solutions",
-    "directories": {
-      "output": "dist"
-    },
-    "publish": null,
     "win": {
-      "target": "nsis",
       "icon": "assets/icon.ico",
       "requestedExecutionLevel": "requireAdministrator"
     },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": true,
-      "allowElevation": true,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "AEGIS XII",
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico"
-    },
-    "extraFiles": [
+    "extraResources": [
       {
         "from": "../cmake-build-release/firewall.exe",
-        "to": "resources/bin/firewall.exe"
-      },
-      {
-        "from": "../Website",
-        "to": "resources/website",
-        "filter": [
-          "**/*",
-          "!*.exe"
-        ]
+        "to": "bin/firewall.exe"
       },
       {
         "from": "../dashboard",
-        "to": "resources/dashboard"
+        "to": "dashboard"
       },
       {
         "from": "../config",
-        "to": "resources/config"
+        "to": "config"
       }
     ]
   }
