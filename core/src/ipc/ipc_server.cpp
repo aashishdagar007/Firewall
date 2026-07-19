@@ -94,10 +94,10 @@ void IpcServer::handle_client(void* pipe_handle) {
 
         if (header.type == MsgType::GET_STATS) {
             StatsPayload sp;
-            sp.total_packets = m_stats.total_packets.load();
-            sp.blocked_packets = m_stats.blocked_packets.load();
-            sp.bytes_transferred = m_stats.bytes_transferred.load();
-            sp.active_connections = m_stats.active_connections.load();
+            sp.total_packets = m_stats.total.load();
+            sp.blocked_packets = m_stats.blocked.load();
+            sp.bytes_transferred = m_stats.bytes_total.load();
+            sp.active_connections = 0; // no direct field in LiveStats
 
             MsgHeader reply_hdr = {MsgType::STATS_REPLY, sizeof(StatsPayload)};
             DWORD bytesWritten;

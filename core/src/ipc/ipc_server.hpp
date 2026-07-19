@@ -4,7 +4,8 @@
 #include <atomic>
 #include <vector>
 #include "shared/messages.h"
-#include "../engine/rule_engine.hpp"
+#include "engine/rule_engine.hpp"
+#include "net/nfq_capture.hpp"
 
 namespace fw {
 namespace ipc {

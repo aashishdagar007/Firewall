@@ -29,6 +29,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <winsvc.h>
+#include <shellapi.h>
 #endif
 
 // ──────────────────────────────────────────────────────────────
