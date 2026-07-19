@@ -1,13 +1,13 @@
 ; ============================================================
 ;  AEGIS XII v3.0 — InnoSetup Installer Script
-;  Packages: firewall.exe + dashboard + config
+;  Packages: AegisXII.exe + config (Native Dual-Mode Architecture)
 ; ============================================================
 
 #define MyAppName      "AEGIS XII"
 #define MyAppVersion   "3.0"
 #define MyAppPublisher "ASD Solutions"
 #define MyAppURL       "https://aegisxii.vercel.app/"
-#define MyAppExeName   "firewall.exe"
+#define MyAppExeName   "AegisXII.exe"
 #define BuildDir       "D:\AASHISH\Projects\Firewall\cmake-build-release"
 
 [Setup]
@@ -28,7 +28,7 @@ UninstallDisplayName={#MyAppName}
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
-; Require Administrator (needed for raw socket packet capture)
+; Require Administrator (needed for raw socket packet capture and Service installation)
 PrivilegesRequired=admin
 
 ; Appearance
@@ -48,9 +48,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; ── C++ Executable and assets ──
-Source: "{#BuildDir}\firewall.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\AASHISH\Projects\Firewall\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "D:\AASHISH\Projects\Firewall\dashboard\dist\*"; DestDir: "{app}\dashboard"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
 ; Writable logs directory inside the installation folder
@@ -62,17 +61,17 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 ; Desktop (optional)
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
-[Registry]
-; Auto-start on Windows login
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue
-
 [Run]
-; Launch AEGIS XII immediately after installation
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; 1. Register the Windows Service (runs elevated implicitly since installer is admin)
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--install"; Description: "Install Aegis Background Service"; Flags: runhidden postinstall
+; 2. Launch the un-elevated GUI client immediately after installation
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName} GUI"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-; Terminate AEGIS XII before uninstall
+; Terminate AEGIS XII GUI and Background Service before uninstall
 Filename: "taskkill.exe"; Parameters: "/F /IM ""{#MyAppExeName}"""; Flags: runhidden
+; Attempt to delete the service if running
+Filename: "sc.exe"; Parameters: "delete AegisXII"; Flags: runhidden
 
 [UninstallDelete]
 ; Clean up the logs directory on uninstall

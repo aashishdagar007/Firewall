@@ -1,289 +1,131 @@
-#include "platform.hpp"       // MUST be first — pulls in winsock2.h on Windows
-#include "nfq_capture.hpp"
-#include "rule_engine.hpp"
-#include "logger.hpp"
-#include "config_parser.hpp"
-#include "api_server.hpp"
-#include "ring_buffer.hpp"
-#include "process_monitor.hpp"
-#include "local_graph_store.hpp"
-#include "correlation_engine.hpp"
-// ── Phase 2: Four Pillars ─────────────────────────────────────
-#include "sha256.hpp"          // Pillar 2+4: cryptographic primitive
-#include "bvudp.hpp"           // Pillar 2:   Batch-Verified UDP protocol
-#include "port_demux.hpp"      // Pillar 1:   DPI port demultiplexer
-#include "chain_ledger.hpp"    // Pillar 4:   tamper-proof event ledger
-#include "control_plane.hpp"   // Pillar 3:   cloud control plane client
-#include "local_graph_store.hpp"
-#include "correlation_engine.hpp"
-// ── Phase 3: Hardening ────────────────────────────────────────
-#include "dns_firewall.hpp"    // Pillar P4: DNS Firewall
-#include "mac_watchdog.hpp"    // Pillar P5: MAC/ARP Watchdog
-#include "hardware_monitor.hpp" // Phase 4: OS Hardening
+#include "util/platform.hpp"       
+#include "net/nfq_capture.hpp"
+#include "engine/rule_engine.hpp"
+#include "util/logger.hpp"
+#include "persistence/config_parser.hpp"
+#include "util/ring_buffer.hpp"
+#include "engine/process_monitor.hpp"
+#include "persistence/local_graph_store.hpp"
+#include "engine/correlation_engine.hpp"
+#include "util/sha256.hpp"          
+#include "net/bvudp.hpp"           
+#include "net/port_demux.hpp"      
+#include "persistence/chain_ledger.hpp"    
+#include "engine/control_plane.hpp"   
+#include "engine/dns_firewall.hpp"    
+#include "engine/mac_watchdog.hpp"    
+#include "engine/hardware_monitor.hpp" 
+#include "ipc/ipc_server.hpp"
+#include "../../gui/src/window.hpp"
+
 #include <csignal>
 #include <atomic>
 #include <thread>
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <iostream>
 
 #ifdef _WIN32
-#include <shellapi.h>
-#else
-// POSIX headers needed by open_browser (fork, execlp, open, dup2)
-#include <unistd.h>
-#include <fcntl.h>
+#include <windows.h>
+#include <winsvc.h>
 #endif
-// ──────────────────────────────────────────────────────────────
-//  main.cpp  (v2 — Real Firewall + GUI  |  Windows + Linux)
-//
-//  Architecture:
-//    Thread 1 (main)     → Packet capture loop (kernel verdicts on Linux)
-//    Thread 2 (detached) → HTTP API server (dashboard backend)
-//
-//  Usage:
-//    [sudo] ./firewall [config] [log] [dashboard_dir] [api_port]
-//
-//    config        default: config/rules.conf
-//    log           default: logs/firewall.log
-//    dashboard_dir default: dashboard/
-//    api_port      default: 8080
-//
-//  Windows notes:
-//    • Linked as /SUBSYSTEM:WINDOWS — no console window appears.
-//    • All diagnostic output goes to logs/firewall.log.
-//    • Run as Administrator (raw socket / SIO_RCVALL needs it).
-//    • For real packet blocking on Windows, integrate WinDivert.
-// ──────────────────────────────────────────────────────────────
 
+// ──────────────────────────────────────────────────────────────
+// Globals for Service Control
+// ──────────────────────────────────────────────────────────────
 static fw::NfqCapture* g_capture = nullptr;
+static std::atomic<bool> g_service_running{false};
 
 static void signal_handler(int) {
     if (g_capture) g_capture->stop();
+    g_service_running = false;
 }
 
-// ── Open a URL in the default browser without flashing a console window ──
-[[maybe_unused]] static void open_browser(const std::string& url) {
-#ifdef _WIN32
-    // Convert to wide string for ShellExecuteW
-    int wlen = MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, nullptr, 0);
-    std::wstring wurl(wlen, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, &wurl[0], wlen);
+// ──────────────────────────────────────────────────────────────
+// Core Firewall Service Logic
+// ──────────────────────────────────────────────────────────────
+void run_core_service() {
+    if (!wsa_init()) return;
+    g_service_running = true;
 
-    // Try Chrome in app mode (frameless standalone window)
-    std::wstring chrome_args = L"--app=\"" + wurl + L"\" --new-window";
-    HINSTANCE rc = ShellExecuteW(nullptr, L"open", L"chrome", chrome_args.c_str(), nullptr, SW_SHOWNORMAL);
-    if (reinterpret_cast<INT_PTR>(rc) > 32) return;
+    // Hardcoded paths since service runs from system32 typically; in prod use absolute paths
+    const std::string config_path = "config/rules.conf";
+    const std::string log_path    = "logs/firewall.log";
 
-    // Fallback: Edge in app mode
-    std::wstring edge_args = L"--app=\"" + wurl + L"\" --new-window";
-    rc = ShellExecuteW(nullptr, L"open", L"msedge", edge_args.c_str(), nullptr, SW_SHOWNORMAL);
-    if (reinterpret_cast<INT_PTR>(rc) > 32) return;
-
-    // Final fallback: system default browser
-    ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-#else
-    // Use fork+execlp instead of std::system to avoid shell injection.
-    // std::system("xdg-open '"+url+"'") would allow injection if url is
-    // ever derived from user-controlled input. execlp does not invoke a shell.
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child: redirect stderr to /dev/null and exec xdg-open
-        int dev_null = open("/dev/null", O_WRONLY);
-        if (dev_null >= 0) {
-            dup2(dev_null, STDERR_FILENO);
-            close(dev_null);
-        }
-        execlp("xdg-open", "xdg-open", url.c_str(), nullptr);
-        _exit(127); // execlp failed
-    }
-    // Parent: don't wait — fire-and-forget (equivalent to the trailing &)
-#endif
-}
-
-#ifdef _WIN32
-// WinMain entry point for /SUBSYSTEM:WINDOWS (no console)
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-    int    argc = 0;
-    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    // Convert wide args to narrow for uniform handling below
-    std::vector<std::string> args_storage;
-    if (wargv) {
-        for (int i = 0; i < argc; ++i) {
-            int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
-            std::string s(len, '\0');
-            WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
-            args_storage.push_back(s);
-        }
-        LocalFree(wargv);
-    }
-    std::vector<const char*> argv_ptrs;
-    for (auto& s : args_storage) argv_ptrs.push_back(s.c_str());
-    char** argv = const_cast<char**>(argv_ptrs.data());
-#else
-int main(int argc, char* argv[]) {
-#endif
-
-    // ── 0. Platform init (Winsock on Windows, no-op on Linux) ──
-    if (!wsa_init()) {
-        // No console — failure is silent; firewall simply won't start.
-        return 1;
-    }
-
-    const std::string config_path    = (argc > 1) ? argv[1] : "config/rules.conf";
-    const std::string log_path       = (argc > 2) ? argv[2] : "logs/firewall.log";
-    const std::string dashboard_root = (argc > 3) ? argv[3] : "dashboard/";
-    int               api_port       = 8080;
-    if (argc > 4) {
-        try { api_port = std::stoi(argv[4]); } catch (...) {}
-    }
-
-    // ── 1. Load rules ──────────────────────────────────────────
     auto loaded_rules = fw::ConfigParser::load(config_path);
     fw::RuleEngine engine(fw::Action::BLOCK);
-    for (auto& r : loaded_rules)
-        engine.add_rule(std::move(r));
+    for (auto& r : loaded_rules) engine.add_rule(std::move(r));
 
-    // ── 2. Shared state ────────────────────────────────────────
-    fw::LiveStats                     stats;
-    fw::RingBuffer<fw::PacketRecord>  ring(500);
-
-    // ── 3. Logger ──────────────────────────────────────────────
+    fw::LiveStats stats;
+    fw::RingBuffer<fw::PacketRecord> ring(500);
     fw::Logger logger(log_path, fw::LogLevel::LOG_INFO);
-    logger.log(fw::LogLevel::LOG_INFO, "Firewall v2 starting");
+    logger.log(fw::LogLevel::LOG_INFO, "Aegis XII Core Service starting");
 
-    // ── P2-A: Tamper-Proof Hash-Chain Ledger (Pillar 4) ──────
     fw::ChainLedger ledger("logs/ledger.chain", "logs/ledger.json");
-    if (ledger.open()) {
-        ledger.log_firewall_start();
-        logger.log(fw::LogLevel::LOG_INFO, "[Pillar 4] Chain ledger initialized");
-    } else {
-        logger.log(fw::LogLevel::LOG_ERROR, "[Pillar 4] Failed to open chain ledger");
-    }
+    if (ledger.open()) ledger.log_firewall_start();
 
-    // ── P2-B: BVUDP Receiver (Pillar 2) ─────────────────────
-    //   Listens on UDP port 9000 for Batch-Verified protocol traffic.
-    //   The magic-byte check ensures only BVUDP packets are processed.
     fw::BVUDPReceiver bvudp_rx(9000);
     bvudp_rx.start(
-        [&ledger, &logger](uint32_t batch_id, std::vector<uint8_t> payload, sockaddr_in /*sender*/) {
-            ledger.log_bvudp_batch(batch_id, payload.size(), /*ok=*/true);
-            logger.log(fw::LogLevel::LOG_INFO,
-                       "[Pillar 2] BVUDP batch " + std::to_string(batch_id) +
-                       " verified " + std::to_string(payload.size()) + " bytes");
-            // TODO: dispatch payload to internal application handler
+        [&](uint32_t batch_id, std::vector<uint8_t> payload, sockaddr_in) {
+            ledger.log_bvudp_batch(batch_id, payload.size(), true);
         },
-        [&engine, &ledger, &logger](sockaddr_in sender) {
+        [&](sockaddr_in sender) {
             uint32_t src_ip = ntohl(sender.sin_addr.s_addr);
-            // 1. Report to engine to immediately auto-ban the IP
             engine.report_tampering_attempt(src_ip);
-            
-            // 2. Log tampering event to immutable ledger
-            ledger.log_threat_banned(ip4_to_string(src_ip), "Protocol Tampering Attack (HMAC mismatch)");
-            logger.log(fw::LogLevel::LOG_WARN, "[Pillar 2] HMAC Mismatch! Autobanning attacker.");
+            ledger.log_threat_banned(ip4_to_string(src_ip), "Protocol Tampering Attack");
         }
     );
-    logger.log(fw::LogLevel::LOG_INFO, "[Pillar 2] BVUDP receiver on UDP:9000");
 
-    // ── P2-C: Port Demultiplexer / WinDivert (Pillar 1) ─────
-    //   Intercepts UDP port 80 and 443. BVUDP traffic is pulled
-    //   off the OS stack; HTTP/HTTPS is transparently reinjected.
     fw::PortDemux demux({80, 443, 9000}, bvudp_rx);
     demux.start();
-    logger.log(fw::LogLevel::LOG_INFO,
-               std::string("[Pillar 1] Port demux started — ") +
-               (demux.is_observer_mode() ? "observer (no WinDivert)" : "WinDivert active"));
 
-    // ── P2-D: Cloud Control Plane (Pillar 3) ─────────────────
-    //   Remote URL is empty by default — uses local cloud_config.json.
-    //   Set AEGIS_CONTROL_URL env var to enable remote endpoint.
     std::string cloud_url;
     if (const char* env = std::getenv("AEGIS_CONTROL_URL")) cloud_url = env;
-    fw::ControlPlaneClient control_plane(engine, ledger, cloud_url,
-                                         "config/cloud_config.json", 60);
-    control_plane.set_callback([&logger](const fw::CloudConfig& cfg) {
-        logger.log(fw::LogLevel::LOG_INFO,
-                   "[Pillar 3] Cloud config applied — " +
-                   std::to_string(cfg.rules.size()) + " rules, " +
-                   std::to_string(cfg.geo_blocks.size()) + " geo-blocks");
-    });
+    fw::ControlPlaneClient control_plane(engine, ledger, cloud_url, "config/cloud_config.json", 60);
     control_plane.start();
-    logger.log(fw::LogLevel::LOG_INFO, "[Pillar 3] Control plane started");
 
-    // ── XDR: Local Graph Store ────────────────────────────────
     fw::LocalGraphStore graph_store("logs/xdr_graph.db");
-    if (graph_store.open()) {
-        logger.log(fw::LogLevel::LOG_INFO, "LocalGraphStore opened at logs/xdr_graph.db");
-    } else {
-        logger.log(fw::LogLevel::LOG_ERROR, "Failed to open LocalGraphStore");
-    }
+    graph_store.open();
 
-    // ── 4. Start process monitor ──────────────────────────────
     fw::ProcessMonitor proc_mon(&graph_store);
     proc_mon.start();
-    logger.log(fw::LogLevel::LOG_INFO, "ProcessMonitor started (port->PID->process mapping active)");
 
-    // ── XDR: Correlation Engine ────────────────────────────────
     fw::CorrelationEngine correlation(engine, proc_mon);
     correlation.start();
-    logger.log(fw::LogLevel::LOG_INFO, "CorrelationEngine started");
 
-    // ── Phase 3: DNS Firewall (Pillar P4) ─────────────────────
     fw::DnsFirewall dns_fw;
-    logger.log(fw::LogLevel::LOG_INFO,
-               "[P4] DNS Firewall active (AXFR/ANY/DGA/Tunnel detection)");
-
-    // ── Phase 3: MAC Watchdog (Pillar P5) ─────────────────────
     fw::MacWatchdog mac_watchdog;
-    // Auto-ban any IP caught ARP-poisoning / spoofing MACs
-    mac_watchdog.set_callback([&engine, &ledger, &logger](const fw::MacConflictEvent& ev) {
+    mac_watchdog.set_callback([&](const fw::MacConflictEvent& ev) {
         if (ev.threat_type == "ARP_Poison" || ev.threat_type == "LAA_Change") {
-            // Parse IP string back to uint32_t
             struct in_addr addr;
             if (inet_pton(AF_INET, ev.src_ip.c_str(), &addr) == 1) {
-                uint32_t ip = ntohl(addr.s_addr);
-                engine.ban_ip(ip, "MAC Watchdog: " + ev.threat_type + " detected");
+                engine.ban_ip(ntohl(addr.s_addr), "MAC Watchdog: " + ev.threat_type);
                 ledger.log_threat_banned(ev.src_ip, ev.detail);
-                logger.log(fw::LogLevel::LOG_WARN,
-                           "[P5] ARP spoof detected and banned: " + ev.src_ip);
             }
         }
     });
-    logger.log(fw::LogLevel::LOG_INFO,
-               "[P5] MAC Watchdog active (ARP poison / MitM detection)");
 
-    // ── Phase 4: OS Hardware Monitor ──────────────────────────
     fw::HardwareMonitor hw_mon;
-    if (fw::HardwareMonitor::is_admin()) {
-        hw_mon.start();
-        logger.log(fw::LogLevel::LOG_INFO, "[P4-OS] HardwareMonitor active (USB/BT monitoring)");
-    } else {
-        logger.log(fw::LogLevel::LOG_WARN, "[P4-OS] Not running as Admin. Hardware monitoring disabled.");
-    }
+    if (fw::HardwareMonitor::is_admin()) hw_mon.start();
 
-    // ── 5. Start API server ──────────────────────────────────
-    fw::ApiServer api(engine, stats, ring, proc_mon, dns_fw, mac_watchdog, &hw_mon,
-                      dashboard_root, api_port);
-    api.start();
+    // ── Start IPC Server (Replaces API Server) ──
+    fw::ipc::IpcServer ipc(engine, stats);
+    ipc.start();
+    logger.log(fw::LogLevel::LOG_INFO, "IPC Server listening on Named Pipe");
 
-    // ── 5.1 Wire port scan alerts: engine → API → dashboard ──
-    // The callback is called from within evaluate() when a scan burst is
-    // detected. It simply queues the event in the API server; the dashboard
-    // polls GET /api/scans every 3 seconds to display alerts.
-    engine.set_scan_callback([&api](fw::ScanEvent ev) {
-        api.push_scan_alert(std::move(ev));
+    engine.set_scan_callback([&](fw::ScanEvent ev) {
+        // (Optional) Push event to IPC clients if needed
     });
 
-    // ── 5.5 Conntrack cleanup thread ─────────────────────────
     std::atomic<bool> conntrack_running{true};
     std::thread conntrack_thread([&]() {
-        while (conntrack_running) {
+        while (conntrack_running && g_service_running) {
             std::this_thread::sleep_for(std::chrono::seconds(10));
             engine.purge_stale_connections(std::chrono::seconds(300));
         }
     });
 
-    // ── 6. Open packet capture ─────────────────────────────────
     fw::NfqCapture capture(engine, stats, ring, &proc_mon, &correlation, &graph_store);
     g_capture = &capture;
 
@@ -300,76 +142,142 @@ int main(int argc, char* argv[]) {
         graph_store.log_connection(rec);
         correlation.push_network_event(rec);
 
-        // ── Phase 3: LOLBin detection via process name ────────
-        // If the process making this network call is a known LOLBin,
-        // log the event for the /api/lolbins endpoint.
         if (!rec.process_name.empty() && fw::ProcessMonitor::is_lolbin(rec.process_name)) {
-            proc_mon.log_lolbin_event(rec.process_name, rec.pid,
-                                       rec.info.dst_ip, rec.info.dst_port);
-            logger.log(fw::LogLevel::LOG_WARN,
-                       "[P6] LOLBin network access: " + rec.process_name +
-                       " -> " + ip4_to_string(rec.info.dst_ip) +
-                       ":" + std::to_string(rec.info.dst_port));
+            proc_mon.log_lolbin_event(rec.process_name, rec.pid, rec.info.dst_ip, rec.info.dst_port);
         }
 
-        // ── Phase 3: MAC Watchdog feed ────────────────────────
-        // Feed every packet's src MAC + IP into the watchdog to detect
-        // ARP poisoning / MAC rebinding / MitM attacks.
         bool mac_nonzero = false;
         for (auto b : rec.info.src_mac) if (b) { mac_nonzero = true; break; }
-        if (mac_nonzero) {
-            mac_watchdog.record(rec.info.src_mac, rec.info.src_ip);
-        }
+        if (mac_nonzero) mac_watchdog.record(rec.info.src_mac, rec.info.src_ip);
     });
 
     std::signal(SIGINT,  signal_handler);
     std::signal(SIGTERM, signal_handler);
 
-    if (!capture.open()) {
-        logger.log(fw::LogLevel::LOG_ERROR, "Failed to open capture (need elevated privileges)");
-        api.stop();
-        conntrack_running = false;
-        if (conntrack_thread.joinable()) conntrack_thread.join();
-        wsa_cleanup();
-        return 1;
+    if (capture.open()) {
+        logger.log(fw::LogLevel::LOG_INFO, "Capture started. Entering blocking loop.");
+        capture.run(); // Blocks until capture is stopped
+    } else {
+        logger.log(fw::LogLevel::LOG_ERROR, "Failed to open capture (needs admin).");
     }
 
-    const char* mode = capture.is_nfq_mode()
-        ? "NFQUEUE (real blocking — active firewall)"
-        : "Raw socket observer (passive — log & stats only)";
-    logger.log(fw::LogLevel::LOG_INFO, std::string("Capture mode: ") + mode);
-
-    logger.log(fw::LogLevel::LOG_INFO,
-               "Dashboard API available at http://localhost:" + std::to_string(api_port));
-
-    // This launches Chrome/Edge in a frameless standalone window (app mode)
-    open_browser("http://localhost:" + std::to_string(api_port));
-
-    // ── 7. Blocking capture loop (main thread) ─────────────────
-    capture.run();
-
-    // ── 8. Shutdown ───────────────────────────────────────────
-    api.stop();
+    // Shutdown
+    ipc.stop();
     hw_mon.stop();
     proc_mon.stop();
     correlation.stop();
     conntrack_running = false;
     if (conntrack_thread.joinable()) conntrack_thread.join();
 
-    // Phase 2 shutdown (order: control plane → demux → bvudp → ledger)
-    correlation.stop();
     graph_store.close();
     control_plane.stop();
     demux.stop();
     bvudp_rx.stop();
 
-    logger.log(fw::LogLevel::LOG_INFO, "Firewall stopped");
-    logger.print_stats();
-
-    // Commit final ledger block before closing
     ledger.log_firewall_stop();
     ledger.close();
-
     wsa_cleanup();
-    return 0;
+}
+
+
+#ifdef _WIN32
+// ──────────────────────────────────────────────────────────────
+// Windows SCM Integration
+// ──────────────────────────────────────────────────────────────
+SERVICE_STATUS        g_ServiceStatus = {0};
+SERVICE_STATUS_HANDLE g_StatusHandle = NULL;
+
+void WINAPI ServiceCtrlHandler(DWORD CtrlCode) {
+    if (CtrlCode == SERVICE_CONTROL_STOP) {
+        g_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
+        SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
+        signal_handler(0); // Stop capture and exit loop
+    }
+}
+
+void WINAPI ServiceMain(DWORD argc, LPTSTR* argv) {
+    g_StatusHandle = RegisterServiceCtrlHandlerA("AegisXII", ServiceCtrlHandler);
+    if (!g_StatusHandle) return;
+
+    g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+    g_ServiceStatus.dwCurrentState = SERVICE_RUNNING;
+    g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+    SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
+
+    run_core_service(); // Blocks until stopped
+
+    g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
+    SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
+}
+
+bool InstallService() {
+    SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
+    if (!hSCManager) return false;
+
+    char path[MAX_PATH];
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+    std::string binPath = std::string("\"") + path + "\" --service";
+
+    SC_HANDLE hService = CreateServiceA(
+        hSCManager, "AegisXII", "Aegis XII Firewall Service",
+        SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
+        SERVICE_AUTO_START, SERVICE_ERROR_NORMAL,
+        binPath.c_str(), NULL, NULL, NULL, NULL, NULL
+    );
+
+    if (hService) {
+        CloseServiceHandle(hService);
+        CloseServiceHandle(hSCManager);
+        return true;
+    }
+    CloseServiceHandle(hSCManager);
+    return false;
+}
+#endif
+
+// ──────────────────────────────────────────────────────────────
+// Dual-Mode Entry Point
+// ──────────────────────────────────────────────────────────────
+#ifdef _WIN32
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
+    int argc = 0;
+    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    std::vector<std::string> args;
+    for (int i = 0; i < argc; ++i) {
+        int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
+        std::string s(len, '\0');
+        WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
+        args.push_back(s);
+    }
+    LocalFree(wargv);
+#else
+int main(int argc, char* argv[]) {
+    std::vector<std::string> args;
+    for(int i = 0; i < argc; i++) args.push_back(argv[i]);
+#endif
+
+    if (args.size() > 1) {
+        if (args[1] == "--service") {
+#ifdef _WIN32
+            SERVICE_TABLE_ENTRYA ServiceTable[] = {
+                {(LPSTR)"AegisXII", (LPSERVICE_MAIN_FUNCTIONA)ServiceMain},
+                {NULL, NULL}
+            };
+            StartServiceCtrlDispatcherA(ServiceTable);
+#else
+            run_core_service(); // Linux daemon mode
+#endif
+            return 0;
+        }
+#ifdef _WIN32
+        if (args[1] == "--install") {
+            if (InstallService()) MessageBoxA(NULL, "Service Installed Successfully", "Aegis XII", MB_OK);
+            else MessageBoxA(NULL, "Failed to Install Service (Run as Admin)", "Aegis XII", MB_ICONERROR);
+            return 0;
+        }
+#endif
+    }
+
+    // Default mode: Un-elevated GUI Client
+    return fw::gui::run_gui();
 }
