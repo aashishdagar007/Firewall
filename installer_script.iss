@@ -1,20 +1,14 @@
 ; ============================================================
 ;  AEGIS XII v3.0 — InnoSetup Installer Script
-;  Packages: Electron shell + firewall.exe + dashboard + config
-;
-;  BEFORE running this script:
-;    1. cd d:\AASHISH\Projects\Firewall\ui
-;    2. npm run pack
-;  This produces ui\packed\win-unpacked\ (the Electron app directory)
-;  Then compile this .iss file with Inno Setup Compiler.
+;  Packages: firewall.exe + dashboard + config
 ; ============================================================
 
 #define MyAppName      "AEGIS XII"
 #define MyAppVersion   "3.0"
 #define MyAppPublisher "ASD Solutions"
 #define MyAppURL       "https://aegisxii.vercel.app/"
-#define MyAppExeName   "AEGIS XII.exe"
-#define ElectronDir    "D:\AASHISH\Projects\Firewall\ui\packed3\win-unpacked"
+#define MyAppExeName   "firewall.exe"
+#define BuildDir       "D:\AASHISH\Projects\Firewall\cmake-build-release"
 
 [Setup]
 AppId={{B105FD15-8A21-4CC3-8AA9-C36CD5C8EC0D}
@@ -45,7 +39,6 @@ SolidCompression=yes
 ; Output
 OutputDir=D:\AASHISH\Projects\Firewall
 OutputBaseFilename=AEGIS_XII_Setup_v3
-SetupIconFile=D:\AASHISH\Projects\Firewall\ui\assets\icon.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -54,12 +47,14 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; ── Entire Electron app (includes firewall.exe, dashboard, config via extraResources) ──
-Source: "{#ElectronDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; ── C++ Executable and assets ──
+Source: "{#BuildDir}\firewall.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\AASHISH\Projects\Firewall\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "D:\AASHISH\Projects\Firewall\dashboard\dist\*"; DestDir: "{app}\dashboard"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
 ; Writable logs directory inside the installation folder
-Name: "{app}\resources\logs"
+Name: "{app}\logs"
 
 [Icons]
 ; Start Menu
@@ -68,7 +63,7 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Registry]
-; Auto-start on Windows login (hidden to tray)
+; Auto-start on Windows login
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue
 
 [Run]
@@ -81,4 +76,4 @@ Filename: "taskkill.exe"; Parameters: "/F /IM ""{#MyAppExeName}"""; Flags: runhi
 
 [UninstallDelete]
 ; Clean up the logs directory on uninstall
-Type: filesandordirs; Name: "{app}\resources\logs"
+Type: filesandordirs; Name: "{app}\logs"

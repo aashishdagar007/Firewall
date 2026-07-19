@@ -342,6 +342,9 @@ int main(int argc, char* argv[]) {
     logger.log(fw::LogLevel::LOG_INFO,
                "Dashboard API available at http://localhost:" + std::to_string(api_port));
 
+    // This launches Chrome/Edge in a frameless standalone window (app mode)
+    open_browser("http://localhost:" + std::to_string(api_port));
+
     // ── 7. Blocking capture loop (main thread) ─────────────────
     capture.run();
 

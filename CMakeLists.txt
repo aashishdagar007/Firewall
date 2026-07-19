@@ -172,7 +172,7 @@ endif()
 #  Build assets (config + dashboard copied next to the executable)
 # ══════════════════════════════════════════════════════════════════════════════
 file(COPY config    DESTINATION ${CMAKE_BINARY_DIR})
-file(COPY dashboard DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY dashboard/dist/ DESTINATION ${CMAKE_BINARY_DIR}/dashboard)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/logs)
 # Phase 2: cloud control plane bootstrap config
 if(EXISTS "${CMAKE_SOURCE_DIR}/config/cloud_config.json")
