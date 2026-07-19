@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
-#include "../../../shared/messages.h"
+#include "shared/messages.h"
 
 namespace fw {
 namespace gui {

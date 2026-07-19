@@ -3,7 +3,7 @@
 #include <thread>
 #include <atomic>
 #include <vector>
-#include "../../shared/messages.h"
+#include "shared/messages.h"
 #include "../engine/rule_engine.hpp"
 
 namespace fw {

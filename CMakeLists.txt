@@ -41,6 +41,7 @@ FetchContent_MakeAvailable(imgui)
 # ── Include paths ──────────────────────────────────────────────────────────
 include_directories(
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/core/src
     ${sqlite3_SOURCE_DIR}
     ${glfw_SOURCE_DIR}/include
     ${imgui_SOURCE_DIR}
