@@ -103,9 +103,9 @@ void FailsafeManager::failsafe_loop() {
 void FailsafeManager::execute_kill_switch(const SuspiciousActivity& activity) {
     // 1. Block Network Traffic
     if (!activity.source_ip.empty()) {
-        struct in_addr addr;
-        if (inet_pton(AF_INET, activity.source_ip.c_str(), &addr) == 1) {
-            rule_engine_.ban_ip(ntohl(addr.s_addr), "Emergency Kill-Switch: " + activity.description);
+        uint32_t ip = inet_addr(activity.source_ip.c_str());
+        if (ip != INADDR_NONE) {
+            rule_engine_.ban_ip(ntohl(ip), "Emergency Kill-Switch: " + activity.description);
         }
     }
 

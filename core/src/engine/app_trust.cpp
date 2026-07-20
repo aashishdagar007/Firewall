@@ -6,7 +6,9 @@
 #include <windows.h>
 #include <wintrust.h>
 #include <softpub.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "wintrust.lib")
+#endif
 #endif
 
 namespace fw {

@@ -141,7 +141,7 @@ void run_core_service() {
     ipc.start();
     logger.log(fw::LogLevel::LOG_INFO, "IPC Server listening on Named Pipe");
 
-    engine.set_scan_callback([&](fw::ScanEvent ev) {
+    engine.set_scan_callback([&](fw::ScanEvent /* ev */) {
         // (Optional) Push event to IPC clients if needed
     });
 
@@ -214,7 +214,7 @@ void run_core_service() {
 // ──────────────────────────────────────────────────────────────
 // Windows SCM Integration
 // ──────────────────────────────────────────────────────────────
-SERVICE_STATUS        g_ServiceStatus = {0};
+SERVICE_STATUS        g_ServiceStatus = {};
 SERVICE_STATUS_HANDLE g_StatusHandle = NULL;
 
 void WINAPI ServiceCtrlHandler(DWORD CtrlCode) {
@@ -225,7 +225,7 @@ void WINAPI ServiceCtrlHandler(DWORD CtrlCode) {
     }
 }
 
-void WINAPI ServiceMain(DWORD argc, LPTSTR* argv) {
+void WINAPI ServiceMain(DWORD /* argc */, LPTSTR* /* argv */) {
     g_StatusHandle = RegisterServiceCtrlHandlerA("AegisXII", ServiceCtrlHandler);
     if (!g_StatusHandle) return;
 
@@ -269,7 +269,7 @@ bool InstallService() {
 // Dual-Mode Entry Point
 // ──────────────────────────────────────────────────────────────
 #ifdef _WIN32
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR /* lpCmdLine */, int) {
     int argc = 0;
     LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
     std::vector<std::string> args;
