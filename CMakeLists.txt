@@ -83,7 +83,10 @@ find_package(Threads REQUIRED)
 target_link_libraries(AegisXII PRIVATE Threads::Threads SQLite3 glfw)
 
 if(WIN32)
-    target_link_libraries(AegisXII PRIVATE ws2_32 iphlpapi psapi shell32 opengl32)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_link_options(AegisXII PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
+    target_link_libraries(AegisXII PRIVATE ws2_32 iphlpapi psapi shell32 opengl32 wintrust)
     target_compile_definitions(AegisXII PRIVATE _WIN32_WINNT=0x0A00 _CRT_SECURE_NO_WARNINGS)
 
     if(DEFINED WINDIVERT_DIR)
