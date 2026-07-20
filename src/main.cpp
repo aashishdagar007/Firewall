@@ -16,6 +16,11 @@
 #include "engine/mac_watchdog.hpp"    
 #include "engine/hardware_monitor.hpp" 
 #include "ipc/ipc_server.hpp"
+#include "engine/ip_dodger.hpp"
+#include "engine/failsafe_manager.hpp"
+#include "engine/app_trust.hpp"
+#include "kernel/driver_comm.hpp"
+#include "engine/vpn_manager.hpp"
 #include "../../gui/src/window.hpp"
 
 #include <csignal>
@@ -110,6 +115,27 @@ void run_core_service() {
     fw::HardwareMonitor hw_mon;
     if (fw::HardwareMonitor::is_admin()) hw_mon.start();
 
+    // ── Instantiate New Pillars (IP Dodger, Failsafe, App Trust, DriverComm) ──
+    fw::VpnManager vpn_mgr;
+    fw::IpDodger ip_dodger(vpn_mgr, engine);
+    ip_dodger.start();
+
+    fw::FailsafeManager failsafe_mgr(engine);
+    failsafe_mgr.start();
+
+    fw::AppTrustManager app_trust(failsafe_mgr);
+
+    fw::kernel::DriverComm driver_comm;
+    if (driver_comm.initialize()) {
+        logger.log(fw::LogLevel::LOG_INFO, "Driver communication initialized.");
+        driver_comm.set_event_callback([&](const fw::kernel::EventMeta& ev) {
+            if (ev.type == fw::kernel::EventType::PROCESS_CREATE) {
+                // In full implementation, map event pid/names and call app_trust.evaluate_behavior
+            }
+            return fw::kernel::KernelVerdict::ALLOW;
+        });
+    }
+
     // ── Start IPC Server (Replaces API Server) ──
     fw::ipc::IpcServer ipc(engine, stats);
     ipc.start();
@@ -163,6 +189,9 @@ void run_core_service() {
     }
 
     // Shutdown
+    driver_comm.shutdown();
+    failsafe_mgr.stop();
+    ip_dodger.stop();
     ipc.stop();
     hw_mon.stop();
     proc_mon.stop();
