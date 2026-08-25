@@ -29,6 +29,7 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <mstcpip.h>
 
 // #pragma comment is MSVC-only; MinGW/GCC links ws2_32 via CMake
 // target_link_libraries
