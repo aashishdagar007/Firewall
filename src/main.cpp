@@ -12,6 +12,9 @@
 #include "port_demux.hpp"      // Pillar 1:   DPI port demultiplexer
 #include "chain_ledger.hpp"    // Pillar 4:   tamper-proof event ledger
 #include "control_plane.hpp"   // Pillar 3:   cloud control plane client
+// ── NTRO SIH26145: Unidirectional Diode AI/ML Threat Engine ──
+#include "diode_threat_engine.hpp"
+#include "diode_streamer.hpp"
 #include <csignal>
 #include <atomic>
 #include <thread>
@@ -190,8 +193,15 @@ int main(int argc, char* argv[]) {
     proc_mon.start();
     logger.log(fw::LogLevel::LOG_INFO, "ProcessMonitor started (port->PID->process mapping active)");
 
+    // ── 4.5 NTRO SIH26145: Unidirectional Diode Threat Engine ────
+    fw::DiodeThreatEngine diode_engine(&ledger);
+    fw::DiodeStreamer diode_streamer(diode_engine);
+    engine.set_diode_engine(&diode_engine);
+    engine.set_diode_mode(true); // Passive Unidirectional Enclave Mode
+    logger.log(fw::LogLevel::LOG_INFO, "[NTRO SIH26145] Diode Threat Engine initialized (Passive Enclave Mode)");
+
     // ── 5. Start API server ──────────────────────────────────
-    fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port);
+    fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port, &diode_engine, &diode_streamer);
     api.start();
 
     // ── 5.1 Wire port scan alerts: engine → API → dashboard ──

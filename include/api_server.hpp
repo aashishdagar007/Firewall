@@ -57,7 +57,9 @@ public:
               RingBuffer<PacketRecord>& ring,
               ProcessMonitor&          proc_mon,
               const std::string&       dashboard_root,
-              int                      port = 8080);
+              int                      port = 8080,
+              class DiodeThreatEngine* diode_engine = nullptr,
+              class DiodeStreamer*     diode_streamer = nullptr);
     ~ApiServer();
 
     // Start listening (non-blocking — runs in a background thread)
@@ -129,6 +131,17 @@ private:
     std::string handle_get_scans()        const;  // GET /api/scans
     std::string handle_get_stealth()      const;  // GET /api/stealth
     std::string handle_set_stealth(const std::string& body); // POST /api/stealth
+
+    // ── Unidirectional Diode Threat Intel (NTRO SIH26145) ──────────
+    std::string handle_diode_alerts()                  const; // GET /api/diode/alerts
+    std::string handle_diode_summary()                 const; // GET /api/diode/summary
+    std::string handle_diode_telemetry()               const; // GET /api/diode/telemetry
+    std::string handle_diode_simulate(const std::string& body); // POST /api/diode/simulate
+    std::string handle_diode_benchmark();                     // GET /api/diode/benchmark
+    std::string handle_diode_stream(const std::string& body);   // POST /api/diode/stream
+
+    class DiodeThreatEngine*    diode_engine_   = nullptr;
+    class DiodeStreamer*        diode_streamer_ = nullptr;
 
     // Rolling 60-second stats history (filled by background ticker)
     mutable std::mutex          history_mtx_;

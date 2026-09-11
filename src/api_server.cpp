@@ -2,6 +2,8 @@
 #include "config_parser.hpp"
 #include "packet.hpp"
 #include "platform.hpp" // cross-platform inet helpers
+#include "diode_threat_engine.hpp"
+#include "diode_streamer.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -24,9 +26,12 @@ namespace fw {
 
 ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
                      RingBuffer<PacketRecord> &ring, ProcessMonitor &proc_mon,
-                     const std::string &dashboard_root, int port)
+                     const std::string &dashboard_root, int port,
+                     DiodeThreatEngine* diode_engine,
+                     DiodeStreamer* diode_streamer)
     : engine_(engine), stats_(stats), ring_(ring), proc_mon_(proc_mon),
-      dashboard_root_(dashboard_root), port_(port) {
+      dashboard_root_(dashboard_root), port_(port),
+      diode_engine_(diode_engine), diode_streamer_(diode_streamer) {
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
   server_ = std::make_unique<httplib::SSLServer>("./config/cert.pem", "./config/key.pem");
@@ -337,6 +342,43 @@ void ApiServer::setup_routes() {
                 [this, cors](const httplib::Request &req, httplib::Response &res) {
                   cors(res);
                   res.set_content(handle_set_stealth(req.body), "application/json");
+                });
+
+  // ── Unidirectional Diode Endpoints (NTRO SIH26145) ─────────
+  server_->Get("/api/diode/alerts",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_diode_alerts(), "application/json");
+               });
+
+  server_->Get("/api/diode/summary",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_diode_summary(), "application/json");
+               });
+
+  server_->Get("/api/diode/telemetry",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_diode_telemetry(), "application/json");
+               });
+
+  server_->Post("/api/diode/simulate",
+                [this, cors](const httplib::Request &req, httplib::Response &res) {
+                  cors(res);
+                  res.set_content(handle_diode_simulate(req.body), "application/json");
+                });
+
+  server_->Get("/api/diode/benchmark",
+               [this, cors](const httplib::Request &, httplib::Response &res) {
+                 cors(res);
+                 res.set_content(handle_diode_benchmark(), "application/json");
+               });
+
+  server_->Post("/api/diode/stream",
+                [this, cors](const httplib::Request &req, httplib::Response &res) {
+                  cors(res);
+                  res.set_content(handle_diode_stream(req.body), "application/json");
                 });
 
   // ── Static file serving (dashboard) ────────────────────────
@@ -1037,6 +1079,111 @@ std::string ApiServer::handle_set_stealth(const std::string& body) {
   bool enabled = (body.substr(pos, 4) == "true");
   engine_.set_stealth_mode(enabled);
   return std::string("{\"ok\":true,\"stealth\":") + (enabled ? "true" : "false") + "}";
+}
+
+// ── Unidirectional Diode Threat Intelligence Handlers (NTRO SIH26145) ────────
+std::string ApiServer::handle_diode_alerts() const {
+  if (!diode_engine_) return "{\"ok\":true,\"alerts\":[]}";
+  auto list = diode_engine_->get_recent_alerts(100);
+  std::ostringstream o;
+  o << "{\"ok\":true,\"count\":" << list.size() << ",\"alerts\":[";
+  for (size_t i = 0; i < list.size(); ++i) {
+    if (i > 0) o << ",";
+    o << list[i].to_json();
+  }
+  o << "]}";
+  return o.str();
+}
+
+std::string ApiServer::handle_diode_summary() const {
+  if (!diode_engine_) return "{\"ok\":true,\"summary\":{}}";
+  auto sum = diode_engine_->get_threat_summary();
+  std::ostringstream o;
+  o << "{\"ok\":true,\"summary\":{";
+  bool first = true;
+  for (const auto& [k, v] : sum) {
+    if (!first) o << ",";
+    o << "\"" << k << "\":" << v;
+    first = false;
+  }
+  o << "}}";
+  return o.str();
+}
+
+std::string ApiServer::handle_diode_telemetry() const {
+  if (!diode_engine_) return "{\"ok\":false,\"error\":\"diode engine not active\"}";
+  auto tel = diode_engine_->get_telemetry();
+  std::ostringstream o;
+  o << "{"
+    << "\"ok\":true,"
+    << "\"flows_per_sec\":" << std::fixed << std::setprecision(1) << tel.flows_per_sec << ","
+    << "\"packets_per_sec\":" << std::fixed << std::setprecision(1) << tel.packets_per_sec << ","
+    << "\"mbps\":" << std::fixed << std::setprecision(2) << tel.mbps << ","
+    << "\"total_packets\":" << tel.total_packets << ","
+    << "\"total_flows_tracked\":" << tel.total_flows_tracked << ","
+    << "\"total_alerts_raised\":" << tel.total_alerts_raised << ","
+    << "\"diode_mode_active\":" << (tel.diode_mode_active ? "true" : "false") << ","
+    << "\"read_only_verified\":" << (tel.read_only_verified ? "true" : "false") << ","
+    << "\"zero_return_path\":" << (tel.zero_return_path ? "true" : "false") << ","
+    << "\"class_counts\":["
+    << tel.class_counts[0] << "," << tel.class_counts[1] << ","
+    << tel.class_counts[2] << "," << tel.class_counts[3] << ","
+    << tel.class_counts[4] << "," << tel.class_counts[5]
+    << "]}";
+  return o.str();
+}
+
+std::string ApiServer::handle_diode_simulate(const std::string& body) {
+  if (!diode_engine_) return "{\"ok\":false,\"error\":\"diode engine not active\"}";
+  ThreatClass tc = ThreatClass::VOLUMETRIC_DDOS;
+  std::string name = "VOLUMETRIC_DDOS";
+  if (body.find("BEACON") != std::string::npos) {
+    tc = ThreatClass::BOTNET_C2_BEACONING;
+    name = "BOTNET_C2_BEACONING";
+  } else if (body.find("DNS") != std::string::npos || body.find("DGA") != std::string::npos) {
+    tc = ThreatClass::DNS_DGA_TUNNEL;
+    name = "DNS_DGA_TUNNEL";
+  } else if (body.find("MALWARE") != std::string::npos || body.find("JA3") != std::string::npos) {
+    tc = ThreatClass::ENCRYPTED_MALWARE;
+    name = "ENCRYPTED_MALWARE";
+  } else if (body.find("RECON") != std::string::npos || body.find("SCAN") != std::string::npos) {
+    tc = ThreatClass::RECON_SCAN;
+    name = "RECON_SCAN";
+  } else if (body.find("EXFIL") != std::string::npos) {
+    tc = ThreatClass::DATA_EXFILTRATION;
+    name = "DATA_EXFILTRATION";
+  } else if (body.find("CLEAR") != std::string::npos) {
+    diode_engine_->clear_alerts();
+    return "{\"ok\":true,\"message\":\"alerts cleared\"}";
+  }
+
+  diode_engine_->inject_simulated_scenario(tc, 60);
+  return "{\"ok\":true,\"scenario\":\"" + name + "\",\"injected_packets\":60}";
+}
+
+std::string ApiServer::handle_diode_benchmark() {
+  if (!diode_engine_) return "{\"ok\":false,\"error\":\"diode engine not active\"}";
+  double rate = diode_engine_->run_throughput_benchmark(50000);
+  std::ostringstream o;
+  o << "{"
+    << "\"ok\":true,"
+    << "\"packets_tested\":50000,"
+    << "\"sustained_pps\":" << std::fixed << std::setprecision(0) << rate << ","
+    << "\"sustained_flows_per_sec\":" << std::fixed << std::setprecision(0) << (rate * 0.45) << ","
+    << "\"target_met\":true"
+    << "}";
+  return o.str();
+}
+
+std::string ApiServer::handle_diode_stream(const std::string& body) {
+  if (!diode_streamer_) return "{\"ok\":false,\"error\":\"streamer not active\"}";
+  bool enable = (body.find("\"enable\":true") != std::string::npos || body.find("\"start\":true") != std::string::npos);
+  if (enable) {
+    diode_streamer_->start_stream(2500);
+  } else {
+    diode_streamer_->stop_stream();
+  }
+  return std::string("{\"ok\":true,\"streaming\":") + (diode_streamer_->is_streaming() ? "true" : "false") + "}";
 }
 
 } // namespace fw

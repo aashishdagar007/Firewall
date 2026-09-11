@@ -1,6 +1,7 @@
 #include "rule_engine.hpp"
 #include "packet.hpp"
 #include "platform.hpp" // ip4_to_string
+#include "diode_threat_engine.hpp"
 #include <iomanip>
 #include <iostream>
 
@@ -47,6 +48,11 @@ bool RuleEngine::remove_rule(uint32_t id) {
 }
 
 EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
+  // ── Passive AI/ML Unidirectional Threat Engine (NTRO SIH26145) ──
+  if (diode_engine_) {
+    diode_engine_->process_packet(pkt);
+  }
+
   // Layer 3: Land attack (src IP == dst IP)
   if (pkt.src_ip != 0 && pkt.src_ip == pkt.dst_ip) {
     anomaly_land_.hit_count++;

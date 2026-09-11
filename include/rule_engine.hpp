@@ -172,6 +172,12 @@ namespace fw {
         // Snapshot of recent scan events (for the API)
         std::vector<ScanEvent> get_scan_events() const;
 
+        // ── Unidirectional Diode Threat Engine (NTRO SIH26145) ─────────────
+        void set_diode_engine(class DiodeThreatEngine* eng) { diode_engine_ = eng; }
+        class DiodeThreatEngine* get_diode_engine() const { return diode_engine_; }
+        void set_diode_mode(bool enabled) { diode_mode_.store(enabled); }
+        bool get_diode_mode() const { return diode_mode_.load(); }
+
     private:
         std::vector<Rule> rules_;
         Action            default_policy_;
@@ -236,6 +242,10 @@ namespace fw {
         // ── Port Scan Detector ────────────────────────────────────────────
         PortScanDetector            scan_detector_;
         std::function<void(ScanEvent)> scan_callback_;
+
+        // ── Diode Engine Pointer ──────────────────────────────────────────
+        class DiodeThreatEngine*    diode_engine_{nullptr};
+        std::atomic<bool>           diode_mode_{true}; // Unidirectional Diode Mode ON by default
 
         std::thread heuristic_thread_;
         std::atomic<bool> stop_heuristics_{false};

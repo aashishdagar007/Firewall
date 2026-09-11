@@ -30,6 +30,8 @@ set(SOURCES
     src/process_monitor.cpp
     src/dpi_engine.cpp
     src/port_scan_detector.cpp
+    src/diode_threat_engine.cpp
+    src/diode_streamer.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -137,12 +139,29 @@ endif()
 #  Testing
 # ══════════════════════════════════════════════════════════════════════════════
 enable_testing()
-add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp src/port_scan_detector.cpp)
+add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp src/port_scan_detector.cpp src/diode_threat_engine.cpp src/diode_streamer.cpp)
 if(WIN32)
     target_link_libraries(test_engine PRIVATE ws2_32)
 endif()
 target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME rule_engine_test COMMAND test_engine)
+
+# ── Diode Threat Detection Unit Tests ──────────────────────────────────────
+add_executable(test_threat_detection
+    tests/test_threat_detection.cpp
+    src/packet.cpp
+    src/diode_threat_engine.cpp
+    src/diode_streamer.cpp
+)
+if(WIN32)
+    target_link_libraries(test_threat_detection PRIVATE ws2_32)
+endif()
+target_include_directories(test_threat_detection PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME threat_detection_test COMMAND test_threat_detection)
+set_tests_properties(threat_detection_test PROPERTIES
+    LABELS "diode;ai;threat-detection"
+    TIMEOUT 60
+)
 
 # ── Summary ────────────────────────────────────────────────────────────────
 message(STATUS "")
