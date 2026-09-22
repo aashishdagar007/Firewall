@@ -4,6 +4,7 @@
 #include "rule_engine.hpp"
 #include "ring_buffer.hpp"
 #include "process_monitor.hpp"
+#include "rate_limiter.hpp"
 #include <functional>
 #include <atomic>
 #include <string>
@@ -73,12 +74,15 @@ public:
 
     bool is_nfq_mode() const { return nfq_mode_; }
 
+    TokenBucketRateLimiter& rate_limiter() { return rate_limiter_; }
+
 private:
     RuleEngine&              engine_;
     LiveStats&               stats_;
     RingBuffer<PacketRecord>& ring_;
     ProcessMonitor*          proc_mon_  = nullptr; // optional — may be null
     int                      queue_num_;
+    TokenBucketRateLimiter   rate_limiter_{100000.0, 50000.0};
 
     // ── Linux NFQ handles ──────────────────────────────────────
     nfq_handle*   h_   = nullptr;

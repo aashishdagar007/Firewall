@@ -170,7 +170,14 @@ void ApiServer::setup_routes() {
       R"(/api/rules/(\d+))",
       [this, cors](const httplib::Request &req, httplib::Response &res) {
         cors(res);
-        uint32_t id = std::stoul(req.matches[1].str());
+        uint32_t id = 0;
+        try {
+          id = std::stoul(req.matches[1].str());
+        } catch (const std::exception &) {
+          res.status = 400;
+          res.set_content("{\"ok\":false,\"error\":\"invalid rule id\"}", "application/json");
+          return;
+        }
         bool ok = handle_delete_rule(id);
         res.set_content(ok ? "{\"ok\":true}"
                            : "{\"ok\":false,\"error\":\"not found\"}",
@@ -267,7 +274,14 @@ void ApiServer::setup_routes() {
       R"(/api/geoblocks/(\d+))",
       [this, cors](const httplib::Request &req, httplib::Response &res) {
         cors(res);
-        size_t idx = std::stoul(req.matches[1].str());
+        size_t idx = 0;
+        try {
+          idx = std::stoul(req.matches[1].str());
+        } catch (const std::exception &) {
+          res.status = 400;
+          res.set_content("{\"ok\":false,\"error\":\"invalid geoblock index\"}", "application/json");
+          return;
+        }
         std::string body = handle_delete_geoblock(idx);
         res.set_content(body, "application/json");
         if (body.find("false") != std::string::npos)

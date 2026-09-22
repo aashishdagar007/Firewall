@@ -41,6 +41,10 @@ public:
   static uint16_t parse_port(const std::string &s); // returns 0 for "*"
   static Proto parse_proto(const std::string &s);
   static Action parse_action(const std::string &s);
+
+  // Configuration settings loaded from rules.conf (protected by identical ACL)
+  static bool get_fail_open_on_crash();
+  static void set_fail_open_on_crash(bool enable);
 };
 
 } // namespace fw

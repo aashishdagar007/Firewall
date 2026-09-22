@@ -15,6 +15,10 @@
 // ── NTRO SIH26145: Unidirectional Diode AI/ML Threat Engine ──
 #include "diode_threat_engine.hpp"
 #include "diode_streamer.hpp"
+// ── Security Hardening Modules ────────────────────────────────
+#include "ipc_server.hpp"
+#include "rate_limiter.hpp"
+#include "updater.hpp"
 #include <csignal>
 #include <atomic>
 #include <thread>
@@ -24,6 +28,18 @@
 
 #ifdef _WIN32
 #include <shellapi.h>
+
+static fw::Logger* g_logger = nullptr;
+static bool g_fail_open_on_crash = false;
+
+static LONG WINAPI aegix_crash_handler(EXCEPTION_POINTERS* ep) {
+    (void)ep;
+    if (g_logger) {
+        g_logger->log_fail_transition(g_fail_open_on_crash, "Unhandled Exception Crash Trigger");
+        g_logger->flush();
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
 #endif
 // ──────────────────────────────────────────────────────────────
 //  main.cpp  (v2 — Real Firewall + GUI  |  Windows + Linux)
@@ -109,11 +125,33 @@ int main(int argc, char* argv[]) {
     }
 
     const std::string config_path    = (argc > 1) ? argv[1] : "config/rules.conf";
-    const std::string log_path       = (argc > 2) ? argv[2] : "logs/firewall.log";
+    const std::string log_path       = (argc > 2) ? argv[2] : "logs/aegix.log";
     const std::string dashboard_root = (argc > 3) ? argv[3] : "dashboard/";
     int               api_port       = 8080;
     if (argc > 4) {
         try { api_port = std::stoi(argv[4]); } catch (...) {}
+    }
+
+    // ── Phase 1.1: Mandatory Privilege Enforcement (Fail-Closed) ──
+    if (!check_is_elevated_admin()) {
+        fw::Logger err_logger(log_path, fw::LogLevel::LOG_ERROR);
+        err_logger.log(fw::LogLevel::LOG_ERROR,
+                       "[Security] FATAL: Aegix Firewall requires elevated Administrator or SYSTEM privileges. Failing closed immediately.");
+        err_logger.flush();
+        return 5; // ERROR_ACCESS_DENIED
+    }
+
+    // ── Phase 1.3: Enforce and Verify File ACL Security ────────────
+    apply_strict_file_security(config_path);
+    apply_strict_file_security(log_path);
+
+    if (!verify_file_security(config_path) || !verify_file_security(log_path)) {
+        fw::Logger err_logger(log_path, fw::LogLevel::LOG_ERROR);
+        err_logger.log(fw::LogLevel::LOG_ERROR,
+                       "[Security] FATAL: File ACL verification failed. Weakened permissions detected on " +
+                       config_path + " or " + log_path + ". Failing closed.");
+        err_logger.flush();
+        return 5;
     }
 
     // ── 1. Load rules ──────────────────────────────────────────
@@ -128,7 +166,23 @@ int main(int argc, char* argv[]) {
 
     // ── 3. Logger ──────────────────────────────────────────────
     fw::Logger logger(log_path, fw::LogLevel::LOG_INFO);
-    logger.log(fw::LogLevel::LOG_INFO, "Firewall v2 starting");
+    g_logger = &logger;
+    logger.log(fw::LogLevel::LOG_INFO, "Aegix Firewall starting with elevated privileges");
+
+    // ── Phase 3.1: Fail-Secure Architecture & Crash Handler ───────
+    g_fail_open_on_crash = fw::ConfigParser::get_fail_open_on_crash();
+    logger.log(fw::LogLevel::LOG_INFO,
+               std::string("[Security] Engine crash policy initialized: ") +
+               (g_fail_open_on_crash ? "FAIL_OPEN" : "FAIL_SECURE (BLOCK all)"));
+
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(aegix_crash_handler);
+#endif
+
+    // ── Phase 1.4: Hardened Named Pipe IPC Server ─────────────────
+    fw::IpcServer ipc_server(engine, stats, &logger, "\\\\.\\pipe\\aegix_ipc", L"aegix-ui.exe");
+    ipc_server.start();
+    logger.log(fw::LogLevel::LOG_INFO, "[IPC] Hardened Named Pipe IPC server active on \\\\.\\pipe\\aegix_ipc");
 
     // ── P2-A: Tamper-Proof Hash-Chain Ledger (Pillar 4) ──────
     fw::ChainLedger ledger("logs/ledger.chain", "logs/ledger.json");
@@ -231,6 +285,7 @@ int main(int argc, char* argv[]) {
 
     if (!capture.open()) {
         logger.log(fw::LogLevel::LOG_ERROR, "Failed to open capture (need elevated privileges)");
+        ipc_server.stop();
         api.stop();
         conntrack_running = false;
         if (conntrack_thread.joinable()) conntrack_thread.join();
@@ -255,6 +310,7 @@ int main(int argc, char* argv[]) {
     capture.run();
 
     // ── 8. Shutdown ───────────────────────────────────────────
+    ipc_server.stop();
     api.stop();
     proc_mon.stop();
     conntrack_running = false;
@@ -267,6 +323,7 @@ int main(int argc, char* argv[]) {
 
     logger.log(fw::LogLevel::LOG_INFO, "Firewall stopped");
     logger.print_stats();
+    logger.flush();
 
     // Commit final ledger block before closing
     ledger.log_firewall_stop();

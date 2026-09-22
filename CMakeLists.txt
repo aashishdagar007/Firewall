@@ -18,6 +18,18 @@ endif()
 # ── Include paths ──────────────────────────────────────────────────────────
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
+# ── AddressSanitizer (ASan) ────────────────────────────────────────────────
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if(ENABLE_ASAN)
+    message(STATUS "AddressSanitizer enabled for extreme fuzzing/memory detection")
+    if(MSVC)
+        add_compile_options(/fsanitize=address)
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 # ── Source files ───────────────────────────────────────────────────────────
 set(SOURCES
     src/main.cpp
@@ -32,6 +44,8 @@ set(SOURCES
     src/port_scan_detector.cpp
     src/diode_threat_engine.cpp
     src/diode_streamer.cpp
+    src/ipc_server.cpp
+    src/updater.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -68,10 +82,13 @@ if(WIN32)
     # Winsock2 (ws2_32) — always needed
     target_link_libraries(firewall PRIVATE ws2_32)
 
+    # Windows Security & Cryptography APIs (privilege checks, DACL, DPAPI)
+    target_link_libraries(firewall PRIVATE advapi32 crypt32 winhttp)
+
     # iphlpapi — GetExtendedTcpTable/GetExtendedUdpTable (process_monitor)
     target_link_libraries(firewall PRIVATE iphlpapi)
 
-    # psapi — QueryFullProcessImageName (process_monitor)
+    # psapi — QueryFullProcessImageName (process_monitor, pipe client verification)
     target_link_libraries(firewall PRIVATE psapi)
 
     # shell32 — ShellExecuteW (open_browser in main.cpp)
@@ -162,6 +179,22 @@ set_tests_properties(threat_detection_test PROPERTIES
     LABELS "diode;ai;threat-detection"
     TIMEOUT 60
 )
+
+# ── Security & Hardening Unit Tests ────────────────────────────────────────
+add_executable(test_security
+    tests/test_security.cpp
+    src/packet.cpp
+    src/rule_engine.cpp
+    src/config_parser.cpp
+    src/logger.cpp
+    src/ipc_server.cpp
+    src/updater.cpp
+)
+if(WIN32)
+    target_link_libraries(test_security PRIVATE ws2_32 advapi32 crypt32 winhttp psapi)
+endif()
+target_include_directories(test_security PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME security_hardening_test COMMAND test_security)
 
 # ── Summary ────────────────────────────────────────────────────────────────
 message(STATUS "")
