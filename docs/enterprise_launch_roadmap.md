@@ -22,6 +22,8 @@ Source and documentation review found these launch risks:
 
 Choose one initial product before investing in cross-platform polish. Supporting multiple operating systems means separately validating enforcement, installers, privilege boundaries, upgrades, and recovery on each.
 
+**Selected planning baseline for v1:** Option A, a Linux NFQUEUE network appliance. The proposed qualification baseline and enforcement/failure contract are in [enterprise_release_contract.md](enterprise_release_contract.md). This selects the first product direction; it does not represent completed platform qualification.
+
 | Option | Initial product | Benefits | Main work and risk |
 |---|---|---|---|
 | A. Linux network appliance (recommended first) | A supported Linux distribution using NFQUEUE for enforcement | The repository already has an active-blocking path; a focused release is easier to validate | Harden NFQUEUE lifecycle, boot/service integration, ruleset setup and rollback, kernel/distribution compatibility, and Linux operations |
@@ -126,7 +128,7 @@ Phases can overlap only when their interfaces and ownership are clear. Do not ov
 
 ## First 30-day action list
 
-1. Choose the first supported platform and enforcement mechanism.
+1. Review and approve the selected Linux/NFQUEUE v1 scope and release contract.
 2. Create a clean, working CI build and make the full test suite executable.
 3. Run an architecture and threat-model workshop; close the API exposure and duplicate IPC design decisions.
 4. Add real-traffic integration tests for block, allow, default policy, restart, overload, and shutdown.
@@ -135,4 +137,4 @@ Phases can overlap only when their interfaces and ownership are clear. Do not ov
 
 ## Current launch decision
 
-**Recommendation: do not begin a broad enterprise launch or promise cross-platform enforcement yet.** First choose a single platform, restore a reproducible build/test environment, and prove active packet blocking and its recovery behavior. The current repository is suitable for focused product hardening and a controlled lab pilot after those gates, not for an unqualified enterprise GA claim.
+**Recommendation: do not begin a broad enterprise launch or promise cross-platform enforcement yet.** The planning baseline is Linux/NFQUEUE; restore a reproducible build/test environment and prove active packet blocking and its recovery behavior before pilot. The current repository is suitable for focused product hardening and a controlled lab pilot after those gates, not for an unqualified enterprise GA claim.
