@@ -5,10 +5,12 @@
 #include <unordered_map>
 #include <mutex>
 #include <chrono>
+#include <condition_variable>
 #include <thread>
 #include <atomic>
 #include <shared_mutex>
 #include <functional>
+#include <memory>
 #include "dpi_engine.hpp"
 
 // ──────────────────────────────────────────────────────────────
@@ -20,7 +22,13 @@ namespace fw {
     // Result of evaluating a packet against the rule chain
     struct EvalResult {
         Action      verdict;
-        const Rule* matched_rule;   // nullptr = default policy or established connection
+        const Rule* matched_rule = nullptr;
+        std::shared_ptr<const Rule> matched_rule_owner{}; // keeps dynamic rules alive
+
+        EvalResult() = default;
+        EvalResult(Action v, const Rule* rule,
+                   std::shared_ptr<const Rule> owner = {})
+            : verdict(v), matched_rule(rule), matched_rule_owner(std::move(owner)) {}
     };
 
     // CIDR geo-block entry
@@ -179,7 +187,7 @@ namespace fw {
         bool get_diode_mode() const { return diode_mode_.load(); }
 
     private:
-        std::vector<Rule> rules_;
+        std::vector<std::shared_ptr<Rule>> rules_;
         std::atomic<Action> default_policy_;
         uint32_t          next_id_ = 1;
 
@@ -241,7 +249,6 @@ namespace fw {
 
         // ── Port Scan Detector ────────────────────────────────────────────
         PortScanDetector            scan_detector_;
-        std::function<void(ScanEvent)> scan_callback_;
 
         // ── Diode Engine Pointer ──────────────────────────────────────────
         std::atomic<class DiodeThreatEngine*> diode_engine_{nullptr};
@@ -249,6 +256,8 @@ namespace fw {
 
         std::thread heuristic_thread_;
         std::atomic<bool> stop_heuristics_{false};
+        std::mutex heuristic_wait_mtx_;
+        std::condition_variable heuristic_cv_;
 
         void heuristic_worker();
         static bool matches(const Rule& rule, const PacketInfo& pkt);

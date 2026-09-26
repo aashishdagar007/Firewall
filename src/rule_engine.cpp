@@ -11,6 +11,11 @@
 
 namespace fw {
 
+static EvalResult snapshot_result(Action verdict, const Rule& rule) {
+  auto owner = std::make_shared<Rule>(rule);
+  return {verdict, owner.get(), std::move(owner)};
+}
+
 RuleEngine::RuleEngine(Action default_policy)
     : default_policy_(default_policy) {
   state_table_.reserve(4096); // pre-allocate to avoid rehash under burst
@@ -18,7 +23,11 @@ RuleEngine::RuleEngine(Action default_policy)
 }
 
 RuleEngine::~RuleEngine() {
-  stop_heuristics_ = true;
+  {
+    std::lock_guard<std::mutex> lock(heuristic_wait_mtx_);
+    stop_heuristics_ = true;
+  }
+  heuristic_cv_.notify_all();
   if (heuristic_thread_.joinable()) {
     heuristic_thread_.join();
   }
@@ -30,20 +39,23 @@ void RuleEngine::set_local_ip(uint32_t ip) { local_ip_.store(ip); }
 
 std::vector<Rule> RuleEngine::rules() const {
   std::shared_lock<std::shared_mutex> lock(rules_mtx_);
-  return rules_;
+  std::vector<Rule> snapshot;
+  snapshot.reserve(rules_.size());
+  for (const auto& rule : rules_) snapshot.push_back(*rule);
+  return snapshot;
 }
 
 void RuleEngine::add_rule(Rule r) {
   std::unique_lock<std::shared_mutex> lock(rules_mtx_);
   r.id = next_id_++;
-  rules_.push_back(std::move(r));
+  rules_.push_back(std::make_shared<Rule>(std::move(r)));
   rebuild_port_index();
 }
 
 bool RuleEngine::remove_rule(uint32_t id) {
   std::unique_lock<std::shared_mutex> lock(rules_mtx_);
   for (auto it = rules_.begin(); it != rules_.end(); ++it) {
-    if (it->id == id) {
+    if ((*it)->id == id) {
       rules_.erase(it);
       rebuild_port_index();
       return true;
@@ -56,6 +68,15 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   // ── Passive AI/ML Unidirectional Threat Engine (NTRO SIH26145) ──
   if (auto* diode = diode_engine_.load()) {
     diode->process_packet(pkt);
+  }
+
+  // Record every packet, including those rejected by validation or DPI below.
+  if (scan_detector_.record(pkt).has_value()) {
+    std::lock_guard<std::mutex> lock(state_mtx_);
+    auto& tstate = threat_table_[pkt.src_ip];
+    tstate.is_banned = true;
+    tstate.ban_count += 5;
+    tstate.ban_expires = std::chrono::steady_clock::now() + std::chrono::hours(24);
   }
 
   // Layer 3: Land attack (src IP == dst IP)
@@ -93,7 +114,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
       std::lock_guard<std::mutex> lock(state_mtx_);
       threat_rule_.description = "Geo-Block: CIDR range blocked";
       threat_rule_.hit_count++;
-      return {Action::BLOCK, &threat_rule_};
+      return snapshot_result(Action::BLOCK, threat_rule_);
     }
   }
 
@@ -185,7 +206,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     std::lock_guard<std::mutex> lock(state_mtx_);
     dpi_rule_.description = dpi_threat_name;
     dpi_rule_.hit_count++;
-    return {Action::BLOCK, &dpi_rule_};
+    return snapshot_result(Action::BLOCK, dpi_rule_);
   }
 
   // 1. Connection Tracking (Stateful Inspection)
@@ -299,7 +320,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         tstate.window_start = now;
       } else {
         threat_rule_.hit_count++;
-        return {Action::BLOCK, &threat_rule_};
+        return snapshot_result(Action::BLOCK, threat_rule_);
       }
     }
 
@@ -322,7 +343,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
         threat_rule_.description =
             "Threat Detected: Rate Limit Exceeded (Auto-Ban)";
         threat_rule_.hit_count++;
-        return {Action::BLOCK, &threat_rule_};
+        return snapshot_result(Action::BLOCK, threat_rule_);
       }
 
       // SYN Flood / Port Scan protection
@@ -338,7 +359,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
                 ? "Threat Detected: SYN Flood (Permanent Ban Escalate)"
                 : "Threat Detected: SYN Flood / Port Scan (Auto-Ban)";
         threat_rule_.hit_count++;
-        return {Action::BLOCK, &threat_rule_};
+        return snapshot_result(Action::BLOCK, threat_rule_);
       }
 
       // UDP Flood protection (excluding DNS and QUIC)
@@ -364,7 +385,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     if (pkt.dst_port == 445 || pkt.dst_port == 135 || pkt.dst_port == 23) {
       threat_rule_.description = "Threat Detected: Probing Vulnerable Port";
       threat_rule_.hit_count++;
-      return {Action::BLOCK, &threat_rule_};
+      return snapshot_result(Action::BLOCK, threat_rule_);
     }
   }
 
@@ -376,7 +397,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     // Use a local lambda to evaluate a rule by its index
     auto try_rule = [&](size_t idx) -> bool {
       if (idx >= rules_.size()) return false;
-      const auto& rule = rules_[idx];
+      const auto& rule = *rules_[idx];
       if (matches(rule, pkt)) {
         rule.hit_count++;
         if (rule.action == Action::ALLOW &&
@@ -421,7 +442,8 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     if (pkt.dst_port != 0) {
         auto range = port_index_.equal_range(pkt.dst_port);
         for (auto it = range.first; it != range.second; ++it) {
-          const auto& rule = rules_[it->second];
+          const auto& rule_ptr = rules_[it->second];
+          const auto& rule = *rule_ptr;
           if (matches(rule, pkt)) {
             rule.hit_count++;
             if (rule.action == Action::ALLOW &&
@@ -457,7 +479,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
                   0};
               }
             }
-            return {rule.action, &rule};
+            return {rule.action, rule_ptr.get(), rule_ptr};
           }
         }
     }
@@ -465,37 +487,15 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     // Then check wildcard (dst_port == 0) rules in order
     for (size_t idx : wildcard_rule_indices_) {
       if (try_rule(idx)) {
-        const auto& rule = rules_[idx];
-        return {rule.action, &rule};
+        const auto& rule_ptr = rules_[idx];
+        const auto& rule = *rule_ptr;
+        return {rule.action, rule_ptr.get(), rule_ptr};
       }
     }
   }
 
   // Default policy — no rule matched
   auto default_result = EvalResult{default_policy_.load(), nullptr};
-
-  // ── Port Scan Detection (runs for every packet regardless of verdict) ─
-  // We pass the packet through the detector AFTER the main evaluation so
-  // that we catch cross-port patterns even when individual packets are
-  // already blocked by anomaly rules.
-  {
-    auto scan_opt = scan_detector_.record(pkt);
-    if (scan_opt.has_value()) {
-      // Auto-ban the scanner's IP immediately
-      {
-        std::lock_guard<std::mutex> lock(state_mtx_);
-        auto now = std::chrono::steady_clock::now();
-        auto& tstate = threat_table_[pkt.src_ip];
-        tstate.is_banned   = true;
-        tstate.ban_count  += 5; // escalate ban count to mark as port-scanner
-        tstate.ban_expires = now + std::chrono::hours(24);
-      }
-      // Fire the dashboard callback (non-blocking: callback queues the event)
-      if (scan_callback_) {
-        scan_callback_(scan_opt.value());
-      }
-    }
-  }
 
   return default_result;
 }
@@ -514,7 +514,12 @@ void RuleEngine::purge_stale_connections(std::chrono::seconds timeout) {
 
 void RuleEngine::heuristic_worker() {
   while (!stop_heuristics_) {
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    {
+      std::unique_lock<std::mutex> wait_lock(heuristic_wait_mtx_);
+      heuristic_cv_.wait_for(wait_lock, std::chrono::seconds(5),
+                             [this] { return stop_heuristics_.load(); });
+    }
+    if (stop_heuristics_) break;
 
     std::lock_guard<std::mutex> lock(state_mtx_);
     auto now = std::chrono::steady_clock::now();
@@ -601,7 +606,8 @@ void RuleEngine::print_rules() const {
   };
 
   std::shared_lock<std::shared_mutex> lock(rules_mtx_);
-  for (const auto &r : rules_) {
+  for (const auto &rule : rules_) {
+    const auto& r = *rule;
     std::string dport = r.dst_port ? std::to_string(r.dst_port) : "*";
     std::string proc = r.process_name.empty() ? "*" : r.process_name;
     std::cout << "│ " << std::setw(2) << r.id << " │ " << std::setw(6)
@@ -646,10 +652,10 @@ void RuleEngine::rebuild_port_index() {
   port_index_.clear();
   wildcard_rule_indices_.clear();
   for (size_t i = 0; i < rules_.size(); ++i) {
-    if (rules_[i].dst_port == 0) {
+    if (rules_[i]->dst_port == 0) {
       wildcard_rule_indices_.push_back(i);
     } else {
-      port_index_.emplace(rules_[i].dst_port, i);
+      port_index_.emplace(rules_[i]->dst_port, i);
     }
   }
 }

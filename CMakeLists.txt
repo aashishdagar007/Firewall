@@ -161,6 +161,7 @@ if(WIN32)
     target_link_libraries(test_engine PRIVATE ws2_32)
 endif()
 target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_engine PRIVATE Threads::Threads)
 add_test(NAME rule_engine_test COMMAND test_engine)
 
 # ── Diode Threat Detection Unit Tests ──────────────────────────────────────
@@ -174,6 +175,7 @@ if(WIN32)
     target_link_libraries(test_threat_detection PRIVATE ws2_32)
 endif()
 target_include_directories(test_threat_detection PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_threat_detection PRIVATE Threads::Threads)
 add_test(NAME threat_detection_test COMMAND test_threat_detection)
 set_tests_properties(threat_detection_test PROPERTIES
     LABELS "diode;ai;threat-detection"
@@ -194,6 +196,7 @@ if(WIN32)
     target_link_libraries(test_security PRIVATE ws2_32 advapi32 crypt32 winhttp psapi)
 endif()
 target_include_directories(test_security PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_security PRIVATE Threads::Threads)
 add_test(NAME security_hardening_test COMMAND test_security)
 
 # ── Summary ────────────────────────────────────────────────────────────────

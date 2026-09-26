@@ -116,24 +116,30 @@ bool DpiEngine::bmh_search(const uint8_t *payload, uint16_t len,
 
 Action DpiEngine::scan(const uint8_t *payload, uint16_t len,
                        std::string &threat_name) {
+  threat_name.clear();
   if (!payload || len == 0)
     return Action::ALLOW;
 
   // ── Vulnerable Protocol Checks (SSLv3, TLS 1.0, TLS 1.1) ──
   // Check for TLS Handshake Record (Content Type 22)
   if (len >= 11 && payload[0] == 0x16) {
-    [[maybe_unused]] uint16_t record_version = (payload[1] << 8) | payload[2];
-    uint8_t handshake_type = payload[5];
+    const uint16_t record_len = (static_cast<uint16_t>(payload[3]) << 8) | payload[4];
+    const uint8_t handshake_type = payload[5];
     
     // Check if it's a Client Hello (1) or Server Hello (2)
-    if (handshake_type == 0x01 || handshake_type == 0x02) {
-      uint16_t handshake_version = (payload[9] << 8) | payload[10];
-      
-      // 0x0300 = SSLv3, 0x0301 = TLS 1.0, 0x0302 = TLS 1.1
-      // If the maximum version supported by client (or selected by server) is <= TLS 1.1, block it.
-      if (handshake_version <= 0x0302) {
-        threat_name = "DPI Threat: Vulnerable TLS Version (SSLv3/TLS1.0/TLS1.1)";
-        return Action::BLOCK;
+    if (record_len >= 6 && (handshake_type == 0x01 || handshake_type == 0x02)) {
+      const uint32_t handshake_len = (static_cast<uint32_t>(payload[6]) << 16) |
+                                     (static_cast<uint32_t>(payload[7]) << 8) |
+                                      static_cast<uint32_t>(payload[8]);
+      if (handshake_len >= 2) {
+        const uint16_t handshake_version =
+            (static_cast<uint16_t>(payload[9]) << 8) | payload[10];
+
+        // 0x0300 = SSLv3, 0x0301 = TLS 1.0, 0x0302 = TLS 1.1.
+        if (handshake_version <= 0x0302) {
+          threat_name = "DPI Threat: Vulnerable TLS Version (SSLv3/TLS1.0/TLS1.1)";
+          return Action::BLOCK;
+        }
       }
     }
   }

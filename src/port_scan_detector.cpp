@@ -61,9 +61,6 @@ void PortScanDetector::emit_event(uint32_t src_ip, ScanType type,
     if (recent_events_.size() > 200)
         recent_events_.pop_front();
 
-    if (callback_) {
-        callback_(ev);
-    }
 }
 
 // ── Main record() ─────────────────────────────────────────────
@@ -78,7 +75,7 @@ std::optional<ScanEvent> PortScanDetector::record(const PacketInfo& pkt) {
     auto now    = std::chrono::steady_clock::now();
     auto cutoff = now - std::chrono::seconds(WINDOW_SEC);
 
-    std::lock_guard<std::mutex> lock(mtx_);
+    std::unique_lock<std::mutex> lock(mtx_);
 
     // Periodic cleanup
     if (now - last_cleanup_ > std::chrono::seconds(CLEANUP_SEC)) {
@@ -159,11 +156,15 @@ std::optional<ScanEvent> PortScanDetector::record(const PacketInfo& pkt) {
     // Mark as reported so we don't spam for the same burst
     st.already_reported = true;
 
-    // Emit the event (callback fires here, inside the lock — brief)
+    // Store the event before releasing the lock.
     emit_event(pkt.src_ip, detected_type, detected_ports, /*banned=*/true);
 
-    // Return the last emitted event
-    return recent_events_.back();
+    // Copy event and callback while protected, then invoke user code unlocked.
+    const ScanEvent event = recent_events_.back();
+    const Callback callback = callback_;
+    lock.unlock();
+    if (callback) callback(event);
+    return event;
 }
 
 // ── Callback registration ─────────────────────────────────────

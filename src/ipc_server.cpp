@@ -261,10 +261,10 @@ std::string IpcServer::handle_get_stats() {
     std::ostringstream oss;
     oss << "{"
         << "\"ok\":true,"
-        << "\"total_packets\":" << stats_.total_packets.load() << ","
-        << "\"allowed_packets\":" << stats_.allowed_packets.load() << ","
-        << "\"blocked_packets\":" << stats_.blocked_packets.load() << ","
-        << "\"total_bytes\":" << stats_.total_bytes.load()
+        << "\"total_packets\":" << stats_.total.load() << ","
+        << "\"allowed_packets\":" << stats_.allowed.load() << ","
+        << "\"blocked_packets\":" << stats_.blocked.load() << ","
+        << "\"total_bytes\":" << stats_.bytes_total.load()
         << "}";
     return oss.str();
 }
