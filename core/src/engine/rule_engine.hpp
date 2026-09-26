@@ -6,8 +6,10 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "util/types.hpp"
@@ -21,22 +23,26 @@
 namespace fw {
 
     // Result of evaluating a packet against the rule chain.
-    // NOTE: matched_rule_id == 0 and matched_rule_desc.empty() means "default
-    // policy or established connection" (equivalent to the old nullptr case).
-    // We deliberately store the rule identity by value here — NOT a raw pointer
-    // into the rules_ vector — so the result is safe to use after the
-    // shared_lock on rules_mtx_ has been released.  (A concurrent add_rule /
-    // remove_rule can reallocate the vector's backing store, invalidating any
-    // pointer taken while holding only a shared lock.)
+    // A null matched_rule and empty description means "default policy or an
+    // established connection". Built-in anomaly rules intentionally use ID 0.
+    // Store identity by value for logging/snapshots; matched_rule_owner also
+    // keeps a dynamic rule alive for callers that need its full Rule object.
     struct EvalResult {
-        Action      verdict;
+        Action      verdict = Action::BLOCK;
         const Rule* matched_rule = nullptr;
+        uint32_t    matched_rule_id = 0;
+        std::string matched_rule_desc;
         std::shared_ptr<const Rule> matched_rule_owner{}; // keeps dynamic rules alive
 
         EvalResult() = default;
         EvalResult(Action v, const Rule* rule,
                    std::shared_ptr<const Rule> owner = {})
-            : verdict(v), matched_rule(rule), matched_rule_owner(std::move(owner)) {}
+            : verdict(v), matched_rule(rule),
+              matched_rule_id(rule ? rule->id : 0),
+              matched_rule_desc(rule ? rule->description : std::string{}),
+              matched_rule_owner(std::move(owner)) {}
+
+        bool has_matched_rule() const { return matched_rule != nullptr; }
     };
 
     // CIDR geo-block entry
@@ -212,9 +218,10 @@ namespace fw {
         std::unordered_map<uint32_t, ThreatState> threat_table_; // src_ip -> state
 
         // ── Performance: port-indexed rule lookup ─────────────────────────
-        // Maps dst_port -> index into rules_. Port 0 entries = wildcard rules.
+        // Maps exact destination ports to rules. Wildcards and port ranges are
+        // checked in wildcard_rule_indices_ so range rules cannot be skipped.
         std::unordered_multimap<uint16_t, size_t> port_index_;
-        std::vector<size_t> wildcard_rule_indices_; // rules with dst_port == 0
+        std::vector<size_t> wildcard_rule_indices_; // wildcard and ranged ports
         void rebuild_port_index();
 
         // ── Geo-Block list (sorted for binary search) ─────────────────────

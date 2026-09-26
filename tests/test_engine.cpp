@@ -165,7 +165,8 @@ TEST_F(RuleEngineTest, RuleResultSurvivesRuleRemoval) {
     Rule rule;
     rule.action = Action::BLOCK;
     rule.proto = Proto::TCP;
-    rule.dst_port = 443;
+    rule.dst_port_start = 443;
+    rule.dst_port_end = 443;
     rule.description = "Block HTTPS";
     engine.add_rule(rule);
 
@@ -180,9 +181,59 @@ TEST_F(RuleEngineTest, RuleResultSurvivesRuleRemoval) {
     const auto result = engine.evaluate(pkt);
     ASSERT_EQ(result.verdict, Action::BLOCK);
     ASSERT_TRUE(result.matched_rule);
+    ASSERT_TRUE(result.has_matched_rule());
     const auto id = result.matched_rule->id;
+    EXPECT_EQ(result.matched_rule_id, id);
+    EXPECT_EQ(result.matched_rule_desc, "Block HTTPS");
     EXPECT_TRUE(engine.remove_rule(id));
     EXPECT_EQ(result.matched_rule->description, "Block HTTPS");
+}
+
+TEST_F(RuleEngineTest, CidrAndPortRangeRulesMatchTheirFullRanges) {
+    RuleEngine engine(Action::ALLOW);
+    Rule rule;
+    rule.action = Action::BLOCK;
+    rule.proto = Proto::TCP;
+    rule.src_ip = make_ip(198, 51, 100, 0);
+    rule.src_ip_mask = 0xFFFFFF00;
+    rule.dst_port_start = 8080;
+    rule.dst_port_end = 8090;
+    rule.description = "CIDR and port-range block";
+    engine.add_rule(rule);
+
+    PacketInfo pkt;
+    pkt.proto = Proto::TCP;
+    pkt.src_ip = make_ip(198, 51, 100, 42);
+    pkt.dst_ip = make_ip(203, 0, 113, 9);
+    pkt.src_port = 50000;
+    pkt.dst_port = 8085;
+    pkt.tcp_flags = TCP_SYN;
+    pkt.ttl = 64;
+    EXPECT_EQ(engine.evaluate(pkt).verdict, Action::BLOCK);
+
+    pkt.dst_port = 8091;
+    EXPECT_EQ(engine.evaluate(pkt).verdict, Action::ALLOW);
+    pkt.dst_port = 8085;
+    pkt.src_ip = make_ip(198, 51, 101, 42);
+    EXPECT_EQ(engine.evaluate(pkt).verdict, Action::ALLOW);
+}
+
+TEST_F(RuleEngineTest, BuiltInAnomalyRuleIsReportedDespiteZeroId) {
+    RuleEngine engine(Action::ALLOW);
+    PacketInfo pkt;
+    pkt.proto = Proto::TCP;
+    pkt.src_ip = make_ip(198, 51, 100, 7);
+    pkt.dst_ip = pkt.src_ip;
+    pkt.src_port = 50000;
+    pkt.dst_port = 443;
+    pkt.tcp_flags = TCP_SYN;
+    pkt.ttl = 64;
+
+    const auto result = engine.evaluate(pkt);
+    EXPECT_EQ(result.verdict, Action::BLOCK);
+    EXPECT_TRUE(result.has_matched_rule());
+    EXPECT_EQ(result.matched_rule_id, 0u);
+    EXPECT_FALSE(result.matched_rule_desc.empty());
 }
 
 TEST_F(RuleEngineTest, ConcurrentRuleUpdatesAndEvaluation) {
@@ -212,7 +263,8 @@ TEST_F(RuleEngineTest, ConcurrentRuleUpdatesAndEvaluation) {
             Rule rule;
             rule.action = Action::BLOCK;
             rule.proto = Proto::TCP;
-            rule.dst_port = 8443;
+            rule.dst_port_start = 8443;
+            rule.dst_port_end = 8443;
             rule.description = "concurrent-index-rule";
             engine.add_rule(std::move(rule));
             for (const auto& current : engine.rules()) {

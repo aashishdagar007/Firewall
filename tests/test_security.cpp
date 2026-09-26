@@ -40,7 +40,7 @@ int main() {
         bool ok1 = fw::ConfigParser::parse_line("BLOCK TCP 192.168.1.50 * 443 \"Valid HTTPS Block\"", r);
         TEST_ASSERT(ok1, "ConfigParser accepted valid rule");
         TEST_ASSERT(r.action == fw::Action::BLOCK, "Rule action correctly parsed as BLOCK");
-        TEST_ASSERT(r.dst_port == 443, "Port 443 correctly parsed");
+        TEST_ASSERT(r.dst_port_start == 443 && r.dst_port_end == 443, "Port 443 correctly parsed");
 
         // Malformed IP octet (atomic rejection)
         bool ok2 = fw::ConfigParser::parse_line("BLOCK TCP 192.168.1.999 * 443 \"Bad IP\"", r);

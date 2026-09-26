@@ -325,6 +325,8 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
     // (We also have a rule engine BLOCK_PROCESS but this is a fallback for dynamic dashboard blocks)
     if (!rec.process_name.empty() && proc_mon_->is_app_blocked(rec.process_name)) {
       result.verdict           = Action::BLOCK;
+      result.matched_rule      = nullptr;
+      result.matched_rule_owner.reset();
       result.matched_rule_id   = 0;    // app-block override: no specific rule matched
       result.matched_rule_desc = {};
       rec.result = result;

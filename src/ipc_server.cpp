@@ -1,6 +1,7 @@
 #include "ipc_server.hpp"
 #include "config_parser.hpp"
 #include "logger.hpp"
+#include "net/nfq_capture.hpp" // LiveStats definition
 #include <sstream>
 #include <iostream>
 #include <vector>
@@ -237,7 +238,7 @@ std::string IpcServer::handle_set_policy(const std::string& params) {
 }
 
 std::string IpcServer::handle_get_rules() {
-    auto rules = engine_.get_rules();
+    auto rules = engine_.rules();
     std::ostringstream oss;
     oss << "{\"ok\":true,\"rules\":[";
     for (size_t i = 0; i < rules.size(); ++i) {
@@ -249,7 +250,8 @@ std::string IpcServer::handle_get_rules() {
             << "\"proto\":\"" << proto_name(r.proto) << "\","
             << "\"src_ip\":\"" << (r.src_ip ? ip4_to_string(r.src_ip) : "*") << "\","
             << "\"dst_ip\":\"" << (r.dst_ip ? ip4_to_string(r.dst_ip) : "*") << "\","
-            << "\"dst_port\":" << r.dst_port << ","
+            << "\"dst_port\":" << r.dst_port_start << ","
+            << "\"dst_port_end\":" << r.dst_port_end << ","
             << "\"desc\":\"" << r.description << "\""
             << "}";
     }

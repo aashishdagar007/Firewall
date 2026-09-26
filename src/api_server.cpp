@@ -510,7 +510,7 @@ std::string ApiServer::handle_add_rule(const std::string &body) {
     r.proto = ConfigParser::parse_proto(proto_s);
     r.src_ip = ConfigParser::parse_ip(src_ip_s);
     r.dst_ip = ConfigParser::parse_ip(dst_ip_s);
-    r.dst_port = ConfigParser::parse_port(dst_port_s);
+    ConfigParser::parse_port_range(dst_port_s, r.dst_port_start, r.dst_port_end);
     r.description = desc.length() > 256 ? desc.substr(0, 256) : desc;
   } catch (const std::exception &e) {
     return "{\"ok\":false,\"error\":\"Invalid rule format\"}";
@@ -641,10 +641,17 @@ std::string ApiServer::handle_allow_app(const std::string &body) {
 // ── JSON helpers ─────────────────────────────────────────────
 
 std::string ApiServer::rule_to_json(const Rule &r) {
-  auto ip_str = [](uint32_t ip) -> std::string {
-    if (ip == 0)
+  auto ip_str = [](uint32_t ip, uint32_t mask) -> std::string {
+    if (ip == 0 || mask == 0)
       return "*";
-    return ip4_to_string(ip);
+    std::string result = ip4_to_string(ip & mask);
+    if (mask != 0xFFFFFFFF) {
+      unsigned prefix = 0;
+      for (uint32_t bit = 0x80000000; bit && (mask & bit); bit >>= 1)
+        ++prefix;
+      result += "/" + std::to_string(prefix);
+    }
+    return result;
   };
 
   std::ostringstream o;
@@ -652,10 +659,12 @@ std::string ApiServer::rule_to_json(const Rule &r) {
     << "\"id\":" << r.id << ","
     << "\"action\":\"" << action_name(r.action) << "\","
     << "\"proto\":\"" << proto_name(r.proto) << "\","
-    << "\"src_ip\":\"" << ip_str(r.src_ip) << "\","
-    << "\"dst_ip\":\"" << ip_str(r.dst_ip) << "\","
-    << "\"src_port\":" << r.src_port << ","
-    << "\"dst_port\":" << r.dst_port << ","
+    << "\"src_ip\":\"" << ip_str(r.src_ip, r.src_ip_mask) << "\","
+    << "\"dst_ip\":\"" << ip_str(r.dst_ip, r.dst_ip_mask) << "\","
+    << "\"src_port\":" << r.src_port_start << ","
+    << "\"src_port_end\":" << r.src_port_end << ","
+    << "\"dst_port\":" << r.dst_port_start << ","
+    << "\"dst_port_end\":" << r.dst_port_end << ","
     << "\"process\":\"" << escape_json(r.process_name) << "\","
     << "\"hit_count\":" << r.hit_count << ","
     << "\"description\":\"" << escape_json(r.description) << "\""

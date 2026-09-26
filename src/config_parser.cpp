@@ -83,8 +83,8 @@ bool ConfigParser::parse_line(const std::string& line, Rule& out) {
         out.proto = Proto::ANY;
         out.src_ip = 0;
         out.dst_ip = 0;
-        out.src_port = 0;
-        out.dst_port = 0;
+        out.src_port_start = out.src_port_end = 0;
+        out.dst_port_start = out.dst_port_end = 0;
 
         std::string proc;
         if (!(ss >> std::quoted(proc)) || proc.empty()) return false;
@@ -116,7 +116,7 @@ bool ConfigParser::parse_line(const std::string& line, Rule& out) {
         out.proto    = parse_proto(proto_s);
         out.src_ip   = parse_ip(src_ip_s);
         out.dst_ip   = parse_ip(dst_ip_s);
-        out.dst_port = parse_port(dst_port_s);
+        ConfigParser::parse_port_range(dst_port_s, out.dst_port_start, out.dst_port_end);
         out.description = desc;
     } catch (const std::invalid_argument& ex) {
         std::cerr << "[ConfigParser] Validation error (" << ex.what() << ") in: " << line << "\n";
@@ -167,28 +167,6 @@ uint32_t ConfigParser::parse_ip(const std::string& s) {
     if (ip == 0 && ip_part != "0.0.0.0")
         throw std::invalid_argument("bad IP: " + s);
     return ip;  // already in host byte order
-}
-
-uint16_t ConfigParser::parse_port(const std::string& s) {
-    if (s == "*" || s == "any") return 0;
-
-    for (char c : s) {
-        if (!isdigit(static_cast<unsigned char>(c))) {
-            throw std::invalid_argument("non-digit character in port: " + s);
-        }
-    }
-
-    int p = 0;
-    try {
-        p = std::stoi(s);
-    } catch (const std::invalid_argument&) {
-        throw std::invalid_argument("bad port: " + s);
-    } catch (const std::out_of_range&) {
-        throw std::out_of_range("port out of integer range: " + s);
-    }
-
-    if (p < 0 || p > 65535) throw std::out_of_range("port out of range [0, 65535]: " + s);
-    return static_cast<uint16_t>(p);
 }
 
 Proto ConfigParser::parse_proto(const std::string& s) {

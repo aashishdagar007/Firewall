@@ -12,6 +12,7 @@
 namespace fw {
 
 class Logger;
+struct LiveStats;
 
 // ──────────────────────────────────────────────────────────────
 //  ipc_server.hpp  –  Hardened Windows Named Pipe IPC Server

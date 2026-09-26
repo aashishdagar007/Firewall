@@ -47,6 +47,17 @@ std::vector<Rule> RuleEngine::rules() const {
 
 void RuleEngine::add_rule(Rule r) {
   std::unique_lock<std::shared_mutex> lock(rules_mtx_);
+  auto normalize_range = [](uint16_t& start, uint16_t& end) {
+    if (start == 0) {
+      end = 0;
+    } else if (end == 0) {
+      end = start;
+    } else if (start > end) {
+      std::swap(start, end);
+    }
+  };
+  normalize_range(r.src_port_start, r.src_port_end);
+  normalize_range(r.dst_port_start, r.dst_port_end);
   r.id = next_id_++;
   rules_.push_back(std::make_shared<Rule>(std::move(r)));
   rebuild_port_index();
@@ -563,19 +574,23 @@ bool RuleEngine::matches(const Rule &rule, const PacketInfo &pkt) {
     return false;
 
   // Source IP  (0 = wildcard)
-  if (rule.src_ip != 0 && rule.src_ip != pkt.src_ip)
+  if (rule.src_ip != 0 &&
+      (rule.src_ip & rule.src_ip_mask) != (pkt.src_ip & rule.src_ip_mask))
     return false;
 
   // Dest IP
-  if (rule.dst_ip != 0 && rule.dst_ip != pkt.dst_ip)
+  if (rule.dst_ip != 0 &&
+      (rule.dst_ip & rule.dst_ip_mask) != (pkt.dst_ip & rule.dst_ip_mask))
     return false;
 
   // Source port (0 = wildcard)
-  if (rule.src_port != 0 && rule.src_port != pkt.src_port)
+  if (rule.src_port_start != 0 &&
+      (pkt.src_port < rule.src_port_start || pkt.src_port > rule.src_port_end))
     return false;
 
   // Dest port
-  if (rule.dst_port != 0 && rule.dst_port != pkt.dst_port)
+  if (rule.dst_port_start != 0 &&
+      (pkt.dst_port < rule.dst_port_start || pkt.dst_port > rule.dst_port_end))
     return false;
 
   // Process Name (empty = wildcard)
@@ -608,7 +623,12 @@ void RuleEngine::print_rules() const {
   std::shared_lock<std::shared_mutex> lock(rules_mtx_);
   for (const auto &rule : rules_) {
     const auto& r = *rule;
-    std::string dport = r.dst_port ? std::to_string(r.dst_port) : "*";
+    std::string dport = "*";
+    if (r.dst_port_start != 0) {
+      dport = std::to_string(r.dst_port_start);
+      if (r.dst_port_end != r.dst_port_start)
+        dport += "-" + std::to_string(r.dst_port_end);
+    }
     std::string proc = r.process_name.empty() ? "*" : r.process_name;
     std::cout << "│ " << std::setw(2) << r.id << " │ " << std::setw(6)
               << action_name(r.action) << " │ " << std::setw(4)
@@ -652,10 +672,11 @@ void RuleEngine::rebuild_port_index() {
   port_index_.clear();
   wildcard_rule_indices_.clear();
   for (size_t i = 0; i < rules_.size(); ++i) {
-    if (rules_[i]->dst_port == 0) {
+    if (rules_[i]->dst_port_start == 0 ||
+        rules_[i]->dst_port_start != rules_[i]->dst_port_end) {
       wildcard_rule_indices_.push_back(i);
     } else {
-      port_index_.emplace(rules_[i]->dst_port, i);
+      port_index_.emplace(rules_[i]->dst_port_start, i);
     }
   }
 }
