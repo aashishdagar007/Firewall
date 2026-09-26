@@ -413,35 +413,36 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     };
 
     // Check rules matching the exact dst_port first (port-indexed)
-    if (pkt.dst_port != 0) {
-      auto range = port_index_.equal_range(pkt.dst_port);
-      for (auto it = range.first; it != range.second; ++it) {
-        const auto& rule = rules_[it->second];
-        if (matches(rule, pkt)) {
-          rule.hit_count++;
-          if (rule.action == Action::ALLOW &&
-              (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP ||
-               pkt.proto == Proto::ICMP)) {
-            ConnectionKey canonical_key;
-            canonical_key.proto = pkt.proto;
-            if (pkt.src_ip < pkt.dst_ip) {
-              canonical_key.src_ip = pkt.src_ip;
-              canonical_key.dst_ip = pkt.dst_ip;
-              canonical_key.src_port = pkt.src_port;
-              canonical_key.dst_port = pkt.dst_port;
-            } else {
-              canonical_key.src_ip = pkt.dst_ip;
-              canonical_key.dst_ip = pkt.src_ip;
-              canonical_key.src_port = pkt.dst_port;
-              canonical_key.dst_port = pkt.src_port;
-            }
-            std::lock_guard<std::mutex> lock(state_mtx_);
-            bool create_state = true;
-            if (pkt.proto == Proto::TCP && !(pkt.tcp_flags & TCP_SYN))
-              create_state = false;
-            if (create_state &&
-                state_table_.find(canonical_key) == state_table_.end()) {
-              state_table_[canonical_key] = {
+    {
+      if (pkt.dst_port != 0) {
+        auto range = port_index_.equal_range(pkt.dst_port);
+        for (auto it = range.first; it != range.second; ++it) {
+          const auto& rule = rules_[it->second];
+          if (matches(rule, pkt)) {
+            rule.hit_count++;
+            if (rule.action == Action::ALLOW &&
+                (pkt.proto == Proto::TCP || pkt.proto == Proto::UDP ||
+                 pkt.proto == Proto::ICMP)) {
+              ConnectionKey canonical_key;
+              canonical_key.proto = pkt.proto;
+              if (pkt.src_ip < pkt.dst_ip) {
+                canonical_key.src_ip = pkt.src_ip;
+                canonical_key.dst_ip = pkt.dst_ip;
+                canonical_key.src_port = pkt.src_port;
+                canonical_key.dst_port = pkt.dst_port;
+              } else {
+                canonical_key.src_ip = pkt.dst_ip;
+                canonical_key.dst_ip = pkt.src_ip;
+                canonical_key.src_port = pkt.dst_port;
+                canonical_key.dst_port = pkt.src_port;
+              }
+              std::lock_guard<std::mutex> state_lock(state_mtx_);
+              bool create_state = true;
+              if (pkt.proto == Proto::TCP && !(pkt.tcp_flags & TCP_SYN))
+                create_state = false;
+              if (create_state &&
+                  state_table_.find(canonical_key) == state_table_.end()) {
+                state_table_[canonical_key] = {
                   FlowState::NEW,
                   std::chrono::steady_clock::now(),
                   pkt.src_ip,
@@ -450,18 +451,19 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
                   0,
                   pkt.tcp_seq + static_cast<uint32_t>(pkt.size),
                   0};
+              }
             }
+            return {rule.action, &rule};
           }
-          return {rule.action, &rule};
         }
       }
-    }
 
-    // Then check wildcard (dst_port == 0) rules in order
-    for (size_t idx : wildcard_rule_indices_) {
-      if (try_rule(idx)) {
-        const auto& rule = rules_[idx];
-        return {rule.action, &rule};
+      // Then check wildcard (dst_port == 0) rules in order
+      for (size_t idx : wildcard_rule_indices_) {
+        if (try_rule(idx)) {
+          const auto& rule = rules_[idx];
+          return {rule.action, &rule};
+        }
       }
     }
   }
@@ -652,12 +654,7 @@ void RuleEngine::rebuild_port_index() {
 // ── Geo-Block ────────────────────────────────────────────────
 
 bool RuleEngine::is_geo_blocked(uint32_t ip) const {
-  // No lock needed — geo_blocks_ only modified under state_mtx_ or rules_mtx_
-  // and reads here are safe since we hold nothing that prevents a race;
-  // caller holds state_mtx_ indirectly via evaluate(). We protect with a
-  // separate read here via the same state_mtx_ — check callers first.
-  // NOTE: this is called from evaluate() before any state lock; geo_blocks_
-  // is only written under state_mtx_, so we use it here consistently.
+  std::lock_guard<std::mutex> lock(state_mtx_);
   for (const auto& g : geo_blocks_) {
     if ((ip & g.mask) == (g.network & g.mask))
       return true;
@@ -825,4 +822,4 @@ std::vector<ConnectionSnapshot> RuleEngine::get_connection_snapshot() const {
   return out;
 }
 
-} // namespace fw
+} // namespace fw
