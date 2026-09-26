@@ -32,7 +32,7 @@ static std::string now_ms_str() {
 
 /*static*/ void PortScanDetector::trim_window(
     std::deque<ScanState::PortHit>& hits,
-    std::unordered_set<uint16_t>&   unique_set,
+    std::unordered_set<uint32_t>&   unique_set,
     std::chrono::steady_clock::time_point cutoff)
 {
     // Drop entries older than cutoff from the front
@@ -61,9 +61,6 @@ void PortScanDetector::emit_event(uint32_t src_ip, ScanType type,
     if (recent_events_.size() > 200)
         recent_events_.pop_front();
 
-    if (callback_) {
-        callback_(ev);
-    }
 }
 
 // ── Main record() ─────────────────────────────────────────────
@@ -78,7 +75,7 @@ std::optional<ScanEvent> PortScanDetector::record(const PacketInfo& pkt) {
     auto now    = std::chrono::steady_clock::now();
     auto cutoff = now - std::chrono::seconds(WINDOW_SEC);
 
-    std::lock_guard<std::mutex> lock(mtx_);
+    std::unique_lock<std::mutex> lock(mtx_);
 
     // Periodic cleanup
     if (now - last_cleanup_ > std::chrono::seconds(CLEANUP_SEC)) {
@@ -112,11 +109,10 @@ std::optional<ScanEvent> PortScanDetector::record(const PacketInfo& pkt) {
         trim_window(st.udp_hits, st.udp_unique, cutoff);
     }
     if (is_icmp) {
-        // Track ICMP type as a "port" for ICMP sweep detection
-        st.icmp_hits.push_back({pkt.icmp_type, now});
-        // Trim ICMP hits too (reuse tcp_unique trimmer with a temp set)
-        while (!st.icmp_hits.empty() && st.icmp_hits.front().when < cutoff)
-            st.icmp_hits.pop_front();
+        // A ping sweep is one source probing many destinations, not many
+        // packets with the same ICMP type to one destination.
+        st.icmp_hits.push_back({pkt.dst_ip, now});
+        trim_window(st.icmp_hits, st.icmp_unique, cutoff);
     }
 
     // ── Check thresholds ─────────────────────────────────────
@@ -147,12 +143,12 @@ std::optional<ScanEvent> PortScanDetector::record(const PacketInfo& pkt) {
         detected_type  = ScanType::MIXED_SWEEP;
         detected_ports = total_ports;
         scan_detected  = true;
-    } else if (!st.icmp_hits.empty() &&
-               st.icmp_hits.size() > PORT_THRESHOLD * 2) {
-        // Many ICMP echo requests — possible ping sweep
-        detected_type  = ScanType::ICMP_SWEEP;
-        detected_ports = static_cast<uint32_t>(st.icmp_hits.size());
-        scan_detected  = true;
+    } else if (!st.icmp_hits.empty()) {
+        if (static_cast<uint32_t>(st.icmp_unique.size()) > PORT_THRESHOLD) {
+            detected_type  = ScanType::ICMP_SWEEP;
+            detected_ports = static_cast<uint32_t>(st.icmp_unique.size());
+            scan_detected  = true;
+        }
     }
 
     if (!scan_detected) return std::nullopt;
@@ -160,11 +156,15 @@ std::optional<ScanEvent> PortScanDetector::record(const PacketInfo& pkt) {
     // Mark as reported so we don't spam for the same burst
     st.already_reported = true;
 
-    // Emit the event (callback fires here, inside the lock — brief)
+    // Store the event before releasing the lock.
     emit_event(pkt.src_ip, detected_type, detected_ports, /*banned=*/true);
 
-    // Return the last emitted event
-    return recent_events_.back();
+    // Copy event and callback while protected, then invoke user code unlocked.
+    const ScanEvent event = recent_events_.back();
+    const Callback callback = callback_;
+    lock.unlock();
+    if (callback) callback(event);
+    return event;
 }
 
 // ── Callback registration ─────────────────────────────────────
@@ -194,6 +194,7 @@ void PortScanDetector::cleanup_stale() {
                 st.tcp_hits.clear();
                 st.udp_hits.clear();
                 st.icmp_hits.clear();
+                st.icmp_unique.clear();
                 st.tcp_unique.clear();
                 st.udp_unique.clear();
             }

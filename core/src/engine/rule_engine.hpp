@@ -5,12 +5,13 @@
 #include <unordered_map>
 #include <mutex>
 #include <chrono>
+#include <condition_variable>
 #include <thread>
 #include <atomic>
 #include <shared_mutex>
 #include <functional>
-#include "engine/dpi_engine.hpp"
-#include "engine/traffic_shaper.hpp"
+#include <memory>
+#include "dpi_engine.hpp"
 
 // ──────────────────────────────────────────────────────────────
 //  rule_engine.hpp  –  rule chain management and matching
@@ -27,12 +28,14 @@ namespace fw {
     // remove_rule can reallocate the vector's backing store, invalidating any
     // pointer taken while holding only a shared lock.)
     struct EvalResult {
-        Action      verdict           = Action::BLOCK;
-        uint32_t    matched_rule_id   = 0;     // 0 = no matched user rule
-        std::string matched_rule_desc;         // empty = no matched user rule
+        Action      verdict;
+        const Rule* matched_rule = nullptr;
+        std::shared_ptr<const Rule> matched_rule_owner{}; // keeps dynamic rules alive
 
-        // Convenience helper so call-sites can test "did a rule match?"
-        bool has_matched_rule() const { return matched_rule_id != 0 || !matched_rule_desc.empty(); }
+        EvalResult() = default;
+        EvalResult(Action v, const Rule* rule,
+                   std::shared_ptr<const Rule> owner = {})
+            : verdict(v), matched_rule(rule), matched_rule_owner(std::move(owner)) {}
     };
 
     // CIDR geo-block entry
@@ -143,7 +146,7 @@ namespace fw {
         void set_local_ip(uint32_t ip);
 
         // Read-only access to the rule list (for printing / debugging)
-        const std::vector<Rule>& rules() const { return rules_; }
+        std::vector<Rule> rules() const;
 
         // Print the full rule table to stdout
         void print_rules() const;
@@ -190,9 +193,15 @@ namespace fw {
         // Snapshot of recent scan events (for the API)
         std::vector<ScanEvent> get_scan_events() const;
 
+        // ── Unidirectional Diode Threat Engine (NTRO SIH26145) ─────────────
+        void set_diode_engine(class DiodeThreatEngine* eng) { diode_engine_.store(eng); }
+        class DiodeThreatEngine* get_diode_engine() const { return diode_engine_.load(); }
+        void set_diode_mode(bool enabled) { diode_mode_.store(enabled); }
+        bool get_diode_mode() const { return diode_mode_.load(); }
+
     private:
-        std::vector<Rule> rules_;
-        Action            default_policy_;
+        std::vector<std::shared_ptr<Rule>> rules_;
+        std::atomic<Action> default_policy_;
         uint32_t          next_id_ = 1;
 
         // Connection Tracking Table
@@ -263,7 +272,7 @@ namespace fw {
         std::unordered_map<ConnectionKey, Action, ConnectionKeyHash> eval_cache_;
 
         DpiEngine  dpi_;
-        uint32_t local_ip_ = 0;
+        std::atomic<uint32_t> local_ip_{0};
 
         // ── Stealth Mode ──────────────────────────────────────────────────
         // When true, the capture layer must drop packets silently (no RST).
@@ -273,10 +282,15 @@ namespace fw {
 
         // ── Port Scan Detector ────────────────────────────────────────────
         PortScanDetector            scan_detector_;
-        std::function<void(ScanEvent)> scan_callback_;
+
+        // ── Diode Engine Pointer ──────────────────────────────────────────
+        std::atomic<class DiodeThreatEngine*> diode_engine_{nullptr};
+        std::atomic<bool>           diode_mode_{true}; // Unidirectional Diode Mode ON by default
 
         std::thread heuristic_thread_;
         std::atomic<bool> stop_heuristics_{false};
+        std::mutex heuristic_wait_mtx_;
+        std::condition_variable heuristic_cv_;
 
         void heuristic_worker();
         static bool matches(const Rule& rule, const PacketInfo& pkt);

@@ -62,7 +62,7 @@ struct ScanEvent {
 struct ScanState {
     // Sliding window of (dst_port, time_point) per protocol
     struct PortHit {
-        uint16_t port;
+        uint32_t port;
         std::chrono::steady_clock::time_point when;
     };
 
@@ -70,8 +70,9 @@ struct ScanState {
     std::deque<PortHit> udp_hits;
     std::deque<PortHit> icmp_hits; // stores icmp_type as "port"
 
-    std::unordered_set<uint16_t> tcp_unique;
-    std::unordered_set<uint16_t> udp_unique;
+    std::unordered_set<uint32_t> tcp_unique;
+    std::unordered_set<uint32_t> udp_unique;
+    std::unordered_set<uint32_t> icmp_unique;
 
     std::chrono::steady_clock::time_point last_seen;
     bool already_reported = false; // suppress duplicate alerts per scan burst
@@ -117,7 +118,7 @@ private:
 
     // Trim hits outside the sliding window and rebuild the unique-port set
     static void trim_window(std::deque<ScanState::PortHit>& hits,
-                             std::unordered_set<uint16_t>& unique_set,
+                             std::unordered_set<uint32_t>& unique_set,
                              std::chrono::steady_clock::time_point cutoff);
 
     // Build and push a ScanEvent

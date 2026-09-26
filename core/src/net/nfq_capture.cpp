@@ -264,11 +264,26 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
 #ifndef HAVE_NFQUEUE
   (void)pkt_id;
 #endif
-  PacketInfo pkt{};
-  if (!PacketParser::parse(buf, len, pkt)) {
+
+  // ── Pre-parsing Rate Limiting ──────────────────────────────────
+  // Drop excessive volumetric floods before spending CPU on deep parsing
+  if (!rate_limiter_.allow()) {
+    stats_.total++;
+    stats_.blocked++;
 #ifdef HAVE_NFQUEUE
     if (nfq_mode_ && qh_)
-      nfq_set_verdict(qh_, pkt_id, NF_ACCEPT, 0, nullptr);
+      nfq_set_verdict(qh_, pkt_id, NF_DROP, 0, nullptr);
+#endif
+    return;
+  }
+
+  PacketInfo pkt{};
+  if (!PacketParser::parse(buf, len, pkt)) {
+    stats_.total++;
+    stats_.blocked++;
+#ifdef HAVE_NFQUEUE
+    if (nfq_mode_ && qh_)
+      nfq_set_verdict(qh_, pkt_id, NF_DROP, 0, nullptr);
 #endif
     return;
   }

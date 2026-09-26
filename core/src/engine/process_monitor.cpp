@@ -6,8 +6,7 @@
 //    - OpenProcess + QueryFullProcessImageName  → EXE path
 //    - EnumWindows                              → browser window titles
 //
-//  Linux: stub that always returns empty strings.
-//         A real impl would parse /proc/net/tcp and /proc/PID/exe.
+//  Linux: maps socket ports to processes through /proc/net and /proc/<pid>/fd.
 // ──────────────────────────────────────────────────────────────────────────────
 
 #include "engine/process_monitor.hpp"
@@ -27,9 +26,15 @@
 #endif
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <iostream>
 #include <thread>
+#ifndef _WIN32
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#endif
 
 namespace fw {
 
@@ -495,22 +500,89 @@ std::string ProcessMonitor::resolve_exe(uint32_t pid) const {
 }
 
 #else
-// ── Linux stub ───────────────────────────────────────────────────────────────
+// ── Linux /proc implementation ───────────────────────────────────────────────
 void ProcessMonitor::refresh_connections() {
-  // TODO: parse /proc/net/tcp and /proc/net/udp
-  // Each line gives: local_addr (hex:port), inode
-  // Then match inode in /proc/<pid>/fd/ symlinks pointing to socket:[inode]
+  std::unordered_map<uint64_t, std::pair<uint16_t, bool>> inode_to_endpoint;
+  for (const char *table : {"/proc/net/tcp", "/proc/net/tcp6", "/proc/net/udp", "/proc/net/udp6"}) {
+    std::ifstream input(table);
+    std::string line;
+    std::getline(input, line); // header
+    while (std::getline(input, line)) {
+      std::istringstream row(line);
+      std::string slot, local, remote, state, queues, timer;
+      uint64_t retrnsmt, uid, timeout, inode;
+      if (!(row >> slot >> local >> remote >> state >> queues >> timer
+                >> std::hex >> retrnsmt >> std::dec >> uid >> timeout >> inode))
+        continue;
+      const auto colon = local.rfind(':');
+      if (colon == std::string::npos) continue;
+      try { inode_to_endpoint[inode] = {static_cast<uint16_t>(std::stoul(local.substr(colon + 1), nullptr, 16)), std::string(table).find("/tcp") != std::string::npos}; }
+      catch (...) { continue; }
+    }
+  }
+
+  std::unordered_map<uint16_t, uint32_t> ports, tcp_ports, udp_ports;
+  std::error_code ec;
+  for (std::filesystem::directory_iterator it("/proc", ec), end; !ec && it != end; it.increment(ec)) {
+    const auto name = it->path().filename().string();
+    if (name.empty() || !std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isdigit(c); })) continue;
+    uint32_t pid;
+    try { pid = static_cast<uint32_t>(std::stoul(name)); } catch (...) { continue; }
+    const auto fd_path = it->path() / "fd";
+    std::error_code fd_ec;
+    for (std::filesystem::directory_iterator fd(fd_path, fd_ec), fd_end; !fd_ec && fd != fd_end; fd.increment(fd_ec)) {
+      auto target = std::filesystem::read_symlink(fd->path(), fd_ec).string();
+      if (fd_ec) { fd_ec.clear(); continue; }
+      constexpr char prefix[] = "socket:[";
+      if (target.compare(0, sizeof(prefix) - 1, prefix) != 0 || target.back() != ']') continue;
+      try {
+        auto found = inode_to_endpoint.find(std::stoull(target.substr(sizeof(prefix) - 1, target.size() - sizeof(prefix))));
+        if (found != inode_to_endpoint.end()) {
+          ports[found->second.first] = pid;
+          (found->second.second ? tcp_ports : udp_ports)[found->second.first] = pid;
+        }
+      } catch (...) {}
+    }
+  }
+
+  std::lock_guard<std::mutex> lock(mtx_);
+  port_to_pid_ = std::move(ports);
+  for (auto &[pid, info] : procs_) { (void)pid; info.tcp_ports.clear(); info.udp_ports.clear(); }
+  for (const auto &[port, pid] : tcp_ports) {
+    auto &info = procs_[pid];
+    info.pid = pid;
+    info.tcp_ports.push_back(port);
+  }
+  for (const auto &[port, pid] : udp_ports) {
+    auto &info = procs_[pid];
+    info.pid = pid;
+    info.udp_ports.push_back(port);
+  }
 }
 
 void ProcessMonitor::refresh_processes() {
-  // TODO: iterate /proc/<pid>/exe for exe names
+  std::lock_guard<std::mutex> lock(mtx_);
+  for (auto &[pid, info] : procs_) {
+    if (info.exe_name.empty()) {
+      info.exe_name = resolve_exe(pid);
+      info.display_name = friendly_name(info.exe_name);
+      info.is_browser = is_browser_exe(info.exe_name);
+      info.is_blocked = blocked_apps_.count(info.exe_name) != 0;
+    }
+  }
 }
 
 void ProcessMonitor::refresh_browser_tabs() {
-  // TODO: Use xdotool or DBus for browser tab titles on Linux
+  // Browser window titles are desktop-environment specific; socket ownership
+  // and executable attribution work on headless Linux as well.
 }
 
-std::string ProcessMonitor::resolve_exe(uint32_t /*pid*/) const { return ""; }
+std::string ProcessMonitor::resolve_exe(uint32_t pid) const {
+  if (pid == 0) return "System";
+  std::error_code ec;
+  auto exe = std::filesystem::read_symlink("/proc/" + std::to_string(pid) + "/exe", ec);
+  return ec ? "Unknown" : exe.filename().string();
+}
 #endif
 
 // ── Helpers (shared) ─────────────────────────────────────────────────────────

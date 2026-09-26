@@ -17,7 +17,7 @@
 //  Windows: maps TCP/UDP local-port → PID → process name using iphlpapi.
 //  Also enumerates browser window titles (Edge, Chrome, Firefox, Brave, Opera).
 //
-//  Linux: stub — returns empty strings (use /proc/net/tcp for a real impl).
+//  Linux: maps socket ports to processes through /proc/net and /proc/<pid>/fd.
 // ──────────────────────────────────────────────────────────────────────────────
 
 namespace fw {
@@ -63,7 +63,7 @@ public:
   void start(); // begin background refresh thread (every 2s)
   void stop();
 
-  // --- Called from packet path (fast path, lock-free lookup) ---
+  // --- Called from packet path (short mutex-protected lookup) ---
 
   // Returns process exe name for a local port ("chrome.exe" or "")
   std::string process_name_for_port(uint16_t local_port) const;

@@ -48,6 +48,18 @@ include_directories(
     ${imgui_SOURCE_DIR}/backends
 )
 
+# ── AddressSanitizer (ASan) ────────────────────────────────────────────────
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if(ENABLE_ASAN)
+    message(STATUS "AddressSanitizer enabled for extreme fuzzing/memory detection")
+    if(MSVC)
+        add_compile_options(/fsanitize=address)
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 # ── Source files ───────────────────────────────────────────────────────────
 set(IMGUI_SOURCES
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -64,9 +76,19 @@ file(GLOB_RECURSE GUI_SOURCES "gui/src/*.cpp")
 
 set(SOURCES
     src/main.cpp
-    ${CORE_SOURCES}
-    ${GUI_SOURCES}
-    ${IMGUI_SOURCES}
+    src/packet.cpp
+    src/rule_engine.cpp
+    src/logger.cpp
+    src/config_parser.cpp
+    src/nfq_capture.cpp
+    src/api_server.cpp
+    src/process_monitor.cpp
+    src/dpi_engine.cpp
+    src/port_scan_detector.cpp
+    src/diode_threat_engine.cpp
+    src/diode_streamer.cpp
+    src/ipc_server.cpp
+    src/updater.cpp
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -103,5 +125,164 @@ if(OpenSSL_FOUND)
     target_compile_definitions(AegisXII PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
 endif()
 
-file(COPY config DESTINATION ${CMAKE_BINARY_DIR})
+# ══════════════════════════════════════════════════════════════════════════════
+#  Platform-specific configuration
+# ══════════════════════════════════════════════════════════════════════════════
+
+if(WIN32)
+    # ── Windows ─────────────────────────────────────────────────────────────
+    message(STATUS "Platform: Windows")
+
+    # Winsock2 (ws2_32) — always needed
+    target_link_libraries(firewall PRIVATE ws2_32)
+
+    # Windows Security & Cryptography APIs (privilege checks, DACL, DPAPI)
+    target_link_libraries(firewall PRIVATE advapi32 crypt32 winhttp)
+
+    # iphlpapi — GetExtendedTcpTable/GetExtendedUdpTable (process_monitor)
+    target_link_libraries(firewall PRIVATE iphlpapi)
+
+    # psapi — QueryFullProcessImageName (process_monitor, pipe client verification)
+    target_link_libraries(firewall PRIVATE psapi)
+
+    # shell32 — ShellExecuteW (open_browser in main.cpp)
+    target_link_libraries(firewall PRIVATE shell32)
+
+    # MinGW static runtime (no DLL dependency in the exe)
+    if(MINGW)
+        target_link_options(firewall PRIVATE -static -static-libgcc -static-libstdc++)
+        message(STATUS "Toolchain: MinGW-w64 (static runtime)")
+    endif()
+
+    # ── WinDivert (optional — enables real packet blocking on Windows) ──────
+    # Download WinDivert from https://reqrypt.org/windivert.html
+    # and place WinDivert64.dll + WinDivert.lib next to the executable,
+    # or set WINDIVERT_DIR in CMake cache to the extracted folder.
+    if(DEFINED WINDIVERT_DIR AND EXISTS "${WINDIVERT_DIR}/include/windivert.h")
+        message(STATUS "Found WinDivert at ${WINDIVERT_DIR} — real blocking enabled")
+        target_include_directories(firewall PRIVATE "${WINDIVERT_DIR}/include")
+        target_link_directories(firewall PRIVATE "${WINDIVERT_DIR}/x64")
+        target_link_libraries(firewall PRIVATE WinDivert)
+        target_compile_definitions(firewall PRIVATE HAVE_WINDIVERT)
+    else()
+        message(STATUS "WinDivert NOT found — observer mode only")
+        message(STATUS "  To enable real blocking:")
+        message(STATUS "    1. Download WinDivert from https://reqrypt.org/windivert.html")
+        message(STATUS "    2. cmake .. -DWINDIVERT_DIR=<path>")
+    endif()
+
+    # Windows needs _WIN32_WINNT set (Vista+ for Winsock features used)
+    target_compile_definitions(firewall PRIVATE
+        _WIN32_WINNT=0x0A00   # Windows 10+ (required by httplib.h)
+        _CRT_SECURE_NO_WARNINGS
+    )
+
+else()
+    # ── Linux / macOS ────────────────────────────────────────────────────────
+    message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
+
+    # libnetfilter_queue (optional — enables real blocking on Linux)
+    find_library(NFQ_LIB NAMES netfilter_queue)
+    if(NFQ_LIB)
+        message(STATUS "Found libnetfilter_queue: ${NFQ_LIB} — real blocking enabled")
+        target_compile_definitions(firewall PRIVATE HAVE_NFQUEUE)
+        target_link_libraries(firewall PRIVATE ${NFQ_LIB})
+    else()
+        message(STATUS "libnetfilter_queue NOT found — raw socket observer mode only")
+        message(STATUS "  Install with: sudo apt install libnetfilter-queue-dev")
+    endif()
+
+endif()
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Build assets (config + dashboard copied next to the executable)
+# ══════════════════════════════════════════════════════════════════════════════
+file(COPY config    DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY dashboard DESTINATION ${CMAKE_BINARY_DIR})
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/logs)
+# Phase 2: cloud control plane bootstrap config
+if(EXISTS "${CMAKE_SOURCE_DIR}/config/cloud_config.json")
+    file(COPY "${CMAKE_SOURCE_DIR}/config/cloud_config.json"
+         DESTINATION "${CMAKE_BINARY_DIR}/config")
+endif()
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Testing
+# ══════════════════════════════════════════════════════════════════════════════
+enable_testing()
+add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp src/port_scan_detector.cpp src/diode_threat_engine.cpp src/diode_streamer.cpp)
+if(WIN32)
+    target_link_libraries(test_engine PRIVATE ws2_32)
+endif()
+target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_engine PRIVATE Threads::Threads)
+add_test(NAME rule_engine_test COMMAND test_engine)
+
+# ── Diode Threat Detection Unit Tests ──────────────────────────────────────
+add_executable(test_threat_detection
+    tests/test_threat_detection.cpp
+    src/packet.cpp
+    src/diode_threat_engine.cpp
+    src/diode_streamer.cpp
+)
+if(WIN32)
+    target_link_libraries(test_threat_detection PRIVATE ws2_32)
+endif()
+target_include_directories(test_threat_detection PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_threat_detection PRIVATE Threads::Threads)
+add_test(NAME threat_detection_test COMMAND test_threat_detection)
+set_tests_properties(threat_detection_test PROPERTIES
+    LABELS "diode;ai;threat-detection"
+    TIMEOUT 60
+)
+
+# ── Security & Hardening Unit Tests ────────────────────────────────────────
+add_executable(test_security
+    tests/test_security.cpp
+    src/packet.cpp
+    src/rule_engine.cpp
+    src/config_parser.cpp
+    src/logger.cpp
+    src/ipc_server.cpp
+    src/updater.cpp
+)
+if(WIN32)
+    target_link_libraries(test_security PRIVATE ws2_32 advapi32 crypt32 winhttp psapi)
+endif()
+target_include_directories(test_security PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_security PRIVATE Threads::Threads)
+add_test(NAME security_hardening_test COMMAND test_security)
+
+# ── Summary ────────────────────────────────────────────────────────────────
+message(STATUS "")
+message(STATUS "════════════════════════════════════════════")
+message(STATUS " Firewall v2  build summary")
+message(STATUS "════════════════════════════════════════════")
+message(STATUS "  Build type : ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Compiler   : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "  Standard   : C++${CMAKE_CXX_STANDARD}")
+message(STATUS "")
+message(STATUS "  Phase 2 Architecture:")
+message(STATUS "    Pillar 1 ─ Port Demux (WinDivert DPI interceptor)")
+message(STATUS "    Pillar 2 ─ BVUDP Batch-Verified UDP protocol stack")
+message(STATUS "    Pillar 3 ─ Cloud Control Plane client")
+message(STATUS "    Pillar 4 ─ Tamper-Proof Hash-Chain Ledger")
+message(STATUS "    Crypto   ─ SHA-256 (header-only, zero deps)")
+if(WIN32)
+    message(STATUS "  Windows    : Observer mode (ws2_32)")
+    message(STATUS "  Blocking   : WinDivert (set WINDIVERT_DIR to enable)")
+    message(STATUS "")
+    message(STATUS "  Run as Administrator in PowerShell:")
+    message(STATUS "    cd cmake-build-debug")
+    message(STATUS "    .\\firewall.exe")
+    message(STATUS "  Cloud endpoint: set AEGIS_CONTROL_URL=http://your-api/config")
+else()
+    message(STATUS "  Linux      : NFQ mode available")
+    message(STATUS "")
+    message(STATUS "  iptables setup (run once before daemon):")
+    message(STATUS "    sudo iptables -I INPUT   -j NFQUEUE --queue-num 0")
+    message(STATUS "    sudo iptables -I OUTPUT  -j NFQUEUE --queue-num 0")
+    message(STATUS "    sudo iptables -I FORWARD -j NFQUEUE --queue-num 0")
+    message(STATUS "  Then: cd cmake-build-debug && sudo ./firewall")
+endif()
+message(STATUS "════════════════════════════════════════════")

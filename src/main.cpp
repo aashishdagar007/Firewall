@@ -1,28 +1,24 @@
-#include "util/platform.hpp"       
-#include "net/nfq_capture.hpp"
-#include "engine/rule_engine.hpp"
-#include "util/logger.hpp"
-#include "persistence/config_parser.hpp"
-#include "util/ring_buffer.hpp"
-#include "engine/process_monitor.hpp"
-#include "persistence/local_graph_store.hpp"
-#include "engine/correlation_engine.hpp"
-#include "util/sha256.hpp"          
-#include "net/bvudp.hpp"           
-#include "net/port_demux.hpp"      
-#include "persistence/chain_ledger.hpp"    
-#include "engine/control_plane.hpp"   
-#include "engine/dns_firewall.hpp"    
-#include "engine/mac_watchdog.hpp"    
-#include "engine/hardware_monitor.hpp" 
-#include "ipc/ipc_server.hpp"
-#include "engine/ip_dodger.hpp"
-#include "engine/failsafe_manager.hpp"
-#include "engine/app_trust.hpp"
-#include "kernel/driver_comm.hpp"
-#include "engine/vpn_manager.hpp"
-#include "../../gui/src/window.hpp"
-
+#include "platform.hpp"       // MUST be first — pulls in winsock2.h on Windows
+#include "nfq_capture.hpp"
+#include "rule_engine.hpp"
+#include "logger.hpp"
+#include "config_parser.hpp"
+#include "api_server.hpp"
+#include "ring_buffer.hpp"
+#include "process_monitor.hpp"
+// ── Phase 2: Four Pillars ─────────────────────────────────────
+#include "sha256.hpp"          // Pillar 2+4: cryptographic primitive
+#include "bvudp.hpp"           // Pillar 2:   Batch-Verified UDP protocol
+#include "port_demux.hpp"      // Pillar 1:   DPI port demultiplexer
+#include "chain_ledger.hpp"    // Pillar 4:   tamper-proof event ledger
+#include "control_plane.hpp"   // Pillar 3:   cloud control plane client
+// ── NTRO SIH26145: Unidirectional Diode AI/ML Threat Engine ──
+#include "diode_threat_engine.hpp"
+#include "diode_streamer.hpp"
+// ── Security Hardening Modules ────────────────────────────────
+#include "ipc_server.hpp"
+#include "rate_limiter.hpp"
+#include "updater.hpp"
 #include <csignal>
 #include <atomic>
 #include <thread>
@@ -35,6 +31,18 @@
 #include <windows.h>
 #include <winsvc.h>
 #include <shellapi.h>
+
+static fw::Logger* g_logger = nullptr;
+static bool g_fail_open_on_crash = false;
+
+static LONG WINAPI aegix_crash_handler(EXCEPTION_POINTERS* ep) {
+    (void)ep;
+    if (g_logger) {
+        g_logger->log_fail_transition(g_fail_open_on_crash, "Unhandled Exception Crash Trigger");
+        g_logger->flush();
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
 #endif
 
 // ──────────────────────────────────────────────────────────────
@@ -59,6 +67,79 @@ void run_core_service() {
     const std::string config_path = "config/rules.conf";
     const std::string log_path    = "logs/firewall.log";
 
+    // Fallback: Edge in app mode
+    std::wstring edge_args = L"--app=\"" + wurl + L"\" --new-window";
+    rc = ShellExecuteW(nullptr, L"open", L"msedge", edge_args.c_str(), nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(rc) > 32) return;
+
+    // Final fallback: system default browser
+    ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+#else
+    std::string cmd = "xdg-open '" + url + "' 2>/dev/null &";
+    std::system(cmd.c_str());
+#endif
+}
+
+#ifdef _WIN32
+// WinMain entry point for /SUBSYSTEM:WINDOWS (no console)
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    int    argc = 0;
+    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    // Convert wide args to narrow for uniform handling below
+    std::vector<std::string> args_storage;
+    if (wargv) {
+        for (int i = 0; i < argc; ++i) {
+            int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
+            std::string s(len, '\0');
+            WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
+            args_storage.push_back(s);
+        }
+        LocalFree(wargv);
+    }
+    std::vector<const char*> argv_ptrs;
+    for (auto& s : args_storage) argv_ptrs.push_back(s.c_str());
+    char** argv = const_cast<char**>(argv_ptrs.data());
+#else
+int main(int argc, char* argv[]) {
+#endif
+
+    // ── 0. Platform init (Winsock on Windows, no-op on Linux) ──
+    if (!wsa_init()) {
+        // No console — failure is silent; firewall simply won't start.
+        return 1;
+    }
+
+    const std::string config_path    = (argc > 1) ? argv[1] : "config/rules.conf";
+    const std::string log_path       = (argc > 2) ? argv[2] : "logs/aegix.log";
+    const std::string dashboard_root = (argc > 3) ? argv[3] : "dashboard/";
+    int               api_port       = 8080;
+    if (argc > 4) {
+        try { api_port = std::stoi(argv[4]); } catch (...) {}
+    }
+
+    // ── Phase 1.1: Mandatory Privilege Enforcement (Fail-Closed) ──
+    if (!check_is_elevated_admin()) {
+        fw::Logger err_logger(log_path, fw::LogLevel::LOG_ERROR);
+        err_logger.log(fw::LogLevel::LOG_ERROR,
+                       "[Security] FATAL: Aegix Firewall requires elevated Administrator or SYSTEM privileges. Failing closed immediately.");
+        err_logger.flush();
+        return 5; // ERROR_ACCESS_DENIED
+    }
+
+    // ── Phase 1.3: Enforce and Verify File ACL Security ────────────
+    apply_strict_file_security(config_path);
+    apply_strict_file_security(log_path);
+
+    if (!verify_file_security(config_path) || !verify_file_security(log_path)) {
+        fw::Logger err_logger(log_path, fw::LogLevel::LOG_ERROR);
+        err_logger.log(fw::LogLevel::LOG_ERROR,
+                       "[Security] FATAL: File ACL verification failed. Weakened permissions detected on " +
+                       config_path + " or " + log_path + ". Failing closed.");
+        err_logger.flush();
+        return 5;
+    }
+
+    // ── 1. Load rules ──────────────────────────────────────────
     auto loaded_rules = fw::ConfigParser::load(config_path);
     fw::RuleEngine engine(fw::Action::BLOCK);
     for (auto& r : loaded_rules) engine.add_rule(std::move(r));
@@ -66,7 +147,23 @@ void run_core_service() {
     fw::LiveStats stats;
     fw::RingBuffer<fw::PacketRecord> ring(500);
     fw::Logger logger(log_path, fw::LogLevel::LOG_INFO);
-    logger.log(fw::LogLevel::LOG_INFO, "Aegis XII Core Service starting");
+    g_logger = &logger;
+    logger.log(fw::LogLevel::LOG_INFO, "Aegix Firewall starting with elevated privileges");
+
+    // ── Phase 3.1: Fail-Secure Architecture & Crash Handler ───────
+    g_fail_open_on_crash = fw::ConfigParser::get_fail_open_on_crash();
+    logger.log(fw::LogLevel::LOG_INFO,
+               std::string("[Security] Engine crash policy initialized: ") +
+               (g_fail_open_on_crash ? "FAIL_OPEN" : "FAIL_SECURE (BLOCK all)"));
+
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(aegix_crash_handler);
+#endif
+
+    // ── Phase 1.4: Hardened Named Pipe IPC Server ─────────────────
+    fw::IpcServer ipc_server(engine, stats, &logger, "\\\\.\\pipe\\aegix_ipc", L"aegix-ui.exe");
+    ipc_server.start();
+    logger.log(fw::LogLevel::LOG_INFO, "[IPC] Hardened Named Pipe IPC server active on \\\\.\\pipe\\aegix_ipc");
 
     fw::ChainLedger ledger("logs/ledger.chain", "logs/ledger.json");
     if (ledger.open()) ledger.log_firewall_start();
@@ -97,8 +194,16 @@ void run_core_service() {
     fw::ProcessMonitor proc_mon(&graph_store);
     proc_mon.start();
 
-    fw::CorrelationEngine correlation(engine, proc_mon);
-    correlation.start();
+    // ── 4.5 NTRO SIH26145: Unidirectional Diode Threat Engine ────
+    fw::DiodeThreatEngine diode_engine(&ledger);
+    fw::DiodeStreamer diode_streamer(diode_engine);
+    engine.set_diode_engine(&diode_engine);
+    engine.set_diode_mode(true); // Passive Unidirectional Enclave Mode
+    logger.log(fw::LogLevel::LOG_INFO, "[NTRO SIH26145] Diode Threat Engine initialized (Passive Enclave Mode)");
+
+    // ── 5. Start API server ──────────────────────────────────
+    fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port, &diode_engine, &diode_streamer);
+    api.start();
 
     fw::DnsFirewall dns_fw;
     fw::MacWatchdog mac_watchdog;
@@ -181,19 +286,35 @@ void run_core_service() {
     std::signal(SIGINT,  signal_handler);
     std::signal(SIGTERM, signal_handler);
 
-    if (capture.open()) {
-        logger.log(fw::LogLevel::LOG_INFO, "Capture started. Entering blocking loop.");
-        capture.run(); // Blocks until capture is stopped
-    } else {
-        logger.log(fw::LogLevel::LOG_ERROR, "Failed to open capture (needs admin).");
+    if (!capture.open()) {
+        logger.log(fw::LogLevel::LOG_ERROR, "Failed to open capture (need elevated privileges)");
+        ipc_server.stop();
+        api.stop();
+        conntrack_running = false;
+        if (conntrack_thread.joinable()) conntrack_thread.join();
+        wsa_cleanup();
+        return 1;
     }
 
-    // Shutdown
-    driver_comm.shutdown();
-    failsafe_mgr.stop();
-    ip_dodger.stop();
-    ipc.stop();
-    hw_mon.stop();
+    const char* mode = capture.is_nfq_mode()
+        ? "NFQUEUE (real blocking — active firewall)"
+        : "Raw socket observer (passive — log & stats only)";
+    logger.log(fw::LogLevel::LOG_INFO, std::string("Capture mode: ") + mode);
+
+    // ── 6.5 Auto-launch dashboard in the browser ──────────────
+    {
+        std::string url = "http://localhost:" + std::to_string(api_port);
+        logger.log(fw::LogLevel::LOG_INFO, "Dashboard API available at " + url);
+
+        // (Auto-opening browser disabled, using standalone UI instead)
+    }
+
+    // ── 7. Blocking capture loop (main thread) ─────────────────
+    capture.run();
+
+    // ── 8. Shutdown ───────────────────────────────────────────
+    ipc_server.stop();
+    api.stop();
     proc_mon.stop();
     correlation.stop();
     conntrack_running = false;
@@ -204,6 +325,11 @@ void run_core_service() {
     demux.stop();
     bvudp_rx.stop();
 
+    logger.log(fw::LogLevel::LOG_INFO, "Firewall stopped");
+    logger.print_stats();
+    logger.flush();
+
+    // Commit final ledger block before closing
     ledger.log_firewall_stop();
     ledger.close();
     wsa_cleanup();

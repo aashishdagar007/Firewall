@@ -27,17 +27,72 @@ Logger::Logger(const std::string &log_path, LogLevel min_level)
       current_file_size_ = file_.tellp();
     }
   }
+  running_ = true;
+  worker_thread_ = std::thread(&Logger::worker_loop, this);
 }
 
 Logger::~Logger() {
+  flush();
+  running_ = false;
+  cv_.notify_all();
+  if (worker_thread_.joinable()) {
+    worker_thread_.join();
+  }
   if (file_.is_open())
     file_.close();
+}
+
+void Logger::worker_loop() {
+  // Strip privileges from the logging worker thread
+  drop_thread_privileges();
+
+  while (running_ || !queue_.empty()) {
+    std::deque<std::string> batch;
+    {
+      std::unique_lock<std::mutex> lock(mtx_);
+      cv_.wait_for(lock, std::chrono::milliseconds(50), [this]() {
+        return !queue_.empty() || !running_;
+      });
+      if (queue_.empty() && !running_) break;
+      batch.swap(queue_);
+    }
+
+    for (const auto &line : batch) {
+      write_immediate(line);
+    }
+  }
+}
+
+void Logger::enqueue(std::string line) {
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (queue_.size() < 10000) {
+      queue_.push_back(std::move(line));
+    }
+  }
+  cv_.notify_one();
+}
+
+void Logger::flush() {
+  std::deque<std::string> batch;
+  {
+    std::lock_guard<std::mutex> lock(mtx_);
+    batch.swap(queue_);
+  }
+  for (const auto &line : batch) {
+    write_immediate(line);
+  }
+  if (file_.is_open()) {
+    file_.flush();
+  }
 }
 
 // ── Verdict logging ──────────────────────────────────────────
 
 void Logger::log_verdict(const PacketInfo &pkt, const EvalResult &result) {
-  std::lock_guard<std::mutex> lock(mtx_);
+#ifdef NDEBUG
+  if (min_level_ > LogLevel::LOG_INFO) return;
+#endif
   total_++;
   if (result.verdict == Action::ALLOW)
     allowed_++;
@@ -80,15 +135,18 @@ void Logger::log_verdict(const PacketInfo &pkt, const EvalResult &result) {
 
   oss << "}";
 
-  write(oss.str());
+  enqueue(oss.str());
 }
 
 // ── General log line ─────────────────────────────────────────
 
 void Logger::log(LogLevel level, const std::string &msg) {
+#ifdef NDEBUG
+  if (level == LogLevel::LOG_DEBUG)
+    return;
+#endif
   if (level < min_level_)
     return;
-  std::lock_guard<std::mutex> lock(mtx_);
 
   std::ostringstream oss;
   oss << "{"
@@ -97,36 +155,40 @@ void Logger::log(LogLevel level, const std::string &msg) {
       << "\"type\":\"event\","
       << "\"message\":\"" << escape_json(msg) << "\""
       << "}";
-  write(oss.str());
+  enqueue(oss.str());
+}
+
+// ── Audit transition logging ─────────────────────────────────
+
+void Logger::log_fail_transition(bool fail_open, const std::string &trigger_reason) {
+  std::ostringstream oss;
+  oss << "{"
+      << "\"timestamp\":\"" << timestamp() << "\","
+      << "\"level\":\"CRITICAL\","
+      << "\"type\":\"fail_transition\","
+      << "\"mode\":\"" << (fail_open ? "FAIL_OPEN" : "FAIL_SECURE") << "\","
+      << "\"reason\":\"" << escape_json(trigger_reason) << "\""
+      << "}";
+  write_immediate(oss.str());
 }
 
 // ── Statistics ───────────────────────────────────────────────
 
 void Logger::print_stats() {
-  // Build the output string under the lock, then release it before calling
-  // write() — which acquires the same mutex. Holding the lock across write()
-  // would cause a deadlock since std::mutex is not re-entrant.
-  std::string output;
-  {
-    std::lock_guard<std::mutex> lock(mtx_);
-    std::ostringstream oss;
-    oss << "{"
-        << "\"timestamp\":\"" << timestamp() << "\","
-        << "\"level\":\"INFO\","
-        << "\"type\":\"stats\","
-        << "\"total\":" << total_ << ","
-        << "\"allowed\":" << allowed_ << ","
-        << "\"blocked\":" << blocked_ << "}";
-    output = oss.str();
-  } // lock released here
-
-  // write() acquires its own lock and handles rotation + I/O error checking.
-  write(output);
+  std::ostringstream oss;
+  oss << "{"
+      << "\"timestamp\":\"" << timestamp() << "\","
+      << "\"level\":\"INFO\","
+      << "\"type\":\"stats\","
+      << "\"total\":" << total_ << ","
+      << "\"allowed\":" << allowed_ << ","
+      << "\"blocked\":" << blocked_ << "}";
+  write_immediate(oss.str());
 }
 
 // ── Private helpers ──────────────────────────────────────────
 
-void Logger::write(const std::string &line) {
+void Logger::write_immediate(const std::string &line) {
   std::cout << line << "\n";
   if (file_.is_open()) {
     rotate_if_needed();
@@ -134,9 +196,9 @@ void Logger::write(const std::string &line) {
     if (file_.fail()) {
       std::cerr << "[Logger] WARNING: failed to write to log file (disk full?): "
                 << log_path_ << "\n";
-      file_.clear(); // reset error bits so subsequent writes are attempted
+      file_.clear();
     } else {
-      current_file_size_ += line.size() + 1; // +1 for newline
+      current_file_size_ += line.size() + 1;
     }
   }
 }

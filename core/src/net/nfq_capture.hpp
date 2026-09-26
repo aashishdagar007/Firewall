@@ -1,9 +1,10 @@
 #pragma once
-#include "util/platform.hpp"
-#include "util/types.hpp"
-#include "engine/rule_engine.hpp"
-#include "util/ring_buffer.hpp"
-#include "engine/process_monitor.hpp"
+#include "platform.hpp"   // sock_t, INVALID_SOCK, etc. — MUST come first
+#include "types.hpp"
+#include "rule_engine.hpp"
+#include "ring_buffer.hpp"
+#include "process_monitor.hpp"
+#include "rate_limiter.hpp"
 #include <functional>
 #include <atomic>
 #include <string>
@@ -78,7 +79,7 @@ public:
 
     bool is_nfq_mode() const { return nfq_mode_; }
 
-    void set_callback(PacketCallback cb) { callback_ = std::move(cb); }
+    TokenBucketRateLimiter& rate_limiter() { return rate_limiter_; }
 
 private:
     PacketCallback callback_;
@@ -89,6 +90,7 @@ private:
     CorrelationEngine*       correlation_ = nullptr;
     LocalGraphStore*         graph_store_ = nullptr;
     int                      queue_num_;
+    TokenBucketRateLimiter   rate_limiter_{100000.0, 50000.0};
 
     // ── Linux NFQ handles ──────────────────────────────────────
     nfq_handle*   h_   = nullptr;
