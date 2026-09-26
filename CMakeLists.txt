@@ -186,15 +186,22 @@ else()
     # ── Linux / macOS ────────────────────────────────────────────────────────
     message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
 
-    # libnetfilter_queue (optional — enables real blocking on Linux)
+    # Linux v1 is an enforcement product: don't produce a Linux binary that
+    # can only observe traffic and silently appear to be a firewall.
     find_library(NFQ_LIB NAMES netfilter_queue)
-    if(NFQ_LIB)
-        message(STATUS "Found libnetfilter_queue: ${NFQ_LIB} — real blocking enabled")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        find_path(NFQ_INCLUDE_DIR NAMES libnetfilter_queue/libnetfilter_queue.h)
+        if(NOT NFQ_LIB OR NOT NFQ_INCLUDE_DIR)
+            message(FATAL_ERROR
+                "Linux builds require libnetfilter_queue-dev (library and headers) for v1 enforcement. "
+                "Install the package and configure again.")
+        endif()
+        message(STATUS "Found libnetfilter_queue: ${NFQ_LIB} — enforcement enabled")
+        target_include_directories(AegisXII PRIVATE ${NFQ_INCLUDE_DIR})
         target_compile_definitions(AegisXII PRIVATE HAVE_NFQUEUE)
         target_link_libraries(AegisXII PRIVATE ${NFQ_LIB})
     else()
-        message(STATUS "libnetfilter_queue NOT found — raw socket observer mode only")
-        message(STATUS "  Install with: sudo apt install libnetfilter-queue-dev")
+        message(STATUS "libnetfilter_queue not required on ${CMAKE_SYSTEM_NAME}")
     endif()
 
 endif()
@@ -299,7 +306,7 @@ if(WIN32)
     message(STATUS "    .\\firewall.exe")
     message(STATUS "  Cloud endpoint: set AEGIS_CONTROL_URL=http://your-api/config")
 else()
-    message(STATUS "  Linux      : NFQ mode available")
+    message(STATUS "  Linux      : NFQUEUE enforcement required")
     message(STATUS "")
     message(STATUS "  iptables setup (run once before daemon):")
     message(STATUS "    sudo iptables -I INPUT   -j NFQUEUE --queue-num 0")

@@ -1,7 +1,7 @@
 # Firewall v2 — Real Kernel Firewall + Live Web Dashboard
 # Cross-platform: Windows (CLion) + Linux
 
-A production-grade C++17 network firewall with a live, dark-theme web dashboard, Deep Packet Inspection (DPI), Port Scan Detection, and Process Monitoring.
+An in-development C++17 firewall prototype with a live dashboard, Deep Packet Inspection (DPI), port scan detection, and process monitoring. Linux v1 builds require NFQUEUE; enterprise production readiness and real-traffic qualification are not yet complete.
 
 ## Architecture
 
@@ -36,10 +36,10 @@ A production-grade C++17 network firewall with a live, dark-theme web dashboard,
 
 ## Platform Support
 
-| Feature           | Linux (NFQ)        | Linux (no NFQ)    | Windows           |
-|-------------------|--------------------|-------------------|-------------------|
-| Packet capture    | NFQUEUE (blocking) | Raw socket (obs)  | SIO_RCVALL (obs)  |
-| Packet blocking   | ✅ NF_DROP          | ❌ observe only    | ❌ (WinDivert opt)|
+| Feature           | Linux v1 (NFQ required) | Linux (no NFQ) | Windows           |
+|-------------------|-------------------------|----------------|-------------------|
+| Packet capture    | NFQUEUE                 | Startup fails  | SIO_RCVALL (obs)  |
+| Packet blocking   | NF_ACCEPT / NF_DROP     | Unavailable    | ❌ (WinDivert opt)|
 | Process Monitor   | ❌                  | ❌                 | ✅ (iphlpapi)      |
 | REST API          | ✅                  | ✅                 | ✅                 |
 | Web dashboard     | ✅                  | ✅                 | ✅                 |
@@ -107,12 +107,9 @@ For kernel-level packet blocking on Windows, integrate **WinDivert**:
 ### Prerequisites
 
 ```bash
-# Ubuntu / Debian
+# Ubuntu / Debian (NFQUEUE is required for Linux builds)
 sudo apt update
-sudo apt install build-essential cmake
-
-# Optional: enable real packet blocking
-sudo apt install libnetfilter-queue-dev
+sudo apt install build-essential cmake libnetfilter-queue-dev
 
 # Optional: OpenSSL for HTTPS
 sudo apt install libssl-dev
@@ -130,7 +127,8 @@ make -j$(nproc)
 ### Run on Linux
 
 ```bash
-# Step 1 — Insert iptables rules (redirects packets to NFQUEUE)
+# Linux v1 requires NFQUEUE. Install the queue rules before starting the daemon.
+# There is no observer-mode fallback on Linux.
 sudo iptables -I INPUT   -j NFQUEUE --queue-num 0
 sudo iptables -I OUTPUT  -j NFQUEUE --queue-num 0
 sudo iptables -I FORWARD -j NFQUEUE --queue-num 0

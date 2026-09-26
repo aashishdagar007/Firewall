@@ -31,7 +31,7 @@
 //
 //  Mode selection:
 //    Linux  + HAVE_NFQUEUE  → Real kernel-level packet blocking via NFQUEUE
-//    Linux  (no NFQ)        → Raw socket observer (AF_INET, SOCK_RAW)
+//    Linux  (no NFQ)        → Startup failure (v1 requires enforcement)
 //    Windows                → Raw socket observer via Winsock2
 //                             (Upgrade: use WinDivert for real blocking)
 // ──────────────────────────────────────────────────────────────
@@ -73,41 +73,57 @@ NfqCapture::~NfqCapture() {
 bool NfqCapture::open() {
 #ifdef HAVE_NFQUEUE
   // ── Linux NFQ path ────────────────────────────────────────
+  const auto fail_nfq_open = [this]() {
+    if (qh_) {
+      nfq_destroy_queue(qh_);
+      qh_ = nullptr;
+    }
+    if (h_) {
+      nfq_close(h_);
+      h_ = nullptr;
+    }
+    fd_ = -1;
+    nfq_mode_ = false;
+    return false;
+  };
+
   h_ = nfq_open();
   if (!h_) {
-    std::cerr << "[NFQ] nfq_open() failed, falling back to raw sockets\n";
-    goto fallback;
+    std::cerr << "[NFQ] nfq_open() failed; enforcement unavailable\n";
+    return false;
   }
   if (nfq_unbind_pf(h_, AF_INET) < 0) {
     std::cerr << "[NFQ] nfq_unbind_pf() failed\n";
   }
   if (nfq_bind_pf(h_, AF_INET) < 0) {
-    std::cerr << "[NFQ] nfq_bind_pf() failed, falling back\n";
-    nfq_close(h_);
-    h_ = nullptr;
-    goto fallback;
+    std::cerr << "[NFQ] nfq_bind_pf() failed; enforcement unavailable\n";
+    return fail_nfq_open();
   }
   qh_ = nfq_create_queue(h_, queue_num_, &NfqCapture::nfq_callback, this);
   if (!qh_) {
-    std::cerr << "[NFQ] nfq_create_queue() failed, falling back\n";
-    nfq_close(h_);
-    h_ = nullptr;
-    goto fallback;
+    std::cerr << "[NFQ] nfq_create_queue() failed; enforcement unavailable\n";
+    return fail_nfq_open();
   }
   if (nfq_set_mode(qh_, NFQNL_COPY_PACKET, 0xFFFF) < 0) {
-    std::cerr << "[NFQ] nfq_set_mode() failed\n";
-    goto fallback;
+    std::cerr << "[NFQ] nfq_set_mode() failed; enforcement unavailable\n";
+    return fail_nfq_open();
   }
   fd_ = nfq_fd(h_);
   nfq_mode_ = true;
   std::cout << "[NFQ] NFQUEUE mode active on queue " << queue_num_ << "\n";
   return true;
 
-fallback:
 #endif // HAVE_NFQUEUE
 
-  // ── Raw socket observer fallback (Linux + Windows) ────────
+  // Linux v1 is an enforcement product. Never silently downgrade it to
+  // passive raw-socket observation when NFQUEUE is missing or unavailable.
+#ifdef __linux__
+  std::cerr << "[Capture] NFQUEUE enforcement is unavailable on this build\n";
+  return false;
+#else
+  // Windows raw sockets are explicitly observer-only.
   return open_raw_sockets();
+#endif
 }
 
 bool NfqCapture::open_raw_sockets() {
@@ -194,7 +210,7 @@ bool NfqCapture::open_raw_sockets() {
   return true;
 
 #else
-  // Linux raw sockets (fallback without NFQ)
+  // Legacy raw socket observer. Linux v1 never selects this path from open().
   tcp_sock_ = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
   udp_sock_ = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
   icmp_sock_ = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);

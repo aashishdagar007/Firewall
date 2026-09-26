@@ -13,7 +13,7 @@
 //  nfq_capture.hpp  –  cross-platform packet capture front-end
 //
 //  Linux  + HAVE_NFQUEUE  → Kernel-level blocking via Netfilter NFQUEUE
-//  Linux  (no NFQ)        → Raw socket observer (SOCK_RAW)
+//  Linux  (no NFQ)        → Startup fails; enforcement is mandatory for v1
 //  Windows                → Winsock2 promiscuous socket observer
 //                           (needs Administrator; real blocking via WinDivert)
 // ──────────────────────────────────────────────────────────────
@@ -69,8 +69,8 @@ public:
     ~NfqCapture();
 
     /// Opens the capture handle.
-    /// On Linux+NFQ → NFQUEUE; otherwise raw sockets.
-    /// Returns false if all modes fail (need elevated privileges).
+    /// Linux requires NFQUEUE enforcement. Other supported capture backends
+    /// may be observer-only. Returns false if the required backend cannot start.
     bool open();
 
     /// Blocking capture loop.  Call stop() from another thread to exit.

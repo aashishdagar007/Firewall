@@ -10,7 +10,7 @@ The repository is a feature-rich prototype, not yet an enterprise release candid
 
 Source and documentation review found these launch risks:
 
-- Packet blocking is conditional. Linux needs NFQUEUE; otherwise capture is observer-only. Windows needs the optional WinDivert integration; the default is observer-only.
+- Linux builds now require NFQUEUE and fail startup instead of silently degrading to observer-only mode; managed ruleset installation, IPv6 bypass prevention, and real-traffic qualification remain open. Windows remains observer-only unless its optional WinDivert integration is configured.
 - The API binds to `0.0.0.0`; TLS is optional, CORS permits every origin, and `/api/token` is exempt from bearer authentication. A token is written to a local file and printed. This needs a deliberate enterprise authentication and exposure model.
 - The hash-chain ledger documents that restart recovery does not restore the last index and hash. It must be corrected and tested before calling the ledger tamper-evident across restarts.
 - The cloud control plane uses a hand-written JSON parser. It needs strict schema validation, authenticated configuration, atomic application, rollback, and replay protection.
