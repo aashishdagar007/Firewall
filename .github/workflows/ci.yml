@@ -1,0 +1,38 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Ubuntu 24.04 build and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential cmake pkg-config libnetfilter-queue-dev \
+            libssl-dev libgl1-mesa-dev xorg-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DBUILD_TESTING=ON -DGLFW_BUILD_WAYLAND=OFF
+
+      - name: Build application and test targets
+        run: cmake --build build --parallel 2
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure

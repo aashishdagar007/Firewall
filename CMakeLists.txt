@@ -18,7 +18,8 @@ include(FetchContent)
 # SQLite3
 FetchContent_Declare(sqlite3
     GIT_REPOSITORY https://github.com/azadkuh/sqlite-amalgamation.git
-    GIT_TAG        master
+    # Pin to an immutable commit so clean builds resolve the same source.
+    GIT_TAG        15d0ff10ebc7e7225eced1de84bb52137000899b
 )
 FetchContent_MakeAvailable(sqlite3)
 
@@ -28,14 +29,14 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.4
+    GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579
 )
 FetchContent_MakeAvailable(glfw)
 
 # Dear ImGui
 FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        v1.90.8-docking
+    GIT_TAG        6d948ab47ecf984239af01434f3ed03808dbf188
 )
 FetchContent_MakeAvailable(imgui)
 
@@ -80,8 +81,8 @@ set(IMGUI_SOURCES
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
 )
 
-file(GLOB_RECURSE CORE_SOURCES "core/src/*.cpp")
-file(GLOB_RECURSE GUI_SOURCES "gui/src/*.cpp")
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "core/src/*.cpp")
+file(GLOB_RECURSE GUI_SOURCES CONFIGURE_DEPENDS "gui/src/*.cpp")
 
 set(SOURCES
     src/main.cpp
@@ -217,7 +218,7 @@ include(CTest)
 if(BUILD_TESTING)
     FetchContent_Declare(googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG        v1.14.0
+        GIT_TAG        8ad598c73ad796e0d8280b082cebd82a630d73e3
     )
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
