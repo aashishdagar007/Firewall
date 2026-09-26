@@ -24,9 +24,14 @@ RuleEngine::~RuleEngine() {
   }
 }
 
-void RuleEngine::set_default_policy(Action a) { default_policy_ = a; }
+void RuleEngine::set_default_policy(Action a) { default_policy_.store(a); }
 
-void RuleEngine::set_local_ip(uint32_t ip) { local_ip_ = ip; }
+void RuleEngine::set_local_ip(uint32_t ip) { local_ip_.store(ip); }
+
+std::vector<Rule> RuleEngine::rules() const {
+  std::shared_lock<std::shared_mutex> lock(rules_mtx_);
+  return rules_;
+}
 
 void RuleEngine::add_rule(Rule r) {
   std::unique_lock<std::shared_mutex> lock(rules_mtx_);
@@ -49,8 +54,8 @@ bool RuleEngine::remove_rule(uint32_t id) {
 
 EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   // ── Passive AI/ML Unidirectional Threat Engine (NTRO SIH26145) ──
-  if (diode_engine_) {
-    diode_engine_->process_packet(pkt);
+  if (auto* diode = diode_engine_.load()) {
+    diode->process_packet(pkt);
   }
 
   // Layer 3: Land attack (src IP == dst IP)
@@ -68,7 +73,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
 
   // Layer 3: Strict Bogon Check (Unroutable and Multicast only)
   // Bypassed if packet originates from our own local IP
-  if (pkt.src_ip != 0 && pkt.src_ip != local_ip_) {
+  if (pkt.src_ip != 0 && pkt.src_ip != local_ip_.load()) {
     uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;
     bool is_bogon = false;
     // 0.0.0.0/8, 224.0.0.0/4 (Multicast), 240.0.0.0/4 (Reserved)
@@ -83,7 +88,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
   }
 
   // Layer 3: Geo-Block CIDR check
-  if (pkt.src_ip != 0 && pkt.src_ip != local_ip_) {
+  if (pkt.src_ip != 0 && pkt.src_ip != local_ip_.load()) {
     if (is_geo_blocked(pkt.src_ip)) {
       std::lock_guard<std::mutex> lock(state_mtx_);
       threat_rule_.description = "Geo-Block: CIDR range blocked";
@@ -413,8 +418,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     };
 
     // Check rules matching the exact dst_port first (port-indexed)
-    {
-      if (pkt.dst_port != 0) {
+    if (pkt.dst_port != 0) {
         auto range = port_index_.equal_range(pkt.dst_port);
         for (auto it = range.first; it != range.second; ++it) {
           const auto& rule = rules_[it->second];
@@ -456,20 +460,19 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
             return {rule.action, &rule};
           }
         }
-      }
+    }
 
-      // Then check wildcard (dst_port == 0) rules in order
-      for (size_t idx : wildcard_rule_indices_) {
-        if (try_rule(idx)) {
-          const auto& rule = rules_[idx];
-          return {rule.action, &rule};
-        }
+    // Then check wildcard (dst_port == 0) rules in order
+    for (size_t idx : wildcard_rule_indices_) {
+      if (try_rule(idx)) {
+        const auto& rule = rules_[idx];
+        return {rule.action, &rule};
       }
     }
   }
 
   // Default policy — no rule matched
-  auto default_result = EvalResult{default_policy_, nullptr};
+  auto default_result = EvalResult{default_policy_.load(), nullptr};
 
   // ── Port Scan Detection (runs for every packet regardless of verdict) ─
   // We pass the packet through the detector AFTER the main evaluation so
@@ -764,6 +767,7 @@ void RuleEngine::report_tampering_attempt(uint32_t src_ip) {
 // ── Anomaly Snapshot ─────────────────────────────────────────
 
 std::vector<AnomalySnapshot> RuleEngine::get_anomaly_snapshot() const {
+  std::lock_guard<std::mutex> lock(state_mtx_);
   // Returns hit counts for all 16 built-in anomaly rules
   return {
     { anomaly_land_.description,       static_cast<uint32_t>(anomaly_land_.hit_count)       },
