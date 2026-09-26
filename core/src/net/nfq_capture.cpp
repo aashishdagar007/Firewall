@@ -300,27 +300,6 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
 
   EvalResult result = engine_.evaluate(pkt);
 
-  // ── Update live stats ──────────────────────────────────────
-  stats_.total++;
-  stats_.bytes_total += pkt.size;
-  if (result.verdict == Action::ALLOW)
-    stats_.allowed++;
-  else
-    stats_.blocked++;
-  switch (pkt.proto) {
-  case Proto::TCP:
-    stats_.tcp++;
-    break;
-  case Proto::UDP:
-    stats_.udp++;
-    break;
-  case Proto::ICMP:
-    stats_.icmp++;
-    break;
-  default:
-    break;
-  }
-
   PacketRecord rec;
   rec.info      = pkt;
   rec.result    = result;
@@ -350,6 +329,28 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
       result.matched_rule_desc = {};
       rec.result = result;
     }
+  }
+
+  // Count the final verdict after administrative application blocks have
+  // been applied, so dashboard stats agree with the NFQUEUE verdict below.
+  stats_.total++;
+  stats_.bytes_total += pkt.size;
+  if (result.verdict == Action::ALLOW)
+    stats_.allowed++;
+  else
+    stats_.blocked++;
+  switch (pkt.proto) {
+  case Proto::TCP:
+    stats_.tcp++;
+    break;
+  case Proto::UDP:
+    stats_.udp++;
+    break;
+  case Proto::ICMP:
+    stats_.icmp++;
+    break;
+  default:
+    break;
   }
 
   ring_.push(rec);

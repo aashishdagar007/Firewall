@@ -8,6 +8,8 @@
 #include <thread>
 #include <chrono>
 #include <array>
+#include <atomic>
+#include <optional>
 
 using namespace fw;
 
@@ -153,12 +155,12 @@ TEST_F(RuleEngineTest, StrictAnomalies) {
     pkt.tcp_flags = TCP_SYN;
     pkt.src_port = 0;
     res = engine.evaluate(pkt);
-    assert(res.verdict == Action::BLOCK && "Traffic from Port 0 should be blocked");
+    EXPECT_EQ(res.verdict, Action::BLOCK) << "Traffic from Port 0 should be blocked";
     
     std::cout << "[PASS] Strict Protocol Anomalies\n";
 }
 
-void test_rule_result_survives_rule_removal() {
+TEST_F(RuleEngineTest, RuleResultSurvivesRuleRemoval) {
     RuleEngine engine(Action::ALLOW);
     Rule rule;
     rule.action = Action::BLOCK;
@@ -176,13 +178,55 @@ void test_rule_result_survives_rule_removal() {
     pkt.tcp_flags = TCP_SYN;
     pkt.ttl = 64;
     const auto result = engine.evaluate(pkt);
-    assert(result.verdict == Action::BLOCK && result.matched_rule);
+    ASSERT_EQ(result.verdict, Action::BLOCK);
+    ASSERT_TRUE(result.matched_rule);
     const auto id = result.matched_rule->id;
-    assert(engine.remove_rule(id));
-    assert(result.matched_rule->description == "Block HTTPS");
+    EXPECT_TRUE(engine.remove_rule(id));
+    EXPECT_EQ(result.matched_rule->description, "Block HTTPS");
 }
 
-void test_icmp_sweep_counts_distinct_destinations() {
+TEST_F(RuleEngineTest, ConcurrentRuleUpdatesAndEvaluation) {
+    RuleEngine engine(Action::ALLOW);
+    PacketInfo pkt;
+    pkt.proto = Proto::TCP;
+    pkt.src_ip = make_ip(198, 51, 100, 7);
+    pkt.dst_ip = make_ip(203, 0, 113, 9);
+    pkt.src_port = 50000;
+    pkt.dst_port = 8443;
+    pkt.tcp_flags = TCP_SYN;
+    pkt.ttl = 64;
+
+    std::atomic<bool> start{false};
+    std::atomic<unsigned> evaluations{0};
+    std::thread evaluator([&] {
+        while (!start.load(std::memory_order_acquire)) {}
+        for (unsigned i = 0; i < 3000; ++i) {
+            const auto result = engine.evaluate(pkt);
+            EXPECT_TRUE(result.verdict == Action::ALLOW || result.verdict == Action::BLOCK);
+            ++evaluations;
+        }
+    });
+    std::thread mutator([&] {
+        start.store(true, std::memory_order_release);
+        for (unsigned i = 0; i < 300; ++i) {
+            Rule rule;
+            rule.action = Action::BLOCK;
+            rule.proto = Proto::TCP;
+            rule.dst_port = 8443;
+            rule.description = "concurrent-index-rule";
+            engine.add_rule(std::move(rule));
+            for (const auto& current : engine.rules()) {
+                if (current.description == "concurrent-index-rule")
+                    engine.remove_rule(current.id);
+            }
+        }
+    });
+    evaluator.join();
+    mutator.join();
+    EXPECT_EQ(evaluations.load(), 3000u);
+}
+
+TEST_F(RuleEngineTest, IcmpSweepCountsDistinctDestinationsAndCallsBackUnlocked) {
     PortScanDetector detector;
     bool callback_can_read_events = false;
     detector.set_callback([&](ScanEvent) {
@@ -195,19 +239,20 @@ void test_icmp_sweep_counts_distinct_destinations() {
     // Repeated pings to one host are not a sweep.
     pkt.dst_ip = make_ip(203, 0, 113, 1);
     for (unsigned i = 0; i < 40; ++i)
-        assert(!detector.record(pkt));
+        EXPECT_FALSE(detector.record(pkt));
     // A sweep is based on distinct destination hosts in the time window.
     std::optional<ScanEvent> event;
     for (unsigned i = 2; i <= PortScanDetector::PORT_THRESHOLD + 1; ++i) {
         pkt.dst_ip = make_ip(203, 0, 113, static_cast<uint8_t>(i));
         event = detector.record(pkt);
     }
-    assert(event && event->scan_type == ScanType::ICMP_SWEEP);
-    assert(event->ports_probed == PortScanDetector::PORT_THRESHOLD + 1);
-    assert(callback_can_read_events);
+    ASSERT_TRUE(event);
+    EXPECT_EQ(event->scan_type, ScanType::ICMP_SWEEP);
+    EXPECT_EQ(event->ports_probed, PortScanDetector::PORT_THRESHOLD + 1);
+    EXPECT_TRUE(callback_can_read_events);
 }
 
-void test_blocked_packets_still_feed_scan_detection() {
+TEST_F(RuleEngineTest, BlockedPacketsStillFeedScanDetection) {
     RuleEngine engine(Action::BLOCK);
     bool callback_read_succeeded = false;
     engine.set_scan_callback([&](ScanEvent) {
@@ -222,14 +267,15 @@ void test_blocked_packets_still_feed_scan_detection() {
     pkt.tcp_flags = 0; // Every probe is rejected by the NULL-scan rule.
     for (unsigned port = 1; port <= PortScanDetector::PORT_THRESHOLD + 1; ++port) {
         pkt.dst_port = static_cast<uint16_t>(port);
-        assert(engine.evaluate(pkt).verdict == Action::BLOCK);
+        EXPECT_EQ(engine.evaluate(pkt).verdict, Action::BLOCK);
     }
     const auto events = engine.get_scan_events();
-    assert(events.size() == 1 && events.front().scan_type == ScanType::STEALTH_PROBE);
-    assert(callback_read_succeeded);
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events.front().scan_type, ScanType::STEALTH_PROBE);
+    EXPECT_TRUE(callback_read_succeeded);
 }
 
-void test_packet_parser_bounds_and_udp_lengths() {
+TEST_F(RuleEngineTest, PacketParserChecksBoundsAndUdpLengths) {
     std::array<uint8_t, 36> packet{};
     packet[0] = 0x45; // IPv4, 20-byte header
     packet[2] = 0;
@@ -244,27 +290,32 @@ void test_packet_parser_bounds_and_udp_lengths() {
 
     PacketInfo parsed;
     parsed.src_port = 1234; // parser must reset reused output on failure
-    assert(PacketParser::parse(packet.data(), 36, parsed)); // trailing padding ignored
-    assert(parsed.size == 28 && parsed.src_port == 50000 && parsed.dst_port == 53);
-    assert(parsed.payload_len == 0);
+    ASSERT_TRUE(PacketParser::parse(packet.data(), 36, parsed)); // trailing padding ignored
+    EXPECT_EQ(parsed.size, 28);
+    EXPECT_EQ(parsed.src_port, 50000);
+    EXPECT_EQ(parsed.dst_port, 53);
+    EXPECT_EQ(parsed.payload_len, 0);
 
-    assert(!PacketParser::parse(packet.data(), 27, parsed)); // truncated IP packet
-    assert(parsed.src_port == 0 && parsed.proto == Proto::ANY);
+    EXPECT_FALSE(PacketParser::parse(packet.data(), 27, parsed)); // truncated IP packet
+    EXPECT_EQ(parsed.src_port, 0);
+    EXPECT_EQ(parsed.proto, Proto::ANY);
 
     packet[3] = 28;
     packet[25] = 7; // UDP length smaller than UDP header
-    assert(!PacketParser::parse(packet.data(), 28, parsed));
+    EXPECT_FALSE(PacketParser::parse(packet.data(), 28, parsed));
     packet[25] = 8;
     packet[0] = 0x65; // IPv6 version with an IPv4 header shape
-    assert(!PacketParser::parse(packet.data(), 28, parsed));
+    EXPECT_FALSE(PacketParser::parse(packet.data(), 28, parsed));
 
     packet[0] = 0x45;
     packet[7] = 1; // Non-initial fragment: payload is not a UDP header.
-    assert(PacketParser::parse(packet.data(), 28, parsed));
-    assert(parsed.is_frag_offset && parsed.proto == Proto::UDP && parsed.src_port == 0);
+    ASSERT_TRUE(PacketParser::parse(packet.data(), 28, parsed));
+    EXPECT_TRUE(parsed.is_frag_offset);
+    EXPECT_EQ(parsed.proto, Proto::UDP);
+    EXPECT_EQ(parsed.src_port, 0);
 }
 
-void test_tls_version_parser_bounds() {
+TEST_F(RuleEngineTest, TlsVersionParserValidatesLengthsAndClearsThreatName) {
     DpiEngine dpi;
     std::array<uint8_t, 11> hello{};
     hello[0] = 0x16; // TLS handshake record
@@ -275,27 +326,17 @@ void test_tls_version_parser_bounds() {
     hello[9] = 0x03; hello[10] = 0x02; // TLS 1.1
 
     std::string threat;
-    assert(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat) == Action::BLOCK);
-    assert(!threat.empty());
+    EXPECT_EQ(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat), Action::BLOCK);
+    EXPECT_FALSE(threat.empty());
     hello[10] = 0x03; // TLS 1.2
-    assert(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat) == Action::ALLOW);
-    assert(threat.empty());
+    EXPECT_EQ(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat), Action::ALLOW);
+    EXPECT_TRUE(threat.empty());
+    hello[4] = 7; // TLS record declares one byte beyond captured record.
+    EXPECT_EQ(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat), Action::ALLOW);
+    hello[4] = 6;
+    hello[8] = 3; // Handshake body exceeds the bytes available in this record.
+    EXPECT_EQ(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat), Action::ALLOW);
+    hello[8] = 2;
     hello[4] = 5; // Declared record too short for version field
-    assert(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat) == Action::ALLOW);
-}
-
-int main() {
-    std::cout << "Running RuleEngine Tests...\n";
-    test_default_policy();
-    test_process_name_matching();
-    test_syn_flood_detection();
-    test_dpi_sql_injection();
-    test_strict_anomalies();
-    test_rule_result_survives_rule_removal();
-    test_icmp_sweep_counts_distinct_destinations();
-    test_blocked_packets_still_feed_scan_detection();
-    test_packet_parser_bounds_and_udp_lengths();
-    test_tls_version_parser_bounds();
-    std::cout << "All tests passed successfully.\n";
-    return 0;
+    EXPECT_EQ(dpi.scan(hello.data(), static_cast<uint16_t>(hello.size()), threat), Action::ALLOW);
 }

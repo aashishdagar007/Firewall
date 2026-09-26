@@ -1,6 +1,7 @@
 #include "engine/dpi_engine.hpp"
 #include <cctype>
 #include <cstring>
+#include <utility>
 
 namespace fw {
 
@@ -8,13 +9,24 @@ DpiEngine::DpiEngine() {
   // Basic L7 Application-layer signatures
   auto add_sig = [this](const std::string &name, const std::string &pattern_str,
                         bool ci = true) {
-    std::vector<uint8_t> pat;
+    DpiSignature signature;
+    signature.name = name;
+    signature.case_insensitive = ci;
     for (char c : pattern_str) {
-      pat.push_back(
+      signature.pattern.push_back(
           ci ? static_cast<uint8_t>(std::tolower(static_cast<unsigned char>(c)))
              : static_cast<uint8_t>(c));
     }
-    signatures_.push_back({name, pat, ci});
+    const size_t length = signature.pattern.size();
+    signature.bad_char.fill(length);
+    for (size_t i = 0; i + 1 < length; ++i) {
+      const size_t shift = length - 1 - i;
+      const uint8_t byte = signature.pattern[i];
+      signature.bad_char[byte] = shift;
+      if (ci && std::isalpha(static_cast<unsigned char>(byte)))
+        signature.bad_char[static_cast<uint8_t>(std::toupper(static_cast<unsigned char>(byte)))] = shift;
+    }
+    signatures_.push_back(std::move(signature));
   };
 
   // ── Exploitation & Malware Signatures ──
@@ -221,24 +233,13 @@ DpiEngine::DpiEngine() {
 }
 
 bool DpiEngine::bmh_search(const uint8_t *payload, uint16_t len,
-                           const std::vector<uint8_t> &pattern,
-                           bool case_insensitive) const {
+                           const DpiSignature &signature) const {
+  const auto& pattern = signature.pattern;
+  const bool case_insensitive = signature.case_insensitive;
   if (pattern.empty() || len < pattern.size())
     return false;
 
-  // Build Boyer-Moore-Horspool bad character table
   size_t m = pattern.size();
-  size_t bad_char[256];
-  for (size_t i = 0; i < 256; ++i) {
-    bad_char[i] = m;
-  }
-
-  for (size_t i = 0; i < m - 1; ++i) {
-    bad_char[pattern[i]] = m - 1 - i;
-    if (case_insensitive && std::isalpha(static_cast<unsigned char>(pattern[i]))) {
-      bad_char[std::toupper(static_cast<unsigned char>(pattern[i]))] = m - 1 - i;
-    }
-  }
 
   size_t s = 0;
   while (s <= len - m) {
@@ -258,31 +259,37 @@ bool DpiEngine::bmh_search(const uint8_t *payload, uint16_t len,
       return true; // Match found
 
     uint8_t skip_byte = payload[s + m - 1];
-    s += bad_char[skip_byte];
+    s += signature.bad_char[skip_byte];
   }
   return false;
 }
 
 Action DpiEngine::scan(const uint8_t *payload, uint16_t len,
                        std::string &threat_name) {
+  threat_name.clear();
   if (!payload || len == 0)
     return Action::ALLOW;
 
   // ── Vulnerable Protocol Checks (SSLv3, TLS 1.0, TLS 1.1) ──
   // Check for TLS Handshake Record (Content Type 22)
   if (len >= 11 && payload[0] == 0x16) {
-    [[maybe_unused]] uint16_t record_version = (payload[1] << 8) | payload[2];
-    uint8_t handshake_type = payload[5];
+    const uint16_t record_len = (static_cast<uint16_t>(payload[3]) << 8) | payload[4];
+    const uint8_t handshake_type = payload[5];
     
     // Check if it's a Client Hello (1) or Server Hello (2)
-    if (handshake_type == 0x01 || handshake_type == 0x02) {
-      uint16_t handshake_version = (payload[9] << 8) | payload[10];
-      
-      // 0x0300 = SSLv3, 0x0301 = TLS 1.0, 0x0302 = TLS 1.1
-      // If the maximum version supported by client (or selected by server) is <= TLS 1.1, block it.
-      if (handshake_version <= 0x0302) {
-        threat_name = "DPI Threat: Vulnerable TLS Version (SSLv3/TLS1.0/TLS1.1)";
-        return Action::BLOCK;
+    const size_t captured_record_len = static_cast<size_t>(len) - 5;
+    if (record_len >= 6 && record_len <= captured_record_len &&
+        (handshake_type == 0x01 || handshake_type == 0x02)) {
+      const uint32_t handshake_len = (static_cast<uint32_t>(payload[6]) << 16) |
+                                     (static_cast<uint32_t>(payload[7]) << 8) |
+                                      payload[8];
+      if (handshake_len >= 2 && handshake_len <= record_len - 4) {
+        const uint16_t handshake_version =
+            (static_cast<uint16_t>(payload[9]) << 8) | payload[10];
+        if (handshake_version <= 0x0302) {
+          threat_name = "DPI Threat: Vulnerable TLS Version (SSLv3/TLS1.0/TLS1.1)";
+          return Action::BLOCK;
+        }
       }
     }
   }
@@ -327,7 +334,7 @@ Action DpiEngine::scan(const uint8_t *payload, uint16_t len,
   }
 
   for (const auto &sig : signatures_) {
-    if (bmh_search(payload, len, sig.pattern, sig.case_insensitive)) {
+    if (bmh_search(payload, len, sig)) {
       threat_name = "DPI Threat: " + sig.name;
       return Action::BLOCK;
     }

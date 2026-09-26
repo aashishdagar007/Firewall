@@ -3,6 +3,7 @@ project(AegisXII VERSION 2.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MSVC)
     add_compile_options(/W4 /WX /utf-8 /permissive- /wd4996 /wd4267 /wd4244)
@@ -41,7 +42,15 @@ FetchContent_MakeAvailable(imgui)
 # ── Include paths ──────────────────────────────────────────────────────────
 include_directories(
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/core/src
+    ${CMAKE_SOURCE_DIR}/core/src/net
+    ${CMAKE_SOURCE_DIR}/core/src/engine
+    ${CMAKE_SOURCE_DIR}/core/src/util
+    ${CMAKE_SOURCE_DIR}/core/src/persistence
+    ${CMAKE_SOURCE_DIR}/core/src/ipc
+    ${CMAKE_SOURCE_DIR}/core/src/kernel
+    ${CMAKE_SOURCE_DIR}/gui/src
     ${sqlite3_SOURCE_DIR}
     ${glfw_SOURCE_DIR}/include
     ${imgui_SOURCE_DIR}
@@ -76,19 +85,14 @@ file(GLOB_RECURSE GUI_SOURCES "gui/src/*.cpp")
 
 set(SOURCES
     src/main.cpp
-    src/packet.cpp
-    src/rule_engine.cpp
-    src/logger.cpp
-    src/config_parser.cpp
-    src/nfq_capture.cpp
     src/api_server.cpp
-    src/process_monitor.cpp
-    src/dpi_engine.cpp
-    src/port_scan_detector.cpp
-    src/diode_threat_engine.cpp
-    src/diode_streamer.cpp
     src/ipc_server.cpp
     src/updater.cpp
+    src/diode_threat_engine.cpp
+    src/diode_streamer.cpp
+    ${CORE_SOURCES}
+    ${GUI_SOURCES}
+    ${IMGUI_SOURCES}
 )
 
 # ── Executable ─────────────────────────────────────────────────────────────
@@ -134,23 +138,23 @@ if(WIN32)
     message(STATUS "Platform: Windows")
 
     # Winsock2 (ws2_32) — always needed
-    target_link_libraries(firewall PRIVATE ws2_32)
+    target_link_libraries(AegisXII PRIVATE ws2_32)
 
     # Windows Security & Cryptography APIs (privilege checks, DACL, DPAPI)
-    target_link_libraries(firewall PRIVATE advapi32 crypt32 winhttp)
+    target_link_libraries(AegisXII PRIVATE advapi32 crypt32 winhttp)
 
     # iphlpapi — GetExtendedTcpTable/GetExtendedUdpTable (process_monitor)
-    target_link_libraries(firewall PRIVATE iphlpapi)
+    target_link_libraries(AegisXII PRIVATE iphlpapi)
 
     # psapi — QueryFullProcessImageName (process_monitor, pipe client verification)
-    target_link_libraries(firewall PRIVATE psapi)
+    target_link_libraries(AegisXII PRIVATE psapi)
 
     # shell32 — ShellExecuteW (open_browser in main.cpp)
-    target_link_libraries(firewall PRIVATE shell32)
+    target_link_libraries(AegisXII PRIVATE shell32)
 
     # MinGW static runtime (no DLL dependency in the exe)
     if(MINGW)
-        target_link_options(firewall PRIVATE -static -static-libgcc -static-libstdc++)
+        target_link_options(AegisXII PRIVATE -static -static-libgcc -static-libstdc++)
         message(STATUS "Toolchain: MinGW-w64 (static runtime)")
     endif()
 
@@ -160,10 +164,10 @@ if(WIN32)
     # or set WINDIVERT_DIR in CMake cache to the extracted folder.
     if(DEFINED WINDIVERT_DIR AND EXISTS "${WINDIVERT_DIR}/include/windivert.h")
         message(STATUS "Found WinDivert at ${WINDIVERT_DIR} — real blocking enabled")
-        target_include_directories(firewall PRIVATE "${WINDIVERT_DIR}/include")
-        target_link_directories(firewall PRIVATE "${WINDIVERT_DIR}/x64")
-        target_link_libraries(firewall PRIVATE WinDivert)
-        target_compile_definitions(firewall PRIVATE HAVE_WINDIVERT)
+        target_include_directories(AegisXII PRIVATE "${WINDIVERT_DIR}/include")
+        target_link_directories(AegisXII PRIVATE "${WINDIVERT_DIR}/x64")
+        target_link_libraries(AegisXII PRIVATE WinDivert)
+        target_compile_definitions(AegisXII PRIVATE HAVE_WINDIVERT)
     else()
         message(STATUS "WinDivert NOT found — observer mode only")
         message(STATUS "  To enable real blocking:")
@@ -172,7 +176,7 @@ if(WIN32)
     endif()
 
     # Windows needs _WIN32_WINNT set (Vista+ for Winsock features used)
-    target_compile_definitions(firewall PRIVATE
+    target_compile_definitions(AegisXII PRIVATE
         _WIN32_WINNT=0x0A00   # Windows 10+ (required by httplib.h)
         _CRT_SECURE_NO_WARNINGS
     )
@@ -185,8 +189,8 @@ else()
     find_library(NFQ_LIB NAMES netfilter_queue)
     if(NFQ_LIB)
         message(STATUS "Found libnetfilter_queue: ${NFQ_LIB} — real blocking enabled")
-        target_compile_definitions(firewall PRIVATE HAVE_NFQUEUE)
-        target_link_libraries(firewall PRIVATE ${NFQ_LIB})
+        target_compile_definitions(AegisXII PRIVATE HAVE_NFQUEUE)
+        target_link_libraries(AegisXII PRIVATE ${NFQ_LIB})
     else()
         message(STATUS "libnetfilter_queue NOT found — raw socket observer mode only")
         message(STATUS "  Install with: sudo apt install libnetfilter-queue-dev")
@@ -207,51 +211,68 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/config/cloud_config.json")
 endif()
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  Testing
+#  Tests
 # ══════════════════════════════════════════════════════════════════════════════
-enable_testing()
-add_executable(test_engine tests/test_engine.cpp src/packet.cpp src/rule_engine.cpp src/dpi_engine.cpp src/port_scan_detector.cpp src/diode_threat_engine.cpp src/diode_streamer.cpp)
-if(WIN32)
-    target_link_libraries(test_engine PRIVATE ws2_32)
-endif()
-target_include_directories(test_engine PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(test_engine PRIVATE Threads::Threads)
-add_test(NAME rule_engine_test COMMAND test_engine)
+include(CTest)
+if(BUILD_TESTING)
+    FetchContent_Declare(googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.14.0
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
-# ── Diode Threat Detection Unit Tests ──────────────────────────────────────
-add_executable(test_threat_detection
-    tests/test_threat_detection.cpp
-    src/packet.cpp
-    src/diode_threat_engine.cpp
-    src/diode_streamer.cpp
-)
-if(WIN32)
-    target_link_libraries(test_threat_detection PRIVATE ws2_32)
-endif()
-target_include_directories(test_threat_detection PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(test_threat_detection PRIVATE Threads::Threads)
-add_test(NAME threat_detection_test COMMAND test_threat_detection)
-set_tests_properties(threat_detection_test PROPERTIES
-    LABELS "diode;ai;threat-detection"
-    TIMEOUT 60
-)
+    set(ENGINE_TEST_SOURCES
+        core/src/net/packet.cpp
+        core/src/engine/rule_engine.cpp
+        core/src/engine/dpi_engine.cpp
+        core/src/engine/port_scan_detector.cpp
+        src/diode_threat_engine.cpp
+        src/diode_streamer.cpp
+    )
+    add_executable(test_engine tests/test_engine.cpp ${ENGINE_TEST_SOURCES})
+    target_link_libraries(test_engine PRIVATE Threads::Threads GTest::gtest_main)
+    add_test(NAME rule_engine_test COMMAND test_engine)
 
-# ── Security & Hardening Unit Tests ────────────────────────────────────────
-add_executable(test_security
-    tests/test_security.cpp
-    src/packet.cpp
-    src/rule_engine.cpp
-    src/config_parser.cpp
-    src/logger.cpp
-    src/ipc_server.cpp
-    src/updater.cpp
-)
-if(WIN32)
-    target_link_libraries(test_security PRIVATE ws2_32 advapi32 crypt32 winhttp psapi)
+    add_executable(test_packet tests/test_packet.cpp core/src/net/packet.cpp)
+    target_link_libraries(test_packet PRIVATE GTest::gtest_main)
+    add_test(NAME packet_parser_test COMMAND test_packet)
+
+    add_executable(test_threat_detection
+        tests/test_threat_detection.cpp
+        src/diode_threat_engine.cpp
+        src/diode_streamer.cpp
+    )
+    target_link_libraries(test_threat_detection PRIVATE Threads::Threads)
+    add_test(NAME threat_detection_test COMMAND test_threat_detection)
+    set_tests_properties(threat_detection_test PROPERTIES
+        LABELS "diode;ai;threat-detection"
+        TIMEOUT 60
+    )
+
+    add_executable(test_security
+        tests/test_security.cpp
+        core/src/net/packet.cpp
+        core/src/engine/rule_engine.cpp
+        core/src/engine/dpi_engine.cpp
+        core/src/engine/port_scan_detector.cpp
+        core/src/persistence/config_parser.cpp
+        core/src/util/logger.cpp
+        src/ipc_server.cpp
+        src/updater.cpp
+        src/diode_threat_engine.cpp
+        src/diode_streamer.cpp
+    )
+    target_link_libraries(test_security PRIVATE Threads::Threads)
+    add_test(NAME security_hardening_test COMMAND test_security)
+
+    if(WIN32)
+        target_link_libraries(test_engine PRIVATE ws2_32)
+        target_link_libraries(test_packet PRIVATE ws2_32)
+        target_link_libraries(test_threat_detection PRIVATE ws2_32)
+        target_link_libraries(test_security PRIVATE ws2_32 advapi32 crypt32 winhttp iphlpapi psapi)
+    endif()
 endif()
-target_include_directories(test_security PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(test_security PRIVATE Threads::Threads)
-add_test(NAME security_hardening_test COMMAND test_security)
 
 # ── Summary ────────────────────────────────────────────────────────────────
 message(STATUS "")

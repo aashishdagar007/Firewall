@@ -1,17 +1,18 @@
 #pragma once
-#include "util/types.hpp"
-#include "engine/port_scan_detector.hpp"
-#include <vector>
-#include <unordered_map>
-#include <mutex>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <thread>
-#include <atomic>
-#include <shared_mutex>
 #include <functional>
 #include <memory>
-#include "dpi_engine.hpp"
+#include <mutex>
+#include <shared_mutex>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+#include "util/types.hpp"
+#include "engine/dpi_engine.hpp"
+#include "engine/port_scan_detector.hpp"
 
 // ──────────────────────────────────────────────────────────────
 //  rule_engine.hpp  –  rule chain management and matching
