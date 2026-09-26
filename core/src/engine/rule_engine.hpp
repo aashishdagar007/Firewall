@@ -15,6 +15,7 @@
 #include "util/types.hpp"
 #include "engine/dpi_engine.hpp"
 #include "engine/port_scan_detector.hpp"
+#include "engine/traffic_shaper.hpp"
 
 // ──────────────────────────────────────────────────────────────
 //  rule_engine.hpp  –  rule chain management and matching

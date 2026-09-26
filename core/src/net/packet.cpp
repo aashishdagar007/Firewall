@@ -115,6 +115,22 @@ bool PacketParser::parse(const uint8_t* buf, int len, PacketInfo& out) {
     return true;
 }
 
+bool PacketParser::is_supported_by_v1(const PacketInfo& packet) {
+    if (packet.is_ipv6 || packet.is_frag_offset || packet.has_more_frags) {
+        return false;
+    }
+
+    switch (packet.proto) {
+        case Proto::TCP:
+        case Proto::UDP:
+        case Proto::ICMP:
+            return true;
+        case Proto::ANY:
+        default:
+            return false;
+    }
+}
+
 std::string PacketParser::to_string(const PacketInfo& pkt) {
     std::ostringstream oss;
     oss << proto_name(pkt.proto) << "  "

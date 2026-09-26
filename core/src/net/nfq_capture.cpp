@@ -263,12 +263,18 @@ int NfqCapture::nfq_callback(nfq_q_handle *qh, nfgenmsg * /*nfmsg*/,
   auto *self = static_cast<NfqCapture *>(data);
   uint32_t pkt_id = 0;
   nfqnl_msg_packet_hdr *ph = nfq_get_msg_packet_hdr(nfa);
-  if (ph)
-    pkt_id = ntohl(ph->packet_id);
+  if (!ph) {
+    std::cerr << "[NFQ] Packet has no queue header; leaving it without an accept verdict\n";
+    return 0;
+  }
+  pkt_id = ntohl(ph->packet_id);
   uint8_t *payload = nullptr;
   int len = nfq_get_payload(nfa, &payload);
-  if (len < 0 || !payload)
-    return nfq_set_verdict(qh, pkt_id, NF_ACCEPT, 0, nullptr);
+  if (len < 0 || !payload) {
+    self->stats_.total++;
+    self->stats_.blocked++;
+    return nfq_set_verdict(qh, pkt_id, NF_DROP, 0, nullptr);
+  }
   self->process_packet(payload, len, pkt_id);
   return 0;
 }
@@ -314,7 +320,14 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
     }
   }
 
-  EvalResult result = engine_.evaluate(pkt);
+  const bool supported_by_v1 = PacketParser::is_supported_by_v1(pkt);
+  EvalResult result = supported_by_v1
+      ? engine_.evaluate(pkt)
+      : EvalResult{Action::BLOCK, nullptr};
+  if (!supported_by_v1) {
+    result.matched_rule_desc =
+        "Unsupported IPv4 protocol or fragmented traffic (blocked by v1 policy)";
+  }
 
   PacketRecord rec;
   rec.info      = pkt;

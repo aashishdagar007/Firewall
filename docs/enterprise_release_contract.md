@@ -7,7 +7,7 @@
 - **Product:** single-node, on-premises Linux network firewall appliance. It is not an endpoint EDR agent or a multi-tenant hosted service in v1.
 - **Qualification baseline:** Ubuntu Server 24.04 LTS, x86-64, using the distribution-supported kernel and `libnetfilter_queue` packages. CI and lab qualification must enumerate exact kernel/package revisions before general availability.
 - **Enforcement:** NFQUEUE is mandatory in the supported enforcement profile. Raw-socket observer mode is a diagnostic mode and must never be reported as protected/enforcing.
-- **Traffic coverage:** IPv4 TCP/UDP/ICMP initially. IPv6 must either receive equivalent tested filtering or be explicitly blocked at the managed host boundary. An unfiltered IPv6 path is a release blocker.
+- **Traffic coverage:** unfragmented IPv4 TCP/UDP/ICMP initially. IPv4 fragments and other IPv4 protocols are dropped until they have equivalent tested rule semantics. IPv6 must either receive equivalent tested filtering or be explicitly blocked at the managed host boundary. An unfiltered IPv6 path is a release blocker.
 - **Management:** local administration first. Remote/fleet management is not a v1 requirement; if enabled later, it must use the authenticated control-plane requirements in the enterprise roadmap.
 - **Explicitly out of v1 scope:** Windows enforcement, Linux kernels/distributions outside the qualified matrix, automatic malware remediation, and claims of regulatory certification or ML detection accuracy without independent evidence.
 
@@ -49,7 +49,7 @@ The appliance does not claim to withstand a compromised kernel, root account, or
 
 ### Runtime packet decisions
 
-- Matched allow/block rules, default policy, parser failures, and unsupported traffic have deterministic documented outcomes.
+- Matched allow/block rules, default policy, parser failures, and unsupported traffic have deterministic documented outcomes. Malformed packets, IPv4 fragments, and protocols outside v1 coverage are dropped regardless of the configurable default policy.
 - Until equivalent IPv6 parsing/enforcement is qualified, managed enforcement must prevent IPv6 bypass rather than silently pass IPv6 outside the rules.
 - Queue saturation, internal evaluation errors, and incomplete packet data are counted and surfaced. Packets must follow the chosen fail-secure policy; the appliance must not silently accept them.
 - Policy updates are validated completely before activation, then swapped atomically. Failed updates leave the last known-good policy active.

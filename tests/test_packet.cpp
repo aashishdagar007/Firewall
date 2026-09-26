@@ -30,6 +30,40 @@ TEST(PacketParserTest, ValidTcpPacket) {
     EXPECT_EQ(pkt.tcp_flags, TCP_SYN);
     EXPECT_EQ(pkt.size, 40);
     EXPECT_EQ(pkt.payload_len, 0); // No payload
+    EXPECT_TRUE(PacketParser::is_supported_by_v1(pkt));
+}
+
+TEST(PacketParserTest, UnsupportedIpv4ProtocolIsOutsideV1Policy) {
+    uint8_t packet[20] = {0x45, 0x00, 0x00, 0x14};
+    packet[8] = 64;   // TTL
+    packet[9] = 47;   // GRE, not supported by the v1 rule semantics
+
+    PacketInfo pkt;
+    ASSERT_TRUE(PacketParser::parse(packet, sizeof(packet), pkt));
+    EXPECT_EQ(pkt.proto, Proto::ANY);
+    EXPECT_FALSE(PacketParser::is_supported_by_v1(pkt));
+}
+
+TEST(PacketParserTest, FragmentedTcpIsOutsideV1Policy) {
+    uint8_t first_fragment[40] = {0x45, 0x00, 0x00, 0x28};
+    first_fragment[6] = 0x20; // MF flag: more fragments follow
+    first_fragment[8] = 64;
+    first_fragment[9] = 6;    // TCP
+    first_fragment[32] = 0x50; // TCP data offset = 20 bytes
+
+    PacketInfo pkt;
+    ASSERT_TRUE(PacketParser::parse(first_fragment, sizeof(first_fragment), pkt));
+    EXPECT_TRUE(pkt.has_more_frags);
+    EXPECT_FALSE(PacketParser::is_supported_by_v1(pkt));
+
+    uint8_t later_fragment[20] = {0x45, 0x00, 0x00, 0x14};
+    later_fragment[7] = 1;   // Non-zero fragment offset
+    later_fragment[8] = 64;
+    later_fragment[9] = 6;   // TCP
+
+    ASSERT_TRUE(PacketParser::parse(later_fragment, sizeof(later_fragment), pkt));
+    EXPECT_TRUE(pkt.is_frag_offset);
+    EXPECT_FALSE(PacketParser::is_supported_by_v1(pkt));
 }
 
 TEST(PacketParserTest, ShortPacketBoundsCheck) {

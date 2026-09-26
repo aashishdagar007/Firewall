@@ -233,6 +233,7 @@ if(BUILD_TESTING)
     set(ENGINE_TEST_SOURCES
         core/src/net/packet.cpp
         core/src/engine/rule_engine.cpp
+        core/src/engine/traffic_shaper.cpp
         core/src/engine/dpi_engine.cpp
         core/src/engine/port_scan_detector.cpp
         src/diode_threat_engine.cpp
@@ -262,6 +263,7 @@ if(BUILD_TESTING)
         tests/test_security.cpp
         core/src/net/packet.cpp
         core/src/engine/rule_engine.cpp
+        core/src/engine/traffic_shaper.cpp
         core/src/engine/dpi_engine.cpp
         core/src/engine/port_scan_detector.cpp
         core/src/persistence/config_parser.cpp
