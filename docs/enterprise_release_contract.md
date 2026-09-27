@@ -50,7 +50,7 @@ The appliance does not claim to withstand a compromised kernel, root account, or
 ### Runtime packet decisions
 
 - Matched allow/block rules, default policy, parser failures, and unsupported traffic have deterministic documented outcomes. Malformed packets, IPv4 fragments, and protocols outside v1 coverage are dropped regardless of the configurable default policy.
-- Until equivalent IPv6 parsing/enforcement is qualified, managed enforcement must prevent IPv6 bypass rather than silently pass IPv6 outside the rules.
+- Until equivalent IPv6 parsing/enforcement is qualified, managed enforcement must prevent IPv6 bypass rather than silently pass IPv6 outside the rules. The current Linux nftables helper queues IPv4 and drops IPv6; automatic service integration/readiness gating and real-host validation remain release gates.
 - Queue saturation, internal evaluation errors, and incomplete packet data are counted and surfaced. Packets must follow the chosen fail-secure policy; the appliance must not silently accept them.
 - Policy updates are validated completely before activation, then swapped atomically. Failed updates leave the last known-good policy active.
 
@@ -82,4 +82,4 @@ This contract is satisfied only when CI/lab evidence demonstrates all of the fol
 
 ## Current implementation gaps to close
 
-The Linux build now requires NFQUEUE and capture startup fails when NFQUEUE initialization is unavailable rather than falling back to raw sockets. The API currently listens on all interfaces, HTTPS depends on build-time OpenSSL/certificate configuration, and observer/enforcement status needs a single authoritative health contract. The README still uses manually installed iptables rules rather than a managed, reversible service ruleset. IPv6 is not parsed by the current packet parser. The ledger's documented restart path does not restore the previous hash/index. Real-traffic enforcement and lifecycle failure injection remain unqualified. These are gaps against this contract, not accepted launch exceptions.
+The Linux build now requires NFQUEUE and capture startup fails when NFQUEUE initialization is unavailable rather than falling back to raw sockets. A dedicated nftables helper now queues IPv4 and drops IPv6, but automatic service integration/readiness gating and real-host validation are incomplete. The API currently listens on all interfaces, HTTPS depends on build-time OpenSSL/certificate configuration, and observer/enforcement status needs a single authoritative health contract. IPv6 is not parsed by the current packet parser. The ledger's documented restart path does not restore the previous hash/index. Real-traffic enforcement and lifecycle failure injection remain unqualified. These are gaps against this contract, not accepted launch exceptions.

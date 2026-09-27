@@ -109,7 +109,7 @@ For kernel-level packet blocking on Windows, integrate **WinDivert**:
 ```bash
 # Ubuntu / Debian (NFQUEUE is required for Linux builds)
 sudo apt update
-sudo apt install build-essential cmake libnetfilter-queue-dev
+sudo apt install build-essential cmake nftables libnetfilter-queue-dev
 
 # Optional: OpenSSL for HTTPS
 sudo apt install libssl-dev
@@ -127,21 +127,24 @@ make -j$(nproc)
 ### Run on Linux
 
 ```bash
-# Linux v1 requires NFQUEUE. Install the queue rules before starting the daemon.
-# There is no observer-mode fallback on Linux.
-sudo iptables -I INPUT   -j NFQUEUE --queue-num 0
-sudo iptables -I OUTPUT  -j NFQUEUE --queue-num 0
-sudo iptables -I FORWARD -j NFQUEUE --queue-num 0
+# Install the managed v1 ruleset. IPv4 is queued; IPv6 is blocked until
+# equivalent IPv6 rule evaluation is implemented and qualified.
+sudo bash ./scripts/linux-nfq-guard.sh install
 
-# Step 2 — Launch
+# Start the daemon only after installing the ruleset. Until its NFQUEUE
+# listener is ready, queued IPv4 packets are dropped by the kernel.
 cd cmake-build-debug
 sudo ./firewall
 
-# Step 3 — Cleanup iptables when done
-sudo iptables -D INPUT   -j NFQUEUE --queue-num 0
-sudo iptables -D OUTPUT  -j NFQUEUE --queue-num 0
-sudo iptables -D FORWARD -j NFQUEUE --queue-num 0
+# Maintenance/recovery only: stopping enforcement removes the IPv6 guard too.
+# Stop the daemon first, then explicitly restore normal host networking.
+sudo bash ./scripts/linux-nfq-guard.sh remove
 ```
+
+The helper owns only the `inet aegisxii` nftables table and leaves unrelated
+firewall tables untouched. Do not run `remove` while relying on the appliance
+for IPv4 enforcement or IPv6 blocking. Automatic service installation,
+readiness gating, and tested rollback are still required before pilot use.
 
 ---
 

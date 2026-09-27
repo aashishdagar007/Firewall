@@ -1,0 +1,17 @@
+# Aegis XII Linux v1 guard table. Load atomically with:
+#   sudo nft -f scripts/linux-nfq-guard.nft
+# IPv4 packets enter NFQUEUE 0; IPv6 is dropped until IPv6 rule semantics exist.
+destroy table inet aegisxii
+table inet aegisxii {
+    chain prerouting {
+        type filter hook prerouting priority filter; policy accept;
+        meta nfproto ipv6 counter drop
+        meta nfproto ipv4 counter queue num 0
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+        meta nfproto ipv6 counter drop
+        meta nfproto ipv4 counter queue num 0
+    }
+}
