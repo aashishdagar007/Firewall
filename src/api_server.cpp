@@ -5,6 +5,7 @@
 #include "diode_threat_engine.hpp"
 #include "diode_streamer.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -24,6 +25,13 @@
 
 namespace fw {
 
+namespace {
+bool is_loopback_address(const std::string& address) {
+  return address == "127.0.0.1" || address == "::1" ||
+         address == "localhost" || address == "::ffff:127.0.0.1";
+}
+}
+
 ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
                      RingBuffer<PacketRecord> &ring, ProcessMonitor &proc_mon,
                      const std::string &dashboard_root, int port,
@@ -31,6 +39,7 @@ ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
                      DiodeStreamer* diode_streamer)
     : engine_(engine), stats_(stats), ring_(ring), proc_mon_(proc_mon),
       dashboard_root_(dashboard_root), port_(port),
+      bind_address_(std::getenv("AEGIS_API_BIND") ? std::getenv("AEGIS_API_BIND") : "127.0.0.1"),
       diode_engine_(diode_engine), diode_streamer_(diode_streamer) {
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
@@ -65,15 +74,20 @@ ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
 ApiServer::~ApiServer() { stop(); }
 
 void ApiServer::start() {
+  if (!is_loopback_address(bind_address_)) {
+    std::cerr << "[API] Refusing non-loopback bind; remote administration is disabled in v1\n";
+    return;
+  }
+
   setup_routes();
   running_ = true;
   thread_ = std::thread([this]() {
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
-    std::cout << "[API] Dashboard at https://localhost:" << port_ << "\n";
+    std::cout << "[API] Dashboard at https://" << bind_address_ << ":" << port_ << "\n";
 #else
-    std::cout << "[API] Dashboard at http://localhost:" << port_ << "\n";
+    std::cout << "[API] Dashboard at http://" << bind_address_ << ":" << port_ << "\n";
 #endif
-    server_->listen("0.0.0.0", port_);
+    server_->listen(bind_address_, port_);
     running_ = false;
   });
 
@@ -98,10 +112,8 @@ void ApiServer::stop() {
 
 void ApiServer::setup_routes() {
   // CORS headers for all responses
-  auto cors = [](httplib::Response &res) {
-    res.set_header("Access-Control-Allow-Origin", "*");
-    res.set_header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-    res.set_header("Access-Control-Allow-Headers", "Content-Type");
+  auto cors = [](httplib::Response &) {
+    // The dashboard is same-origin; no cross-origin permissions are granted.
   };
 
   // Preflight and Authorization middleware
@@ -222,9 +234,15 @@ void ApiServer::setup_routes() {
   });
 
   // ── GET /api/token — self-service token for dashboard auto-auth ──────────
-  server_->Get("/api/token", [this, cors](const httplib::Request &,
+  server_->Get("/api/token", [this, cors](const httplib::Request &req,
                                           httplib::Response &res) {
     cors(res);
+    if (!is_loopback_address(req.remote_addr)) {
+      res.status = 403;
+      res.set_content("{\"error\":\"Token bootstrap is local-only\"}",
+                      "application/json");
+      return;
+    }
     res.set_content("{\"token\":\"" + api_token_ + "\"}", "application/json");
   });
 

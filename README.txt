@@ -146,6 +146,15 @@ firewall tables untouched. Do not run `remove` while relying on the appliance
 for IPv4 enforcement or IPv6 blocking. Automatic service installation,
 readiness gating, and tested rollback are still required before pilot use.
 
+## Management API access
+
+The management API listens only on `127.0.0.1` by default. Non-loopback bind
+addresses are rejected; remote administration is disabled until administrator
+bootstrap, token lifecycle, and role-based authorization are implemented.
+The served dashboard uses the same origin, so the API does not grant wildcard
+cross-origin access. The `/api/token` dashboard bootstrap endpoint is limited
+to loopback clients.
+
 ---
 
 ## REST API

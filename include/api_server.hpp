@@ -80,6 +80,7 @@ private:
     ProcessMonitor&          proc_mon_;
     std::string              dashboard_root_;
     int                      port_;
+    std::string              bind_address_;
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
     std::unique_ptr<httplib::SSLServer> server_;
