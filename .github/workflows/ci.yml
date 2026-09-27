@@ -39,5 +39,12 @@ jobs:
       - name: Build application and test targets
         run: cmake --build build --parallel 2
 
+      - name: Verify systemd unit references and syntax
+        run: |
+          sudo install -D -m 0755 build/AegisXII /opt/aegisxii/AegisXII
+          sudo install -D -m 0755 scripts/linux-nfq-guard.sh /opt/aegisxii/scripts/linux-nfq-guard.sh
+          sudo install -D -m 0644 scripts/linux-nfq-guard.nft /opt/aegisxii/scripts/linux-nfq-guard.nft
+          sudo systemd-analyze verify packaging/systemd/aegisxii.service
+
       - name: Run tests
         run: ctest --test-dir build --output-on-failure

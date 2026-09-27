@@ -1,0 +1,23 @@
+[Unit]
+Description=Aegis XII Linux Firewall Appliance
+Documentation=https://github.com/aashishdagar007/Firewall
+Wants=network-online.target
+After=network-online.target nftables.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aegisxii
+ExecStartPre=/bin/bash /opt/aegisxii/scripts/linux-nfq-guard.sh install
+ExecStart=/opt/aegisxii/AegisXII
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+# Keep the Aegis nftables guard on stop/crash. Removing it would silently
+# restore unfiltered IPv6 and pass IPv4 while the enforcement daemon is down.
+
+[Install]
+WantedBy=multi-user.target

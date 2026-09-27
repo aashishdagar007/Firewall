@@ -143,8 +143,35 @@ sudo bash ./scripts/linux-nfq-guard.sh remove
 
 The helper owns only the `inet aegisxii` nftables table and leaves unrelated
 firewall tables untouched. Do not run `remove` while relying on the appliance
-for IPv4 enforcement or IPv6 blocking. Automatic service installation,
-readiness gating, and tested rollback are still required before pilot use.
+for IPv4 enforcement or IPv6 blocking. Automated packaging, a machine-readable
+readiness check, and tested rollback are still required before pilot use.
+
+### Run as a systemd service
+
+The repository includes a fail-closed service unit. Install the built program
+and runtime assets under `/opt/aegisxii` before enabling it:
+
+```bash
+sudo install -d -m 0750 /opt/aegisxii
+sudo install -m 0755 build/AegisXII /opt/aegisxii/AegisXII
+sudo cp -a config dashboard scripts /opt/aegisxii/
+sudo install -D -m 0644 packaging/systemd/aegisxii.service \
+  /etc/systemd/system/aegisxii.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now aegisxii.service
+sudo systemctl status aegisxii.service
+sudo bash /opt/aegisxii/scripts/linux-nfq-guard.sh status
+```
+
+The unit installs the guard before launch and restarts failures with a bounded
+rate. `systemctl stop` and crash exhaustion intentionally leave the guard in
+place: IPv4 stays queued (and drops without a listener), while IPv6 stays
+dropped. Recover locally after start-limit exhaustion with
+`sudo systemctl reset-failed aegisxii.service` then
+`sudo systemctl start aegisxii.service`; removing the guard with its helper is
+an explicit break-glass action that restores unfiltered
+network paths. This unit runs as root and has not yet received independent
+systemd hardening or reboot/failure-injection qualification.
 
 ## Management API access
 
