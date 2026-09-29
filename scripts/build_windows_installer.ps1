@@ -131,8 +131,14 @@ try {
 
     Write-Host "Checking the staged GUI-to-service IPC handshake"
     $payloadExe = Join-Path $payloadDir "AegisXII.exe"
-    $smokeProcess = Start-Process -FilePath $payloadExe -ArgumentList "--ipc-smoke-test" `
-        -WorkingDirectory $payloadDir -PassThru -WindowStyle Hidden
+    $previousSmokeFlag = $env:AEGISXII_IPC_SMOKE_TEST
+    $env:AEGISXII_IPC_SMOKE_TEST = "1"
+    try {
+        $smokeProcess = Start-Process -FilePath $payloadExe -ArgumentList "--ipc-smoke-test" `
+            -WorkingDirectory $payloadDir -PassThru -WindowStyle Hidden
+    } finally {
+        $env:AEGISXII_IPC_SMOKE_TEST = $previousSmokeFlag
+    }
     if (-not $smokeProcess.WaitForExit(30000)) {
         $smokeProcess.Kill()
         throw "GUI-to-service IPC smoke test timed out."
@@ -142,7 +148,9 @@ try {
         $smokeResult = Get-Content -LiteralPath $smokeResultFile -Raw -ErrorAction SilentlyContinue
         $smokeLogFile = Join-Path $payloadDir "ipc-smoke-server.log"
         $smokeLog = Get-Content -LiteralPath $smokeLogFile -Raw -ErrorAction SilentlyContinue
-        throw "GUI-to-service IPC smoke test failed ($($smokeResult.Trim())). Server log: $($smokeLog.Trim())"
+        $smokeResultSummary = if ($smokeResult) { $smokeResult.Trim() } else { "no test result file" }
+        $smokeLogSummary = if ($smokeLog) { $smokeLog.Trim() } else { "no server log" }
+        throw "GUI-to-service IPC smoke test failed ($smokeResultSummary). Server log: $smokeLogSummary"
     }
 
     $script = Join-Path $sourceRoot "installer_script.iss"

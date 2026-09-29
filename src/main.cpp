@@ -408,6 +408,12 @@ bool InstallService() {
 // The installer build runs this mode once to verify that the actual GUI IPC
 // client can exchange requests with the production service IPC server.
 static int run_ipc_smoke_test() {
+    auto write_result = [](const std::string& result) {
+        std::ofstream result_file("ipc-smoke-test-result.txt", std::ios::trunc);
+        result_file << result << '\n';
+    };
+    write_result("starting");
+
     fw::RuleEngine engine(fw::Action::BLOCK);
     fw::LiveStats stats;
     stats.total = 17;
@@ -442,8 +448,7 @@ static int run_ipc_smoke_test() {
     client.disconnect();
     server.stop();
     logger.flush();
-    std::ofstream result_file("ipc-smoke-test-result.txt", std::ios::trunc);
-    result_file << result << '\n';
+    write_result(result);
     return handshake_ok ? 0 : 1;
 }
 #endif
@@ -492,6 +497,10 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 #endif
+    }
+
+    if (std::getenv("AEGISXII_IPC_SMOKE_TEST")) {
+        return run_ipc_smoke_test();
     }
 
     // Default mode: Un-elevated GUI Client
