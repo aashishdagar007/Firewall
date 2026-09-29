@@ -83,11 +83,6 @@ void IpcServer::stop() {
     if (stop_event_) {
         SetEvent(stop_event_);
     }
-    if (pipe_handle_ != INVALID_HANDLE_VALUE) {
-        // Cancel synchronous I/O and disconnect
-        CancelIoEx(pipe_handle_, nullptr);
-        DisconnectNamedPipe(pipe_handle_);
-    }
 #endif
     if (thread_.joinable()) {
         thread_.join();

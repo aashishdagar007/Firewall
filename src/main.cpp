@@ -29,10 +29,14 @@
 #include "diode_streamer.hpp"
 // ── Security Hardening Modules ────────────────────────────────
 #include "ipc_server.hpp"
+#ifdef _WIN32
+#include "ipc_client/ipc_client.hpp"
+#endif
 #include "rate_limiter.hpp"
 #include "updater.hpp"
 #include <csignal>
 #include <atomic>
+#include <chrono>
 #include <thread>
 #include <string>
 #include <vector>
@@ -399,6 +403,36 @@ bool InstallService() {
 }
 #endif
 
+#ifdef _WIN32
+// The installer build runs this mode once to verify that the actual GUI IPC
+// client can exchange requests with the production service IPC server.
+static int run_ipc_smoke_test() {
+    fw::RuleEngine engine(fw::Action::BLOCK);
+    fw::LiveStats stats;
+    stats.total = 17;
+    stats.blocked = 3;
+    stats.bytes_total = 42;
+
+    fw::IpcServer server(engine, stats, nullptr);
+    server.start();
+
+    fw::gui::IpcClient client;
+    bool connected = false;
+    for (int attempt = 0; attempt < 100 && !connected; ++attempt) {
+        connected = client.connect();
+        if (!connected) std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    }
+
+    fw::ipc::StatsPayload snapshot{};
+    const bool handshake_ok = connected && client.get_stats(snapshot) &&
+        snapshot.total_packets == 17 && snapshot.blocked_packets == 3 &&
+        snapshot.bytes_transferred == 42 && client.ping();
+    client.disconnect();
+    server.stop();
+    return handshake_ok ? 0 : 1;
+}
+#endif
+
 // ──────────────────────────────────────────────────────────────
 // Dual-Mode Entry Point
 // ──────────────────────────────────────────────────────────────
@@ -434,6 +468,9 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 #ifdef _WIN32
+        if (args[1] == "--ipc-smoke-test") {
+            return run_ipc_smoke_test();
+        }
         if (args[1] == "--install") {
             if (InstallService()) MessageBoxA(NULL, "Service Installed Successfully", "Aegis XII", MB_OK);
             else MessageBoxA(NULL, "Failed to Install Service (Run as Admin)", "Aegis XII", MB_ICONERROR);
