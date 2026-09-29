@@ -25,4 +25,5 @@ explicit compiler path:
 
 The installer is written to `dist/windows/AEGIS_XII_Setup_v3.exe`. The Windows
 CI job runs the same build and packaging script and uploads the resulting
-installer artifact.
+installer artifact. CMake stages the executable's non-system DLL dependencies,
+MSVC runtime libraries, config, and dashboard into the installer payload.

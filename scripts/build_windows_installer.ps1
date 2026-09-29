@@ -67,9 +67,18 @@ New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 $payloadDir = Join-Path ([System.IO.Path]::GetTempPath()) ("aegisxii-installer-payload-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $payloadDir | Out-Null
 try {
-    Copy-Item -LiteralPath $exe -Destination (Join-Path $payloadDir "AegisXII.exe")
-    Copy-Item -LiteralPath (Join-Path $BuildDir "config") -Destination $payloadDir -Recurse
-    Copy-Item -LiteralPath (Join-Path $BuildDir "dashboard") -Destination $payloadDir -Recurse
+    & cmake --install $BuildDir --config $Configuration --prefix $payloadDir
+    if ($LASTEXITCODE -ne 0) { throw "CMake install staging failed with exit code $LASTEXITCODE" }
+
+    foreach ($required in @(
+        (Join-Path $payloadDir "AegisXII.exe"),
+        (Join-Path $payloadDir "config\rules.conf"),
+        (Join-Path $payloadDir "dashboard\index.html")
+    )) {
+        if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+            throw "CMake install tree is missing required application content: $required"
+        }
+    }
 
     $winDivertDll = Join-Path (Split-Path $exe -Parent) "WinDivert.dll"
     if (Test-Path -LiteralPath $winDivertDll -PathType Leaf) {

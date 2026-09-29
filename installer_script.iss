@@ -41,6 +41,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#BuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#BuildDir}\dashboard\*"; DestDir: "{app}\dashboard"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildDir}\*.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 ; Include the optional WinDivert runtime only when the configured build produced it.
 #if FileExists(AddBackslash(BuildDir) + "WinDivert.dll")
 Source: "{#BuildDir}\WinDivert.dll"; DestDir: "{app}"; Flags: ignoreversion

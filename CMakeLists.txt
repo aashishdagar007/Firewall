@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(AegisXII VERSION 2.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -233,6 +233,57 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/logs)
 if(EXISTS "${CMAKE_SOURCE_DIR}/config/cloud_config.json")
     file(COPY "${CMAKE_SOURCE_DIR}/config/cloud_config.json"
          DESTINATION "${CMAKE_BINARY_DIR}/config")
+endif()
+
+if(WIN32)
+    # Build the Windows setup from an install tree containing the executable,
+    # its non-system DLL dependencies, runtime files, and frontend assets.
+    set(_aegis_runtime_dependency_dirs)
+    if(DEFINED OPENSSL_ROOT_DIR AND OPENSSL_ROOT_DIR)
+        list(APPEND _aegis_runtime_dependency_dirs "${OPENSSL_ROOT_DIR}/bin")
+    endif()
+    foreach(_openssl_library IN ITEMS OPENSSL_SSL_LIBRARY OPENSSL_CRYPTO_LIBRARY)
+        if(DEFINED ${_openssl_library} AND NOT "${${_openssl_library}}" STREQUAL "")
+            get_filename_component(_openssl_library_dir "${${_openssl_library}}" DIRECTORY)
+            list(APPEND _aegis_runtime_dependency_dirs "${_openssl_library_dir}")
+            get_filename_component(_openssl_install_root "${_openssl_library_dir}/../../../../" ABSOLUTE)
+            list(APPEND _aegis_runtime_dependency_dirs "${_openssl_install_root}/bin")
+        endif()
+    endforeach()
+    foreach(_openssl_target IN ITEMS OpenSSL::SSL OpenSSL::Crypto)
+        if(TARGET ${_openssl_target})
+            foreach(_config IN ITEMS RELEASE RELWITHDEBINFO MINSIZEREL DEBUG)
+                get_target_property(_openssl_runtime_dll ${_openssl_target} "IMPORTED_LOCATION_${_config}")
+                if(_openssl_runtime_dll AND EXISTS "${_openssl_runtime_dll}")
+                    get_filename_component(_openssl_runtime_dir "${_openssl_runtime_dll}" DIRECTORY)
+                    list(APPEND _aegis_runtime_dependency_dirs "${_openssl_runtime_dir}")
+                endif()
+            endforeach()
+            get_target_property(_openssl_runtime_dll ${_openssl_target} IMPORTED_LOCATION)
+            if(_openssl_runtime_dll AND EXISTS "${_openssl_runtime_dll}")
+                get_filename_component(_openssl_runtime_dir "${_openssl_runtime_dll}" DIRECTORY)
+                list(APPEND _aegis_runtime_dependency_dirs "${_openssl_runtime_dir}")
+            endif()
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES _aegis_runtime_dependency_dirs)
+
+    install(TARGETS AegisXII
+        RUNTIME_DEPENDENCY_SET aegisxii_runtime
+        RUNTIME DESTINATION .
+    )
+    install(RUNTIME_DEPENDENCY_SET aegisxii_runtime
+        RUNTIME DESTINATION .
+        DIRECTORIES ${_aegis_runtime_dependency_dirs}
+        PRE_EXCLUDE_REGEXES "api-ms-win-.*" "ext-ms-win-.*"
+        POST_EXCLUDE_REGEXES ".*[Ww]indows[/\\\\](System32|WinSxS)[/\\\\].*"
+    )
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/config/" DESTINATION config)
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/dashboard/" DESTINATION dashboard)
+
+    # Make Visual C++ runtime DLLs available app-local on clean Windows hosts.
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
+    include(InstallRequiredSystemLibraries)
 endif()
 
 # ══════════════════════════════════════════════════════════════════════════════
