@@ -36,6 +36,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 static fw::Logger* g_logger = nullptr;
@@ -346,6 +347,20 @@ void WINAPI ServiceCtrlHandler(DWORD CtrlCode) {
 void WINAPI ServiceMain(DWORD /* argc */, LPTSTR* /* argv */) {
     g_StatusHandle = RegisterServiceCtrlHandlerA("AegisXII", ServiceCtrlHandler);
     if (!g_StatusHandle) return;
+
+    // Windows services start with System32 as their working directory. All
+    // runtime assets (config, dashboard, and logs) are installed beside the
+    // executable, so use that directory before starting the backend.
+    char executable_path[MAX_PATH] = {};
+    const DWORD executable_path_size =
+        GetModuleFileNameA(nullptr, executable_path, static_cast<DWORD>(sizeof(executable_path)));
+    if (executable_path_size > 0 && executable_path_size < static_cast<DWORD>(sizeof(executable_path))) {
+        char* separator = std::strrchr(executable_path, '\\');
+        if (separator) {
+            *separator = '\0';
+            SetCurrentDirectoryA(executable_path);
+        }
+    }
 
     g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
     g_ServiceStatus.dwCurrentState = SERVICE_RUNNING;

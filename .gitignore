@@ -3,6 +3,7 @@ ui/node_modules/
 build/
 cmake-build-debug/
 cmake-build-release/
+/dist/
 .idea/
 
 # Runtime-generated logs and secrets — never commit these

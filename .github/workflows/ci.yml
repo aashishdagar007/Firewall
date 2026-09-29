@@ -14,6 +14,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows-installer:
+    name: Windows application and Inno Setup 7 package
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup 7
+        run: winget install --id JRSoftware.InnoSetup.7 -e --silent --accept-package-agreements --accept-source-agreements
+
+      - name: Build frontend, backend, and installer
+        shell: pwsh
+        run: './scripts/build_windows_installer.ps1 -BuildDir "$env:RUNNER_TEMP\aegisxii-windows-release"'
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegisxii-windows-installer
+          path: dist/windows/AEGIS_XII_Setup_v3.exe
+          if-no-files-found: error
+
   parser-fuzz:
     name: Clang parser fuzz smoke tests
     runs-on: ubuntu-24.04
