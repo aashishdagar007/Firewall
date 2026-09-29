@@ -1,4 +1,5 @@
 #include "platform.hpp"
+#include "nfq_capture.hpp"
 #include "config_parser.hpp"
 #include "rate_limiter.hpp"
 #include "ipc_server.hpp"
@@ -27,7 +28,7 @@ int main() {
 
     // ── Test 1: Privilege Checking ─────────────────────────────────────
     {
-        bool is_admin = fw::check_is_elevated_admin();
+        bool is_admin = check_is_elevated_admin();
         std::cout << "[INFO] check_is_elevated_admin returned: " << (is_admin ? "TRUE" : "FALSE") << "\n";
         // Privilege check executes cleanly without crashing
         TEST_ASSERT(true, "check_is_elevated_admin() executed cleanly");
