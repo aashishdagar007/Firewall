@@ -1,4 +1,5 @@
 #include "failsafe_manager.hpp"
+#include "util/platform.hpp"
 #include <iostream>
 
 #ifdef _WIN32
