@@ -499,9 +499,11 @@ int main(int argc, char* argv[]) {
 #endif
     }
 
+#ifdef _WIN32
     if (std::getenv("AEGISXII_IPC_SMOKE_TEST")) {
         return run_ipc_smoke_test();
     }
+#endif
 
     // Default mode: Un-elevated GUI Client
     return fw::gui::run_gui();
