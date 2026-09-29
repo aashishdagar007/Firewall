@@ -138,7 +138,11 @@ try {
         throw "GUI-to-service IPC smoke test timed out."
     }
     if ($smokeProcess.ExitCode -ne 0) {
-        throw "GUI-to-service IPC smoke test failed with exit code $($smokeProcess.ExitCode)."
+        $smokeResultFile = Join-Path $payloadDir "ipc-smoke-test-result.txt"
+        $smokeResult = Get-Content -LiteralPath $smokeResultFile -Raw -ErrorAction SilentlyContinue
+        $smokeLogFile = Join-Path $payloadDir "ipc-smoke-server.log"
+        $smokeLog = Get-Content -LiteralPath $smokeLogFile -Raw -ErrorAction SilentlyContinue
+        throw "GUI-to-service IPC smoke test failed ($($smokeResult.Trim())). Server log: $($smokeLog.Trim())"
     }
 
     $script = Join-Path $sourceRoot "installer_script.iss"

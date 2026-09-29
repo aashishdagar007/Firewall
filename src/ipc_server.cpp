@@ -128,7 +128,8 @@ void IpcServer::worker_loop() {
                 &sa);
 
             if (pipe_handle_ == INVALID_HANDLE_VALUE) {
-                if (logger_) logger_->log(LogLevel::LOG_ERROR, "[IPC] CreateNamedPipe failed");
+                if (logger_) logger_->log(LogLevel::LOG_ERROR,
+                    "[IPC] CreateNamedPipe failed: " + std::to_string(GetLastError()));
                 break;
             }
 
@@ -212,6 +213,9 @@ void IpcServer::worker_loop() {
         }
 
         LocalFree(pSD);
+    } else if (logger_) {
+        logger_->log(LogLevel::LOG_ERROR,
+            "[IPC] Could not create named pipe security descriptor: " + std::to_string(GetLastError()));
     }
 #endif
 }

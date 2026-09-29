@@ -42,6 +42,7 @@
 #include <vector>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 
 static fw::Logger* g_logger = nullptr;
@@ -413,22 +414,36 @@ static int run_ipc_smoke_test() {
     stats.blocked = 3;
     stats.bytes_total = 42;
 
-    fw::IpcServer server(engine, stats, nullptr);
+    fw::Logger logger("ipc-smoke-server.log", fw::LogLevel::LOG_DEBUG);
+    fw::IpcServer server(engine, stats, &logger);
     server.start();
+    std::string result = server.is_running() ? "pipe-connect-timeout" : "server-start-failed";
 
     fw::gui::IpcClient client;
     bool connected = false;
-    for (int attempt = 0; attempt < 100 && !connected; ++attempt) {
+    for (int attempt = 0; attempt < 100 && server.is_running() && !connected; ++attempt) {
         connected = client.connect();
         if (!connected) std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
 
     fw::ipc::StatsPayload snapshot{};
-    const bool handshake_ok = connected && client.get_stats(snapshot) &&
-        snapshot.total_packets == 17 && snapshot.blocked_packets == 3 &&
-        snapshot.bytes_transferred == 42 && client.ping();
+    bool handshake_ok = connected;
+    if (connected) {
+        const bool got_stats = client.get_stats(snapshot);
+        result = got_stats ? "stats-payload-mismatch" : "stats-request-failed";
+        handshake_ok = got_stats && snapshot.total_packets == 17 &&
+            snapshot.blocked_packets == 3 && snapshot.bytes_transferred == 42;
+        if (handshake_ok) {
+            const bool ping_ok = client.ping();
+            result = ping_ok ? "passed" : "ping-failed";
+            handshake_ok = ping_ok;
+        }
+    }
     client.disconnect();
     server.stop();
+    logger.flush();
+    std::ofstream result_file("ipc-smoke-test-result.txt", std::ios::trunc);
+    result_file << result << '\n';
     return handshake_ok ? 0 : 1;
 }
 #endif
