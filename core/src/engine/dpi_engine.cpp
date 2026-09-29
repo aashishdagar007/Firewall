@@ -289,7 +289,8 @@ Action DpiEngine::scan(const uint8_t *payload, uint16_t len,
       const uint32_t handshake_len = (static_cast<uint32_t>(payload[6]) << 16) |
                                      (static_cast<uint32_t>(payload[7]) << 8) |
                                       payload[8];
-      if (handshake_len >= 2 && handshake_len <= record_len - 4) {
+      if (handshake_len >= 2 &&
+          handshake_len <= static_cast<uint32_t>(record_len - 4)) {
         const uint16_t handshake_version =
             (static_cast<uint16_t>(payload[9]) << 8) | payload[10];
         if (handshake_version <= static_cast<uint16_t>(0x0302)) {
