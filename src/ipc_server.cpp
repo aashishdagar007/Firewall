@@ -9,6 +9,43 @@
 
 namespace fw {
 
+#ifdef _WIN32
+namespace {
+constexpr uint32_t kMaxIpcPayloadSize = 4096;
+
+bool pipe_io(HANDLE pipe, HANDLE stop_event, void* buffer, DWORD size, bool write) {
+    DWORD transferred = 0;
+    OVERLAPPED operation{};
+    operation.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!operation.hEvent) return false;
+
+    const BOOL started = write
+        ? WriteFile(pipe, buffer, size, &transferred, &operation)
+        : ReadFile(pipe, buffer, size, &transferred, &operation);
+    bool ok = started != FALSE;
+    if (!ok && GetLastError() == ERROR_IO_PENDING) {
+        HANDLE events[] = {operation.hEvent, stop_event};
+        const DWORD wait = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+        if (wait == WAIT_OBJECT_0) {
+            ok = GetOverlappedResult(pipe, &operation, &transferred, FALSE) != FALSE;
+        } else {
+            CancelIoEx(pipe, &operation);
+            GetOverlappedResult(pipe, &operation, &transferred, TRUE);
+        }
+    }
+    CloseHandle(operation.hEvent);
+    return ok && transferred == size;
+}
+
+bool send_ipc_reply(HANDLE pipe, HANDLE stop_event, ipc::MsgType type,
+                    const void* payload = nullptr, uint32_t length = 0) {
+    const ipc::MsgHeader header{type, length};
+    if (!pipe_io(pipe, stop_event, const_cast<ipc::MsgHeader*>(&header), sizeof(header), true)) return false;
+    return length == 0 || pipe_io(pipe, stop_event, const_cast<void*>(payload), length, true);
+}
+}
+#endif
+
 IpcServer::IpcServer(RuleEngine& engine, LiveStats& stats, Logger* logger,
                      const std::string& pipe_name,
                      const std::wstring& authorized_client_name)
@@ -30,6 +67,12 @@ IpcServer::~IpcServer() {
 }
 
 void IpcServer::start() {
+#ifdef _WIN32
+    if (!stop_event_) {
+        if (logger_) logger_->log(LogLevel::LOG_ERROR, "[IPC] Could not create stop event; listener not started");
+        return;
+    }
+#endif
     if (running_.exchange(true)) return;
     thread_ = std::thread(&IpcServer::worker_loop, this);
 }
@@ -69,9 +112,11 @@ void IpcServer::worker_loop() {
     std::wstring wpipe(wlen, L'\0');
     MultiByteToWideChar(CP_UTF8, 0, pipe_name_.c_str(), -1, &wpipe[0], wlen);
 
-    // Build strict Security Attributes: SYSTEM (SY) and Administrators (BA) only
+    // The GUI runs unelevated, so authenticated users need pipe access. The
+    // process identity check below and the read-only PING/GET_STATS protocol
+    // constrain that access; all policy mutation remains in the admin API.
     PSECURITY_DESCRIPTOR pSD = nullptr;
-    const wchar_t* sddl = L"D:(A;;GA;;;SY)(A;;GA;;;BA)";
+    const wchar_t* sddl = L"D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGW;;;AU)";
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, SDDL_REVISION_1, &pSD, nullptr)) {
         SECURITY_ATTRIBUTES sa;
         sa.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -99,6 +144,9 @@ void IpcServer::worker_loop() {
                 HANDLE events[2] = { ov.hEvent, stop_event_ };
                 DWORD wait = WaitForMultipleObjects(2, events, FALSE, INFINITE);
                 if (wait == WAIT_OBJECT_0 + 1 || !running_) {
+                    CancelIoEx(pipe_handle_, &ov);
+                    DWORD ignored = 0;
+                    GetOverlappedResult(pipe_handle_, &ov, &ignored, TRUE);
                     CloseHandle(ov.hEvent);
                     CloseHandle(pipe_handle_);
                     pipe_handle_ = INVALID_HANDLE_VALUE;
@@ -130,24 +178,39 @@ void IpcServer::worker_loop() {
                 continue;
             }
 
-            // Read command from verified client
-            char buffer[2048] = {0};
-            DWORD bytesRead = 0;
-            BOOL readOk = ReadFile(pipe_handle_, buffer, sizeof(buffer) - 1, &bytesRead, nullptr);
-            if (readOk && bytesRead > 0) {
-                buffer[bytesRead] = '\0';
-                std::string cmd(buffer);
-                // Strip trailing newline / carriage return
-                while (!cmd.empty() && (cmd.back() == '\r' || cmd.back() == '\n')) {
-                    cmd.pop_back();
+            // Consume the same bounded binary protocol used by the packaged GUI.
+            // Only non-mutating requests are exposed through this user-readable pipe.
+            while (running_) {
+                ipc::MsgHeader request{};
+                if (!pipe_io(pipe_handle_, stop_event_, &request, sizeof(request), false)) break;
+                if (request.length > kMaxIpcPayloadSize) {
+                    if (logger_) logger_->log(LogLevel::LOG_WARN, "[IPC] Rejected oversized GUI request");
+                    break;
                 }
 
-                std::string response = process_command(cmd) + "\n";
-                DWORD bytesWritten = 0;
-                WriteFile(pipe_handle_, response.c_str(), static_cast<DWORD>(response.size()), &bytesWritten, nullptr);
-                FlushFileBuffers(pipe_handle_);
-            }
+                if (request.length != 0) {
+                    std::vector<uint8_t> ignored_payload(request.length);
+                    if (!pipe_io(pipe_handle_, stop_event_, ignored_payload.data(), request.length, false)) break;
+                    // The GUI protocol currently has no request payloads.
+                    break;
+                }
 
+                if (request.type == ipc::MsgType::PING) {
+                    if (!send_ipc_reply(pipe_handle_, stop_event_, ipc::MsgType::PONG)) break;
+                } else if (request.type == ipc::MsgType::GET_STATS) {
+                    ipc::StatsPayload snapshot{};
+                    snapshot.total_packets = stats_.total.load();
+                    snapshot.blocked_packets = stats_.blocked.load();
+                    snapshot.bytes_transferred = stats_.bytes_total.load();
+                    snapshot.active_connections = 0;
+                    if (!send_ipc_reply(pipe_handle_, stop_event_, ipc::MsgType::STATS_REPLY,
+                                        &snapshot, sizeof(snapshot))) break;
+                } else {
+                    if (logger_) logger_->log(LogLevel::LOG_WARN, "[IPC] Rejected unsupported GUI request type");
+                    break;
+                }
+            }
+            CancelIoEx(pipe_handle_, nullptr);
             DisconnectNamedPipe(pipe_handle_);
             CloseHandle(pipe_handle_);
             pipe_handle_ = INVALID_HANDLE_VALUE;

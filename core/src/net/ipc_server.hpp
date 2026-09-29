@@ -3,6 +3,7 @@
 #include "platform.hpp"
 #include "rule_engine.hpp"
 #include "types.hpp"
+#include "shared/messages.h"
 #include <string>
 #include <thread>
 #include <atomic>
@@ -18,10 +19,8 @@ struct LiveStats;
 //  ipc_server.hpp  –  Hardened Windows Named Pipe IPC Server
 //
 //  Security Features:
-//    1. Custom DACL on \\.\pipe\aegix_ipc (SYSTEM + Admins only)
-//    2. Dynamic Client Process Identity Check on connection:
-//       Queries client PID via GetNamedPipeClientProcessId and
-//       verifies client executable name/path before processing.
+//    1. Custom DACL on the GUI pipe (SYSTEM, Admins, and authenticated users)
+//    2. GUI client process identity check and a bounded binary message protocol.
 //    3. Reduced Token Worker Thread: drops elevated privileges.
 //    4. Robust numeric & rule parsing with atomic rejection.
 //    5. Error output sanitization (zero address/trace leakage).
@@ -30,8 +29,8 @@ struct LiveStats;
 class IpcServer {
 public:
     IpcServer(RuleEngine& engine, LiveStats& stats, Logger* logger,
-              const std::string& pipe_name = "\\\\.\\pipe\\aegix_ipc",
-              const std::wstring& authorized_client_name = L"aegix-ui.exe");
+              const std::string& pipe_name = fw::ipc::PIPE_NAME,
+              const std::wstring& authorized_client_name = L"AegisXII.exe");
     ~IpcServer();
 
     // Start background listening thread

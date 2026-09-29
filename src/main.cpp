@@ -1,4 +1,5 @@
 #include "platform.hpp"       // MUST be first — pulls in winsock2.h on Windows
+#include "shared/messages.h"
 #include "nfq_capture.hpp"
 #include "rule_engine.hpp"
 #include "logger.hpp"
@@ -139,9 +140,9 @@ int run_firewall(int argc, char* argv[]) {
 #endif
 
     // ── Phase 1.4: Hardened Named Pipe IPC Server ─────────────────
-    fw::IpcServer ipc_server(engine, stats, &logger, "\\\\.\\pipe\\aegix_ipc", L"aegix-ui.exe");
+    fw::IpcServer ipc_server(engine, stats, &logger, fw::ipc::PIPE_NAME, L"AegisXII.exe");
     ipc_server.start();
-    logger.log(fw::LogLevel::LOG_INFO, "[IPC] Hardened Named Pipe IPC server active on \\\\.\\pipe\\aegix_ipc");
+    logger.log(fw::LogLevel::LOG_INFO, "[IPC] Hardened Named Pipe IPC server active on \\\\.\\pipe\\AegisXII_IPC");
 
     fw::ChainLedger ledger("logs/ledger.chain", "logs/ledger.json");
     if (!ledger.open()) {

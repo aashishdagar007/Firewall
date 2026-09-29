@@ -189,7 +189,7 @@ inline bool verify_file_security(const std::string& path) {
 }
 
 // Verify connected named pipe client process identity
-inline bool verify_pipe_client_identity(HANDLE hPipe, const std::wstring& expected_process_substring = L"aegix-ui.exe") {
+inline bool verify_pipe_client_identity(HANDLE hPipe, const std::wstring& expected_process_name = L"AegisXII.exe") {
     ULONG clientPid = 0;
     if (!GetNamedPipeClientProcessId(hPipe, &clientPid)) {
         return false;
@@ -207,16 +207,17 @@ inline bool verify_pipe_client_identity(HANDLE hPipe, const std::wstring& expect
         return false;
     }
 
-    if (expected_process_substring.empty()) return true;
+    if (expected_process_name.empty()) return true;
 
     auto to_lower = [](std::wstring s) {
         for (auto& c : s) c = towlower(c);
         return s;
     };
-    std::wstring lowerPath = to_lower(std::wstring(exePath));
-    std::wstring lowerExpected = to_lower(expected_process_substring);
-
-    return (lowerPath.find(lowerExpected) != std::wstring::npos);
+    const std::wstring image_path(exePath);
+    const size_t separator = image_path.find_last_of(L"\\/");
+    const std::wstring image_name = image_path.substr(
+        separator == std::wstring::npos ? 0 : separator + 1);
+    return to_lower(image_name) == to_lower(expected_process_name);
 }
 
 // errno equivalent
