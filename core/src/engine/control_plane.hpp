@@ -93,30 +93,46 @@ public:
     ~ControlPlaneClient() { stop(); }
 
     // Set a callback fired after every successful sync
-    void set_callback(OnSyncCallback cb) { callback_ = std::move(cb); }
+    void set_callback(OnSyncCallback cb) {
+        std::lock_guard<std::mutex> lk(callback_mtx_);
+        callback_ = std::move(cb);
+    }
 
     // Start background polling thread
     void start() {
-        if (running_) return;
-        running_ = true;
-        // Sync immediately on first start
-        sync_once();
-        thread_ = std::thread([this]{
-            while (running_) {
-                for (int i = 0; i < poll_sec_ * 10 && running_; ++i)
+        std::lock_guard<std::mutex> lifecycle_lk(lifecycle_mtx_);
+        if (running_.exchange(true)) return;
+        const auto generation = run_generation_.fetch_add(1) + 1;
+        thread_ = std::thread([this, generation]{
+            sync_once();
+            while (running_ && run_generation_.load() == generation) {
+                for (int i = 0; i < poll_sec_ * 10 && running_ &&
+                                run_generation_.load() == generation; ++i)
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                if (running_) sync_once();
+                if (running_ && run_generation_.load() == generation) sync_once();
             }
         });
     }
 
     void stop() {
-        running_ = false;
-        if (thread_.joinable()) thread_.join();
+        std::thread worker;
+        {
+            std::lock_guard<std::mutex> lifecycle_lk(lifecycle_mtx_);
+            running_ = false;
+            run_generation_.fetch_add(1);
+            if (thread_.joinable()) worker = std::move(thread_);
+        }
+        if (!worker.joinable()) return;
+        if (worker.get_id() == std::this_thread::get_id()) {
+            worker.detach();
+        } else {
+            worker.join();
+        }
     }
 
     // Force an immediate sync (blocking)
     bool sync_once() {
+        std::unique_lock<std::mutex> sync_lk(sync_mtx_);
         std::string json;
 
         // 1. Try remote URL first
@@ -144,11 +160,20 @@ public:
             remote_url_.empty() ? local_config_ : remote_url_,
             cfg.rules.size());
 
-        if (callback_) callback_(cfg);
+        sync_lk.unlock();
+        OnSyncCallback callback;
+        {
+            std::lock_guard<std::mutex> callback_lk(callback_mtx_);
+            callback = callback_;
+        }
+        if (callback) callback(cfg);
         return true;
     }
 
-    const std::string& last_config_hash() const { return last_hash_; }
+    std::string last_config_hash() const {
+        std::lock_guard<std::mutex> lk(sync_mtx_);
+        return last_hash_;
+    }
 
 private:
     RuleEngine&    engine_;
@@ -157,9 +182,13 @@ private:
     std::string    local_config_;
     int            poll_sec_;
     std::atomic<bool> running_;
+    std::atomic<std::uint64_t> run_generation_{0};
+    std::mutex     lifecycle_mtx_;
     std::thread    thread_;
     OnSyncCallback callback_;
     std::string    last_hash_;
+    mutable std::mutex sync_mtx_;
+    std::mutex callback_mtx_;
     std::mutex     apply_mtx_;
 
     // ── Remote fetch via httplib ──────────────────────────────
