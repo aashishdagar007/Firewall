@@ -4,6 +4,7 @@
 #include "platform.hpp" // cross-platform inet helpers
 #include "diode_threat_engine.hpp"
 #include "diode_streamer.hpp"
+#include "persistence/chain_ledger.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
@@ -72,8 +73,10 @@ ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
                      RingBuffer<PacketRecord> &ring, ProcessMonitor &proc_mon,
                      const std::string &dashboard_root, int port,
                      DiodeThreatEngine* diode_engine,
-                     DiodeStreamer* diode_streamer)
+                     DiodeStreamer* diode_streamer,
+                     ChainLedger* ledger)
     : engine_(engine), stats_(stats), ring_(ring), proc_mon_(proc_mon),
+      ledger_(ledger),
       dashboard_root_(dashboard_root), port_(port),
       bind_address_(std::getenv("AEGIS_API_BIND") ? std::getenv("AEGIS_API_BIND") : "127.0.0.1"),
       diode_engine_(diode_engine), diode_streamer_(diode_streamer) {
@@ -176,15 +179,19 @@ void ApiServer::setup_routes() {
   });
 
   // Readiness is intentionally unauthenticated for local service monitoring.
-  // The API binds to loopback; report ready only while NFQUEUE is servicing.
+  // The API binds to loopback; require active enforcement and a healthy ledger.
   server_->Get("/healthz", [this](const httplib::Request &,
                                   httplib::Response &res) {
-    const bool ready = stats_.enforcement_ready.load();
+    const bool ledger_ready = !ledger_ || ledger_->healthy();
+    const bool ready = stats_.enforcement_ready.load() && ledger_ready;
     res.status = ready ? 200 : 503;
-    res.set_content(ready
-        ? "{\"status\":\"ready\",\"enforcement_mode\":true}"
-        : "{\"status\":\"not_ready\",\"enforcement_mode\":false}",
-        "application/json");
+    std::ostringstream body;
+    body << "{\"status\":\"" << (ready ? "ready" : "not_ready")
+         << "\",\"enforcement_mode\":"
+         << (stats_.enforcement_ready.load() ? "true" : "false")
+         << ",\"ledger_ready\":" << (ledger_ready ? "true" : "false")
+         << "}";
+    res.set_content(body.str(), "application/json");
   });
 
   // ── GET /api/stats ─────────────────────────────────────────
@@ -485,6 +492,8 @@ std::string ApiServer::handle_stats() const {
     << "\"ipv6\":" << stats_.ipv6.load() << ","
     << "\"enforcement_mode\":"
     << (stats_.enforcement_ready.load() ? "true" : "false") << ","
+    << "\"ledger_ready\":" << ((!ledger_ || ledger_->healthy()) ? "true" : "false") << ","
+    << "\"ledger_dropped_events\":" << (ledger_ ? ledger_->dropped_events() : 0) << ","
     << "\"bytes_total\":" << stats_.bytes_total.load() << "}";
   return o.str();
 }

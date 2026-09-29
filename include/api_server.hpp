@@ -51,6 +51,8 @@ namespace httplib { class Server; }
 
 namespace fw {
 
+class ChainLedger;
+
 class ApiServer {
 public:
     ApiServer(RuleEngine&              engine,
@@ -60,7 +62,8 @@ public:
               const std::string&       dashboard_root,
               int                      port = 8080,
               class DiodeThreatEngine* diode_engine = nullptr,
-              class DiodeStreamer*     diode_streamer = nullptr);
+              class DiodeStreamer*     diode_streamer = nullptr,
+              ChainLedger*             ledger = nullptr);
     ~ApiServer();
 
     // Start listening (non-blocking — runs in a background thread)
@@ -79,6 +82,7 @@ private:
     LiveStats&               stats_;
     RingBuffer<PacketRecord>& ring_;
     ProcessMonitor&          proc_mon_;
+    ChainLedger*             ledger_;
     std::string              dashboard_root_;
     int                      port_;
     std::string              bind_address_;

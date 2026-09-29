@@ -166,7 +166,19 @@ int main(int argc, char* argv[]) {
     logger.log(fw::LogLevel::LOG_INFO, "[IPC] Hardened Named Pipe IPC server active on \\\\.\\pipe\\aegix_ipc");
 
     fw::ChainLedger ledger("logs/ledger.chain", "logs/ledger.json");
-    if (ledger.open()) ledger.log_firewall_start();
+    if (!ledger.open()) {
+        logger.log(fw::LogLevel::LOG_ERROR,
+                   "Audit ledger unavailable; refusing to start firewall" +
+                   (ledger.failure_reason().empty()
+                        ? std::string{}
+                        : ": " + ledger.failure_reason()));
+        logger.flush();
+        ipc_server.stop();
+        g_service_running = false;
+        wsa_cleanup();
+        return 1;
+    }
+    ledger.log_firewall_start();
 
     fw::BVUDPReceiver bvudp_rx(9000);
     bvudp_rx.start(
@@ -202,7 +214,8 @@ int main(int argc, char* argv[]) {
     logger.log(fw::LogLevel::LOG_INFO, "[NTRO SIH26145] Diode Threat Engine initialized (Passive Enclave Mode)");
 
     // ── 5. Start API server ──────────────────────────────────
-    fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port, &diode_engine, &diode_streamer);
+    fw::ApiServer api(engine, stats, ring, proc_mon, dashboard_root, api_port,
+                      &diode_engine, &diode_streamer, &ledger);
     api.start();
 
     fw::DnsFirewall dns_fw;
