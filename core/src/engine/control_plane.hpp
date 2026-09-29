@@ -43,7 +43,11 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <fstream>
 #include <functional>
+#include <iterator>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -71,6 +75,7 @@ struct CloudConfig {
 // ─────────────────────────────────────────────────────────────
 class ControlPlaneClient {
 public:
+    static constexpr std::size_t kMaxConfigBytes = 1024 * 1024;
     using OnSyncCallback = std::function<void(const CloudConfig&)>;
 
     explicit ControlPlaneClient(RuleEngine&     engine,
@@ -159,39 +164,40 @@ private:
 
     // ── Remote fetch via httplib ──────────────────────────────
     std::string fetch_remote() {
+        // Firewall policy is security-sensitive: never downgrade remote sync
+        // to plaintext HTTP, including builds without TLS support.
+        if (remote_url_.rfind("https://", 0) != 0) return "";
+#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
+        return "";
+#else
         int backoff_ms = 1000;
         for (int attempt = 0; attempt < 3; ++attempt) {
             try {
-                // Parse URL: http://host[:port]/path
+                // Parse URL: https://host[:port]/path
                 std::string url = remote_url_;
-                bool https = url.find("https://") == 0;
-                size_t start = https ? 8 : 7;
+                size_t start = 8;
                 size_t slash = url.find('/', start);
                 std::string host = (slash == std::string::npos)
                                    ? url.substr(start)
                                    : url.substr(start, slash - start);
                 std::string path = (slash == std::string::npos) ? "/" : url.substr(slash);
-                int port = https ? 443 : 80;
+                int port = 443;
                 auto colon = host.rfind(':');
                 if (colon != std::string::npos) {
                     port = std::stoi(host.substr(colon+1));
                     host = host.substr(0, colon);
                 }
+                if (host.empty() || port < 1 || port > 65535) return "";
 
-#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
-                if (https) {
-                    httplib::SSLClient cli(host, port);
-                    cli.set_connection_timeout(5);
-                    auto res = cli.Get(path.c_str());
-                    if (res && res->status == 200) return res->body;
-                } else
-#endif
-                {
-                    httplib::Client cli(host, port);
-                    cli.set_connection_timeout(5);
-                    auto res = cli.Get(path.c_str());
-                    if (res && res->status == 200) return res->body;
-                }
+                httplib::SSLClient cli(host, port);
+                cli.enable_server_certificate_verification(true);
+                cli.set_connection_timeout(5);
+                cli.set_read_timeout(5);
+                cli.set_write_timeout(5);
+                cli.set_follow_location(false);
+                cli.set_payload_max_length(kMaxConfigBytes);
+                auto res = cli.Get(path.c_str());
+                if (res && res->status == 200) return res->body;
             } catch (...) {}
             
             // Exponential backoff
@@ -201,14 +207,23 @@ private:
             }
         }
         return "";
+#endif
     }
 
     // ── Local file read ───────────────────────────────────────
     static std::string read_local_file(const std::string& path) {
-        std::ifstream f(path);
+        std::ifstream f(path, std::ios::binary | std::ios::ate);
         if (!f.is_open()) return "";
-        return std::string(std::istreambuf_iterator<char>(f),
-                           std::istreambuf_iterator<char>());
+        const auto end = f.tellg();
+        if (end <= std::streampos(0)) return "";
+        const auto size = static_cast<std::streamoff>(end);
+        if (static_cast<std::uint64_t>(size) > kMaxConfigBytes) return "";
+        std::string contents(static_cast<std::size_t>(size), '\0');
+        f.seekg(0, std::ios::beg);
+        f.read(contents.data(), static_cast<std::streamsize>(contents.size()));
+        if (!f || f.gcount() != static_cast<std::streamsize>(contents.size()))
+            return "";
+        return contents;
     }
 
     // ── Minimal JSON parser ───────────────────────────────────
