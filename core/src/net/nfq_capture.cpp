@@ -160,6 +160,15 @@ bool NfqCapture::open() {
     return fail_nfq_open();
   }
   fd_ = nfq_fd(h_);
+  // Bound the blocking receive so stop() is observed even when the queue is
+  // idle. Without this timeout the loop can sleep forever in recv().
+  const timeval receive_timeout{0, 100000};
+  if (fd_ < 0 ||
+      setsockopt(fd_, SOL_SOCKET, SO_RCVTIMEO, &receive_timeout,
+                 sizeof(receive_timeout)) < 0) {
+    std::cerr << "[NFQ] Failed to configure bounded queue receive timeout\n";
+    return fail_nfq_open();
+  }
   nfq_mode_ = true;
   std::cout << "[NFQ] NFQUEUE mode active on queue " << queue_num_ << "\n";
   return true;
@@ -290,6 +299,8 @@ void NfqCapture::run() {
       int rv = recv(fd_, buf, sizeof(buf), 0);
       if (rv < 0) {
         if (errno == EINTR)
+          continue;
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
           continue;
         if (!running_)
           break;
