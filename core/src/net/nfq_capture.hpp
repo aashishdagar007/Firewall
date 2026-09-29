@@ -53,6 +53,7 @@ struct LiveStats {
     std::atomic<uint64_t> icmp       {0};
     std::atomic<uint64_t> ipv6       {0}; // IPv6 packets seen (groundwork)
     std::atomic<uint64_t> bytes_total{0};
+    std::atomic<bool> enforcement_ready{false};
 };
 
 using PacketCallback = std::function<void(const PacketRecord&)>;

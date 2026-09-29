@@ -175,6 +175,18 @@ void ApiServer::setup_routes() {
     return httplib::Server::HandlerResponse::Unhandled;
   });
 
+  // Readiness is intentionally unauthenticated for local service monitoring.
+  // The API binds to loopback; report ready only while NFQUEUE is servicing.
+  server_->Get("/healthz", [this](const httplib::Request &,
+                                  httplib::Response &res) {
+    const bool ready = stats_.enforcement_ready.load();
+    res.status = ready ? 200 : 503;
+    res.set_content(ready
+        ? "{\"status\":\"ready\",\"enforcement_mode\":true}"
+        : "{\"status\":\"not_ready\",\"enforcement_mode\":false}",
+        "application/json");
+  });
+
   // ── GET /api/stats ─────────────────────────────────────────
   server_->Get("/api/stats",
                [this, cors](const httplib::Request &, httplib::Response &res) {
@@ -471,11 +483,8 @@ std::string ApiServer::handle_stats() const {
     << "\"udp\":" << stats_.udp.load() << ","
     << "\"icmp\":" << stats_.icmp.load() << ","
     << "\"ipv6\":" << stats_.ipv6.load() << ","
-#if defined(HAVE_WINDIVERT) || defined(HAVE_NFQUEUE)
-    << "\"enforcement_mode\":true,"
-#else
-    << "\"enforcement_mode\":false,"
-#endif
+    << "\"enforcement_mode\":"
+    << (stats_.enforcement_ready.load() ? "true" : "false") << ","
     << "\"bytes_total\":" << stats_.bytes_total.load() << "}";
   return o.str();
 }

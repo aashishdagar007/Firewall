@@ -19,6 +19,7 @@
 //  Embedded HTTP REST API server (cpp-httplib, header-only).
 //  Serves:
 //    GET  /api/stats           – live packet counters (JSON)
+//    GET  /healthz             – loopback readiness (HTTP 200 only while enforcing)
 //    GET  /api/packets         – last N packets from ring buffer
 //    GET  /api/rules           – current rule chain
 //    POST /api/rules           – add a new rule

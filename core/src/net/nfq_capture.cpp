@@ -284,6 +284,7 @@ void NfqCapture::run() {
   running_ = true;
 #ifdef HAVE_NFQUEUE
   if (nfq_mode_) {
+    stats_.enforcement_ready = true;
     static uint8_t buf[4096] __attribute__((aligned));
     while (running_) {
       int rv = recv(fd_, buf, sizeof(buf), 0);
@@ -297,15 +298,20 @@ void NfqCapture::run() {
       }
       nfq_handle_packet(h_, reinterpret_cast<char *>(buf), rv);
     }
+    stats_.enforcement_ready = false;
     std::cout << "[Capture] Stopped.\n";
     return;
   }
 #endif
+  stats_.enforcement_ready = false;
   run_raw_fallback();
   std::cout << "[Capture] Stopped.\n";
 }
 
-void NfqCapture::stop() { running_ = false; }
+void NfqCapture::stop() {
+  running_ = false;
+  stats_.enforcement_ready = false;
+}
 
 // ── NFQ static callback (Linux only) ─────────────────────────
 #ifdef HAVE_NFQUEUE
