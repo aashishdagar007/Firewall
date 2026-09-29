@@ -303,7 +303,11 @@ int main(int argc, char* argv[]) {
 
     // ── 6.5 Auto-launch dashboard in the browser ──────────────
     {
-        std::string url = "http://localhost:" + std::to_string(api_port);
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        std::string url = "https://127.0.0.1:" + std::to_string(api_port);
+#else
+        std::string url = "http://127.0.0.1:" + std::to_string(api_port);
+#endif
         logger.log(fw::LogLevel::LOG_INFO, "Dashboard API available at " + url);
 
         // (Auto-opening browser disabled, using standalone UI instead)

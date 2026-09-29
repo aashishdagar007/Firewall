@@ -92,6 +92,7 @@ private:
     mutable std::mutex               engine_mtx_; // guard rule mutations
 
     std::string                      api_token_;
+    bool                             token_file_ready_ = false;
     std::string                      generate_token();
 
     void setup_routes();

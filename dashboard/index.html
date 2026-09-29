@@ -1311,7 +1311,7 @@
   </div>
 
   <script>
-    const API = 'http://localhost:8080';
+    const API = window.location.origin;
     let lastSeq = 0, prevTotal = 0, prevAllow = 0, prevBlock = 0, prevBytes = 0;
     const MAX_FEED = 80;
     let allPackets = []; // full buffer for filtering

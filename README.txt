@@ -179,8 +179,11 @@ The management API listens only on `127.0.0.1` by default. Non-loopback bind
 addresses are rejected; remote administration is disabled until administrator
 bootstrap, token lifecycle, and role-based authorization are implemented.
 The served dashboard uses the same origin, so the API does not grant wildcard
-cross-origin access. The `/api/token` dashboard bootstrap endpoint is limited
-to loopback clients.
+cross-origin access. There is no unauthenticated token endpoint: enter the
+current token from `logs/api.token` when prompted. On Linux the token file is
+created with owner-only read/write permissions, and the API refuses to start
+if it cannot store the token securely. The token rotates when the daemon
+restarts, so reload the dashboard and enter the current token after recovery.
 
 ---
 

@@ -12,6 +12,12 @@
 #include <random>
 #include <sstream>
 #include <stdexcept>
+#ifndef _WIN32
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 // cpp-httplib — header-only, single include
 #include "httplib.h"
@@ -29,6 +35,36 @@ namespace {
 bool is_loopback_address(const std::string& address) {
   return address == "127.0.0.1" || address == "::1" ||
          address == "localhost" || address == "::ffff:127.0.0.1";
+}
+
+bool write_api_token(const std::string& token) {
+#ifdef _WIN32
+  std::ofstream out("logs/api.token", std::ios::trunc);
+  if (!out.is_open()) return false;
+  out << token << '\n';
+  out.flush();
+  return out.good();
+#else
+  const int fd = ::open("logs/api.token", O_WRONLY | O_CREAT | O_CLOEXEC,
+                        S_IRUSR | S_IWUSR);
+  if (fd < 0) return false;
+  bool ok = (::fchmod(fd, S_IRUSR | S_IWUSR) == 0) && (::ftruncate(fd, 0) == 0);
+  const std::string contents = token + "\n";
+  size_t offset = 0;
+  while (ok && offset < contents.size()) {
+    const ssize_t written = ::write(fd, contents.data() + offset,
+                                    contents.size() - offset);
+    if (written < 0 && errno == EINTR) continue;
+    if (written <= 0) {
+      ok = false;
+      break;
+    }
+    offset += static_cast<size_t>(written);
+  }
+  if (ok && ::fsync(fd) != 0) ok = false;
+  if (::close(fd) != 0) ok = false;
+  return ok;
+#endif
 }
 }
 
@@ -56,24 +92,23 @@ ApiServer::ApiServer(RuleEngine &engine, LiveStats &stats,
   // Ensure logs directory exists
   std::filesystem::create_directories("logs");
 
-  std::ofstream out("logs/api.token");
-  if (out.is_open()) {
-    out << api_token_ << "\n";
-    out.flush();
-    if (out.fail()) {
-      std::cerr << "[API] Warning: could not write token file properly (disk full?)\n";
-    }
+  token_file_ready_ = write_api_token(api_token_);
+  if (!token_file_ready_) {
+    std::cerr << "[API] Warning: could not securely write logs/api.token\n";
   }
 
   std::cout << "\n======================================================\n";
-  std::cout << "  API Token Generated: " << api_token_ << "\n";
-  std::cout << "  (Saved to logs/api.token)\n";
+  std::cout << "  API token generated and saved to logs/api.token\n";
   std::cout << "======================================================\n\n";
 }
 
 ApiServer::~ApiServer() { stop(); }
 
 void ApiServer::start() {
+  if (!token_file_ready_) {
+    std::cerr << "[API] Refusing to start without a securely stored API token\n";
+    return;
+  }
   if (!is_loopback_address(bind_address_)) {
     std::cerr << "[API] Refusing non-loopback bind; remote administration is disabled in v1\n";
     return;
@@ -125,8 +160,8 @@ void ApiServer::setup_routes() {
       return httplib::Server::HandlerResponse::Handled;
     }
 
-    // Protect all /api/ routes EXCEPT /api/token (used for auto-auth)
-    if (req.path.find("/api/") == 0 && req.path != "/api/token") {
+    // Every API route, including authentication helpers, requires a token.
+    if (req.path.find("/api/") == 0) {
       auto it = req.headers.find("Authorization");
       if (it == req.headers.end() || it->second != "Bearer " + api_token_) {
         cors(res);
@@ -231,19 +266,6 @@ void ApiServer::setup_routes() {
                                                 httplib::Response &res) {
     cors(res);
     res.set_content(handle_allow_app(req.body), "application/json");
-  });
-
-  // ── GET /api/token — self-service token for dashboard auto-auth ──────────
-  server_->Get("/api/token", [this, cors](const httplib::Request &req,
-                                          httplib::Response &res) {
-    cors(res);
-    if (!is_loopback_address(req.remote_addr)) {
-      res.status = 403;
-      res.set_content("{\"error\":\"Token bootstrap is local-only\"}",
-                      "application/json");
-      return;
-    }
-    res.set_content("{\"token\":\"" + api_token_ + "\"}", "application/json");
   });
 
   // ── GET /api/threats ─────────────────────────────────────
