@@ -9,6 +9,8 @@
 #include <iostream>
 #include <cassert>
 #include <string>
+#include <chrono>
+#include <thread>
 
 // Test macro
 #define TEST_ASSERT(cond, msg) \
@@ -94,6 +96,7 @@ int main() {
 
         // Reconfigure with high refill
         limiter.configure(10.0, 1000.0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         TEST_ASSERT(limiter.allow(1.0), "Rate limiter allows traffic after replenishment");
     }
 

@@ -201,6 +201,8 @@ TEST_F(RuleEngineTest, CloudGeoBlocksReplaceWithoutRemovingLocalBlocks) {
     ASSERT_EQ(engine.get_geo_blocks().size(), 2u);
     auto packet = PacketInfo{};
     packet.proto = Proto::UDP;
+    packet.src_port = 50000;
+    packet.dst_port = 12345;
     packet.src_ip = make_ip(1, 1, 1, 11);
     packet.dst_ip = make_ip(8, 8, 8, 8);
     packet.ttl = 64;
