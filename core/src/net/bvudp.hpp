@@ -57,6 +57,12 @@
 
 namespace fw {
 
+#ifdef _WIN32
+using bvudp_socklen_t = int;
+#else
+using bvudp_socklen_t = socklen_t;
+#endif
+
 // ── Magic Bytes ───────────────────────────────────────────────
 //  8-byte secret handshake embedded at the start of every BVUDP
 //  UDP payload.  Looks like random noise to standard firewalls.
@@ -214,7 +220,7 @@ public:
         set_recv_timeout(BVUDP_TIMEOUT_MS);
         uint8_t rbuf[256];
         for (int attempt = 0; attempt < retries; ++attempt) {
-            sockaddr_in from{}; int fromlen = sizeof(from);
+            sockaddr_in from{}; bvudp_socklen_t fromlen = sizeof(from);
             int rlen = recvfrom(sock_, reinterpret_cast<char*>(rbuf),
                                 sizeof(rbuf), 0,
                                 reinterpret_cast<sockaddr*>(&from),
@@ -397,7 +403,7 @@ private:
     void recv_loop() {
         static constexpr int BUFSIZE = 65535;
         std::vector<uint8_t> buf(BUFSIZE);
-        sockaddr_in from{}; int fromlen = sizeof(from);
+        sockaddr_in from{}; bvudp_socklen_t fromlen = sizeof(from);
         
         while (running_) {
             fd_set fds;
