@@ -69,7 +69,8 @@ static bool verify_managed_nft_guard() {
     std::string line;
     while (std::getline(lines, line)) {
       if (line.find("meta nfproto ipv4") != std::string::npos &&
-          line.find("queue num 0") != std::string::npos) {
+          (line.find("queue num 0") != std::string::npos ||
+           line.find("queue to 0") != std::string::npos)) {
         queues_ipv4 = true;
       }
       if (line.find("meta nfproto ipv6") != std::string::npos &&
