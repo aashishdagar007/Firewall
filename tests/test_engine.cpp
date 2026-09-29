@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "rule_engine.hpp"
 #include "packet.hpp"
+#include <algorithm>
 #include <iostream>
 #include <cassert>
 #include <cstring>
@@ -276,6 +277,66 @@ TEST_F(RuleEngineTest, ConcurrentRuleUpdatesAndEvaluation) {
     evaluator.join();
     mutator.join();
     EXPECT_EQ(evaluations.load(), 3000u);
+}
+
+TEST_F(RuleEngineTest, ReplacesManagedRuleSetWithoutDroppingLocalRules) {
+    RuleEngine engine(Action::BLOCK);
+
+    Rule local_rule;
+    local_rule.action = Action::ALLOW;
+    local_rule.proto = Proto::TCP;
+    local_rule.dst_port_start = 22;
+    local_rule.dst_port_end = 22;
+    local_rule.description = "Local SSH allowance";
+    engine.add_rule(local_rule);
+    const auto local_id = engine.rules().front().id;
+
+    Rule cloud_allow;
+    cloud_allow.action = Action::ALLOW;
+    cloud_allow.proto = Proto::TCP;
+    cloud_allow.dst_port_start = 443;
+    cloud_allow.dst_port_end = 443;
+    cloud_allow.description = "Cloud HTTPS allowance";
+    auto cloud_ids = engine.replace_rules({}, {cloud_allow});
+    ASSERT_EQ(cloud_ids.size(), 1u);
+
+    PacketInfo packet;
+    packet.proto = Proto::TCP;
+    packet.src_ip = make_ip(198, 51, 100, 20);
+    packet.dst_ip = make_ip(203, 0, 113, 20);
+    packet.src_port = 50000;
+    packet.dst_port = 443;
+    packet.tcp_flags = TCP_SYN;
+    packet.dir = Direction::OUTBOUND;
+    packet.ttl = 64;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::ALLOW);
+
+    Rule cloud_block;
+    cloud_block.action = Action::BLOCK;
+    cloud_block.proto = Proto::TCP;
+    cloud_block.dst_port_start = 8443;
+    cloud_block.dst_port_end = 8443;
+    cloud_block.description = "Cloud alternate HTTPS block";
+    cloud_ids = engine.replace_rules(cloud_ids, {cloud_block});
+    ASSERT_EQ(cloud_ids.size(), 1u);
+
+    const auto rules = engine.rules();
+    ASSERT_EQ(rules.size(), 2u);
+    EXPECT_NE(std::find_if(rules.begin(), rules.end(), [local_id](const Rule& rule) {
+        return rule.id == local_id;
+    }), rules.end());
+    EXPECT_EQ(std::find_if(rules.begin(), rules.end(), [](const Rule& rule) {
+        return rule.description == "Cloud HTTPS allowance";
+    }), rules.end());
+
+    packet.src_port = 50001; // New flow, so the removed rule cannot be cached.
+    packet.dst_port = 443;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::BLOCK);
+    packet.dst_port = 8443;
+    const auto blocked = engine.evaluate(packet);
+    EXPECT_EQ(blocked.verdict, Action::BLOCK);
+    ASSERT_NE(blocked.matched_rule, nullptr);
+    EXPECT_EQ(blocked.matched_rule_id, cloud_ids.front());
 }
 
 TEST_F(RuleEngineTest, IcmpSweepCountsDistinctDestinationsAndCallsBackUnlocked) {

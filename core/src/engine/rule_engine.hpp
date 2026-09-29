@@ -141,6 +141,11 @@ namespace fw {
         // Add a rule to the END of the chain
         void add_rule(Rule r);
 
+        // Atomically replace a managed subset of rules. Evaluation sees the
+        // complete old or complete new rule/index state, never an intermediate.
+        std::vector<uint32_t> replace_rules(const std::vector<uint32_t>& remove_ids,
+                                            std::vector<Rule> replacement);
+
         // Remove a rule by its id
         bool remove_rule(uint32_t id);
 
@@ -210,7 +215,7 @@ namespace fw {
     private:
         std::vector<std::shared_ptr<Rule>> rules_;
         std::atomic<Action> default_policy_;
-        uint32_t          next_id_ = 1;
+        uint64_t          next_id_ = 1;
 
         // Connection Tracking Table
         std::unordered_map<ConnectionKey, ConnectionState, ConnectionKeyHash> state_table_;

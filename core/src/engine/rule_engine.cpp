@@ -4,6 +4,9 @@
 #include "diode_threat_engine.hpp"
 #include <iomanip>
 #include <iostream>
+#include <limits>
+#include <stdexcept>
+#include <unordered_set>
 
 // ──────────────────────────────────────────────────────────────
 //  rule_engine.cpp
@@ -47,6 +50,8 @@ std::vector<Rule> RuleEngine::rules() const {
 
 void RuleEngine::add_rule(Rule r) {
   std::unique_lock<std::shared_mutex> lock(rules_mtx_);
+  if (next_id_ > std::numeric_limits<uint32_t>::max())
+    throw std::overflow_error("rule ID space exhausted");
   auto normalize_range = [](uint16_t& start, uint16_t& end) {
     if (start == 0) {
       end = 0;
@@ -58,9 +63,64 @@ void RuleEngine::add_rule(Rule r) {
   };
   normalize_range(r.src_port_start, r.src_port_end);
   normalize_range(r.dst_port_start, r.dst_port_end);
-  r.id = next_id_++;
+  r.id = static_cast<uint32_t>(next_id_++);
   rules_.push_back(std::make_shared<Rule>(std::move(r)));
   rebuild_port_index();
+}
+
+std::vector<uint32_t> RuleEngine::replace_rules(
+    const std::vector<uint32_t>& remove_ids, std::vector<Rule> replacement) {
+  std::unordered_set<uint32_t> ids_to_remove(remove_ids.begin(), remove_ids.end());
+  std::unique_lock<std::shared_mutex> lock(rules_mtx_);
+
+  const auto max_id = static_cast<uint64_t>(std::numeric_limits<uint32_t>::max());
+  if (next_id_ > max_id || replacement.size() > max_id - next_id_ + 1)
+    throw std::overflow_error("rule ID space exhausted");
+
+  std::vector<std::shared_ptr<Rule>> next_rules;
+  next_rules.reserve(rules_.size() + replacement.size());
+  for (const auto& rule : rules_) {
+    if (ids_to_remove.find(rule->id) == ids_to_remove.end())
+      next_rules.push_back(rule);
+  }
+
+  std::vector<uint32_t> assigned_ids;
+  assigned_ids.reserve(replacement.size());
+  uint64_t next_id = next_id_;
+  auto normalize_range = [](uint16_t& start, uint16_t& end) {
+    if (start == 0) {
+      end = 0;
+    } else if (end == 0) {
+      end = start;
+    } else if (start > end) {
+      std::swap(start, end);
+    }
+  };
+  for (auto& rule : replacement) {
+    normalize_range(rule.src_port_start, rule.src_port_end);
+    normalize_range(rule.dst_port_start, rule.dst_port_end);
+    rule.id = static_cast<uint32_t>(next_id++);
+    assigned_ids.push_back(rule.id);
+    next_rules.push_back(std::make_shared<Rule>(std::move(rule)));
+  }
+
+  std::unordered_multimap<uint16_t, size_t> next_port_index;
+  std::vector<size_t> next_wildcard_indices;
+  next_port_index.reserve(next_rules.size());
+  next_wildcard_indices.reserve(next_rules.size());
+  for (size_t i = 0; i < next_rules.size(); ++i) {
+    const auto& rule = next_rules[i];
+    if (rule->dst_port_start == 0 || rule->dst_port_start != rule->dst_port_end)
+      next_wildcard_indices.push_back(i);
+    else
+      next_port_index.emplace(rule->dst_port_start, i);
+  }
+
+  rules_.swap(next_rules);
+  port_index_.swap(next_port_index);
+  wildcard_rule_indices_.swap(next_wildcard_indices);
+  next_id_ = next_id;
+  return assigned_ids;
 }
 
 bool RuleEngine::remove_rule(uint32_t id) {

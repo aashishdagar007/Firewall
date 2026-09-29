@@ -358,7 +358,11 @@ public:
         // Skip if identical to last applied config
         if (cfg.config_hash == last_hash_) return true;
 
-        apply_config(cfg);
+        try {
+            apply_config(cfg);
+        } catch (const std::exception&) {
+            return false;
+        }
         last_hash_ = cfg.config_hash;
 
         ledger_.log_cloud_sync(
@@ -395,6 +399,7 @@ private:
     mutable std::mutex sync_mtx_;
     std::mutex callback_mtx_;
     std::mutex     apply_mtx_;
+    std::vector<std::uint32_t> cloud_rule_ids_;
 
     // ── Remote fetch via httplib ──────────────────────────────
     std::string fetch_remote() {
@@ -464,6 +469,10 @@ private:
     void apply_config(const CloudConfig& cfg) {
         std::lock_guard<std::mutex> lk(apply_mtx_);
 
+        // Swap cloud-managed rules as one engine transaction. Local and API
+        // rules are preserved; packet evaluation sees the old or new set.
+        cloud_rule_ids_ = engine_.replace_rules(cloud_rule_ids_, cfg.rules);
+
         if (cfg.rate_limit_pps > 0)
             engine_.set_rate_limit(cfg.rate_limit_pps);
 
@@ -471,11 +480,6 @@ private:
             engine_.set_default_policy(Action::ALLOW);
         else if (cfg.default_policy == "BLOCK")
             engine_.set_default_policy(Action::BLOCK);
-
-        for (auto& r : cfg.rules) {
-            Rule copy = r;
-            engine_.add_rule(std::move(copy));
-        }
 
         for (auto& g : cfg.geo_blocks) {
             auto slash = g.cidr.find('/');
