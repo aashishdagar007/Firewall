@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iomanip>
 #include <regex>
+#include <atomic>
 
 // ──────────────────────────────────────────────────────────────
 //  config_parser.cpp
@@ -19,6 +20,18 @@
 // ──────────────────────────────────────────────────────────────
 
 namespace fw {
+
+namespace {
+std::atomic<bool> fail_open_on_crash{false};
+}
+
+bool ConfigParser::get_fail_open_on_crash() {
+  return fail_open_on_crash.load();
+}
+
+void ConfigParser::set_fail_open_on_crash(bool enable) {
+  fail_open_on_crash.store(enable);
+}
 
 // Returns the number of set bits in a subnet mask (host byte order).
 static int count_mask_bits(uint32_t m) {

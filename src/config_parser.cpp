@@ -19,16 +19,6 @@
 
 namespace fw {
 
-static bool s_fail_open_on_crash = false; // Default: fail-secure (BLOCK all on crash)
-
-bool ConfigParser::get_fail_open_on_crash() {
-    return s_fail_open_on_crash;
-}
-
-void ConfigParser::set_fail_open_on_crash(bool enable) {
-    s_fail_open_on_crash = enable;
-}
-
 std::vector<Rule> ConfigParser::load(const std::string& path) {
     std::vector<Rule> rules;
     std::ifstream file(path);
