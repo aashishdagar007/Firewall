@@ -241,11 +241,6 @@ int main(int argc, char* argv[]) {
         });
     }
 
-    // ── Start IPC Server (Replaces API Server) ──
-    fw::ipc::IpcServer ipc(engine, stats);
-    ipc.start();
-    logger.log(fw::LogLevel::LOG_INFO, "IPC Server listening on Named Pipe");
-
     engine.set_scan_callback([&](fw::ScanEvent /* ev */) {
         // (Optional) Push event to IPC clients if needed
     });
