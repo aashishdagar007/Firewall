@@ -6,6 +6,17 @@
 #include "api_server.hpp"
 #include "ring_buffer.hpp"
 #include "process_monitor.hpp"
+#include "window.hpp"
+#include "engine/correlation_engine.hpp"
+#include "engine/dns_firewall.hpp"
+#include "engine/failsafe_manager.hpp"
+#include "engine/hardware_monitor.hpp"
+#include "engine/ip_dodger.hpp"
+#include "engine/mac_watchdog.hpp"
+#include "engine/vpn_manager.hpp"
+#include "engine/app_trust.hpp"
+#include "persistence/local_graph_store.hpp"
+#include "kernel/driver_comm.hpp"
 // ── Phase 2: Four Pillars ─────────────────────────────────────
 #include "sha256.hpp"          // Pillar 2+4: cryptographic primitive
 #include "bvudp.hpp"           // Pillar 2:   Batch-Verified UDP protocol
@@ -27,13 +38,13 @@
 #include <cstdlib>
 #include <iostream>
 
+static fw::Logger* g_logger = nullptr;
+static bool g_fail_open_on_crash = false;
+
 #ifdef _WIN32
 #include <windows.h>
 #include <winsvc.h>
 #include <shellapi.h>
-
-static fw::Logger* g_logger = nullptr;
-static bool g_fail_open_on_crash = false;
 
 static LONG WINAPI aegix_crash_handler(EXCEPTION_POINTERS* ep) {
     (void)ep;
@@ -59,49 +70,15 @@ static void signal_handler(int) {
 // ──────────────────────────────────────────────────────────────
 // Core Firewall Service Logic
 // ──────────────────────────────────────────────────────────────
+int run_firewall(int argc, char* argv[]);
+
 void run_core_service() {
-    if (!wsa_init()) return;
-    g_service_running = true;
-
-    // Hardcoded paths since service runs from system32 typically; in prod use absolute paths
-    const std::string config_path = "config/rules.conf";
-    const std::string log_path    = "logs/firewall.log";
-
-    // Fallback: Edge in app mode
-    std::wstring edge_args = L"--app=\"" + wurl + L"\" --new-window";
-    rc = ShellExecuteW(nullptr, L"open", L"msedge", edge_args.c_str(), nullptr, SW_SHOWNORMAL);
-    if (reinterpret_cast<INT_PTR>(rc) > 32) return;
-
-    // Final fallback: system default browser
-    ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-#else
-    std::string cmd = "xdg-open '" + url + "' 2>/dev/null &";
-    std::system(cmd.c_str());
-#endif
+    char executable[] = "AegisXII";
+    char* service_argv[] = {executable};
+    (void)run_firewall(1, service_argv);
 }
 
-#ifdef _WIN32
-// WinMain entry point for /SUBSYSTEM:WINDOWS (no console)
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-    int    argc = 0;
-    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    // Convert wide args to narrow for uniform handling below
-    std::vector<std::string> args_storage;
-    if (wargv) {
-        for (int i = 0; i < argc; ++i) {
-            int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
-            std::string s(len, '\0');
-            WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
-            args_storage.push_back(s);
-        }
-        LocalFree(wargv);
-    }
-    std::vector<const char*> argv_ptrs;
-    for (auto& s : args_storage) argv_ptrs.push_back(s.c_str());
-    char** argv = const_cast<char**>(argv_ptrs.data());
-#else
-int main(int argc, char* argv[]) {
-#endif
+int run_firewall(int argc, char* argv[]) {
 
     // ── 0. Platform init (Winsock on Windows, no-op on Linux) ──
     if (!wsa_init()) {
@@ -205,6 +182,8 @@ int main(int argc, char* argv[]) {
 
     fw::ProcessMonitor proc_mon(&graph_store);
     proc_mon.start();
+    fw::CorrelationEngine correlation(engine, proc_mon);
+    correlation.start();
 
     // ── 4.5 NTRO SIH26145: Unidirectional Diode Threat Engine ────
     fw::DiodeThreatEngine diode_engine(&ledger);
@@ -345,6 +324,7 @@ int main(int argc, char* argv[]) {
     ledger.log_firewall_stop();
     ledger.close();
     wsa_cleanup();
+    return 0;
 }
 
 

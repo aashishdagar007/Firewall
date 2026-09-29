@@ -8,6 +8,7 @@
 #include <functional>
 #include <atomic>
 #include <string>
+#include <utility>
 
 // ──────────────────────────────────────────────────────────────
 //  nfq_capture.hpp  –  cross-platform packet capture front-end
@@ -73,6 +74,9 @@ public:
     /// Linux requires NFQUEUE enforcement. Other supported capture backends
     /// may be observer-only. Returns false if the required backend cannot start.
     bool open();
+
+    // Install the observer callback before open()/run().
+    void set_callback(PacketCallback callback) { callback_ = std::move(callback); }
 
     /// Blocking capture loop.  Call stop() from another thread to exit.
     void run();
