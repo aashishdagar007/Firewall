@@ -225,7 +225,11 @@ void ConfigParser::parse_ip_cidr(const std::string& s, uint32_t &ip, uint32_t &m
         throw std::invalid_argument("bad IP: " + s);
 
     if (slash != std::string::npos) {
-        int bits = std::stoi(s.substr(slash + 1));
+        const auto prefix = s.substr(slash + 1);
+        std::size_t consumed = 0;
+        const int bits = std::stoi(prefix, &consumed);
+        if (consumed != prefix.size())
+            throw std::invalid_argument("CIDR prefix contains non-numeric characters");
         if (bits < 0 || bits > 32) throw std::out_of_range("invalid CIDR");
         mask = (bits == 0) ? 0 : ~((1ULL << (32 - bits)) - 1);
     } else {

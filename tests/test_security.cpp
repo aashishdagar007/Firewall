@@ -64,6 +64,9 @@ int main() {
         // Malformed CIDR prefix
         bool ok6 = fw::ConfigParser::parse_line("ALLOW TCP 10.0.0.0/35 * 80 \"Bad CIDR\"", r);
         TEST_ASSERT(!ok6, "ConfigParser atomically rejected invalid CIDR prefix (/35)");
+
+        bool ok7 = fw::ConfigParser::parse_line("ALLOW TCP 10.0.0.0/24abc * 80 \"Bad CIDR suffix\"", r);
+        TEST_ASSERT(!ok7, "ConfigParser rejected trailing characters in CIDR prefix");
     }
 
     // ── Test 3: Fail-Secure Default & Configurable Toggle ───────────────

@@ -135,6 +135,11 @@ else()
     target_link_libraries(AegisXII PRIVATE OpenGL::GL)
 endif()
 
+option(ENABLE_FUZZING "Build Clang libFuzzer parser targets" OFF)
+if(ENABLE_FUZZING AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "ENABLE_FUZZING requires a Clang C++ compiler with libFuzzer support")
+endif()
+
 find_package(OpenSSL)
 if(OpenSSL_FOUND)
     target_link_libraries(AegisXII PRIVATE OpenSSL::SSL OpenSSL::Crypto)
@@ -304,6 +309,25 @@ if(BUILD_TESTING)
     )
     target_link_libraries(test_security PRIVATE Threads::Threads)
     add_test(NAME security_hardening_test COMMAND test_security)
+
+    if(ENABLE_FUZZING)
+        foreach(fuzz_target IN ITEMS packet_parser config_parser)
+            add_executable(fuzz_${fuzz_target}
+                tests/fuzz_${fuzz_target}.cpp
+            )
+            if(fuzz_target STREQUAL "packet_parser")
+                target_sources(fuzz_${fuzz_target} PRIVATE core/src/net/packet.cpp)
+            else()
+                target_sources(fuzz_${fuzz_target} PRIVATE core/src/persistence/config_parser.cpp)
+            endif()
+            target_compile_options(fuzz_${fuzz_target} PRIVATE
+                -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer
+            )
+            target_link_options(fuzz_${fuzz_target} PRIVATE
+                -fsanitize=fuzzer,address,undefined
+            )
+        endforeach()
+    endif()
 
     if(WIN32)
         target_link_libraries(test_engine PRIVATE ws2_32)

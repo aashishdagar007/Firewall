@@ -14,6 +14,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  parser-fuzz:
+    name: Clang parser fuzz smoke tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install fuzz build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            clang cmake pkg-config libnetfilter-queue-dev libssl-dev \
+            libgl1-mesa-dev xorg-dev
+
+      - name: Configure fuzz targets
+        run: >-
+          cmake -S . -B build-fuzz -DBUILD_TESTING=ON -DENABLE_FUZZING=ON
+          -DGLFW_BUILD_WAYLAND=OFF -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Build parser fuzzers
+        run: cmake --build build-fuzz --target fuzz_packet_parser fuzz_config_parser --parallel 2
+
+      - name: Run bounded parser fuzz sessions
+        run: |
+          ./build-fuzz/fuzz_packet_parser -runs=10000 -max_len=4096
+          ./build-fuzz/fuzz_config_parser -runs=10000 -max_len=4096
+
   linux:
     name: Ubuntu 24.04 build and tests
     runs-on: ubuntu-24.04
