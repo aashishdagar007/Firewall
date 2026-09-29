@@ -15,6 +15,14 @@ endif()
 # ── Dependencies via FetchContent ──────────────────────────────────────────
 include(FetchContent)
 
+# JSON parsing for security-sensitive cloud policy documents. Pin the release
+# archive by its published SHA-256 rather than trusting a movable tag.
+FetchContent_Declare(nlohmann_json
+    URL      https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+    URL_HASH SHA256=42f6e95cad6ec532fd372391373363b62a14af6d771056dbfc86160e6dfff7aa
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # SQLite3
 FetchContent_Declare(sqlite3
     GIT_REPOSITORY https://github.com/azadkuh/sqlite-amalgamation.git
@@ -107,7 +115,7 @@ endif()
 
 # ── Linking ────────────────────────────────────────────────────────────────
 find_package(Threads REQUIRED)
-target_link_libraries(AegisXII PRIVATE Threads::Threads SQLite3 glfw)
+target_link_libraries(AegisXII PRIVATE Threads::Threads SQLite3 glfw nlohmann_json::nlohmann_json)
 
 if(WIN32)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -258,6 +266,13 @@ if(BUILD_TESTING)
     target_link_libraries(test_traffic_shaper PRIVATE Threads::Threads GTest::gtest_main)
     add_test(NAME traffic_shaper_test COMMAND test_traffic_shaper)
 
+    add_executable(test_control_plane_config
+        tests/test_control_plane_config.cpp
+        core/src/persistence/config_parser.cpp
+    )
+    target_link_libraries(test_control_plane_config PRIVATE GTest::gtest_main nlohmann_json::nlohmann_json)
+    add_test(NAME control_plane_config_test COMMAND test_control_plane_config)
+
     add_executable(test_threat_detection
         tests/test_threat_detection.cpp
         src/diode_threat_engine.cpp
@@ -290,6 +305,7 @@ if(BUILD_TESTING)
     if(WIN32)
         target_link_libraries(test_engine PRIVATE ws2_32)
         target_link_libraries(test_packet PRIVATE ws2_32)
+        target_link_libraries(test_control_plane_config PRIVATE ws2_32)
         target_link_libraries(test_threat_detection PRIVATE ws2_32)
         target_link_libraries(test_security PRIVATE ws2_32 advapi32 crypt32 winhttp iphlpapi psapi)
     endif()

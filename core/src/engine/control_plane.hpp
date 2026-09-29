@@ -40,17 +40,26 @@
 #include "engine/rule_engine.hpp"
 #include "util/sha256.hpp"
 #include "net/httplib.h"
+#include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <atomic>
+#include <charconv>
 #include <chrono>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
+#include <initializer_list>
 #include <fstream>
 #include <functional>
-#include <iterator>
+#include <limits>
 #include <mutex>
 #include <string>
+#include <system_error>
 #include <thread>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace fw {
@@ -70,12 +79,208 @@ struct CloudConfig {
     std::string  config_hash;           // SHA-256 of raw JSON text
 };
 
+inline constexpr std::size_t kMaxCloudConfigBytes = 1024 * 1024;
+
+class CloudConfigParser {
+public:
+    static bool parse(const std::string& text, CloudConfig& cfg) {
+        if (text.empty() || text.size() > kMaxCloudConfigBytes) return false;
+
+        try {
+            bool duplicate_key = false;
+            std::vector<std::unordered_set<std::string>> object_keys;
+            const auto parse_event = [&](int, Json::parse_event_t event, Json& value) {
+                if (event == Json::parse_event_t::object_start) {
+                    object_keys.emplace_back();
+                } else if (event == Json::parse_event_t::key && !object_keys.empty()) {
+                    if (!object_keys.back().insert(value.get<std::string>()).second)
+                        duplicate_key = true;
+                } else if (event == Json::parse_event_t::object_end && !object_keys.empty()) {
+                    object_keys.pop_back();
+                }
+                return true;
+            };
+            const Json root = Json::parse(text, parse_event, false);
+            if (duplicate_key) return false;
+            if (root.is_discarded() || !root.is_object() ||
+                !has_only_keys(root, {"_comment", "schema", "magic_bytes",
+                                      "rate_limit_pps", "default_policy",
+                                      "rules", "geo_blocks", "emergency_shutdown"}))
+                return false;
+
+            if (!root.contains("schema") || !root["schema"].is_number_integer() ||
+                root["schema"].get<int>() != 1)
+                return false;
+
+            CloudConfig parsed;
+            parsed.schema = 1;
+            parsed.config_hash = SHA256::to_hex(SHA256::hash(text));
+
+            if (!optional_string(root, "_comment", nullptr) ||
+                !optional_string(root, "magic_bytes", &parsed.magic_hex) ||
+                !optional_string(root, "default_policy", &parsed.default_policy))
+                return false;
+            if (root.contains("magic_bytes") &&
+                (parsed.magic_hex.size() != 16 ||
+                 !std::all_of(parsed.magic_hex.begin(), parsed.magic_hex.end(),
+                     [](unsigned char c) { return std::isxdigit(c) != 0; })))
+                return false;
+            if (!parsed.default_policy.empty() && parsed.default_policy != "ALLOW" &&
+                parsed.default_policy != "BLOCK")
+                return false;
+
+            if (root.contains("rate_limit_pps")) {
+                const Json& rate = root["rate_limit_pps"];
+                std::uint64_t value = 0;
+                if (rate.is_number_unsigned()) {
+                    value = rate.get<std::uint64_t>();
+                } else if (rate.is_number_integer()) {
+                    const auto signed_value = rate.get<std::int64_t>();
+                    if (signed_value < 0) return false;
+                    value = static_cast<std::uint64_t>(signed_value);
+                } else {
+                    return false;
+                }
+                if (value > std::numeric_limits<std::uint32_t>::max()) return false;
+                parsed.rate_limit_pps = static_cast<std::uint32_t>(value);
+            }
+
+            if (root.contains("emergency_shutdown")) {
+                if (!root["emergency_shutdown"].is_boolean()) return false;
+                parsed.emergency_shutdown = root["emergency_shutdown"].get<bool>();
+            }
+
+            if (root.contains("rules")) {
+                const Json& rules = root["rules"];
+                if (!rules.is_array()) return false;
+                for (const auto& value : rules) {
+                    Rule rule;
+                    if (!parse_rule(value, rule)) return false;
+                    parsed.rules.push_back(std::move(rule));
+                }
+            }
+
+            if (root.contains("geo_blocks")) {
+                const Json& blocks = root["geo_blocks"];
+                if (!blocks.is_array()) return false;
+                for (const auto& value : blocks) {
+                    if (!value.is_object() ||
+                        !has_only_keys(value, {"cidr", "label"}) ||
+                        !value.contains("cidr") || !value["cidr"].is_string())
+                        return false;
+                    CloudConfig::GeoEntry entry;
+                    entry.cidr = value["cidr"].get<std::string>();
+                    if (!valid_cidr(entry.cidr) ||
+                        !optional_string(value, "label", &entry.label))
+                        return false;
+                    parsed.geo_blocks.push_back(std::move(entry));
+                }
+            }
+
+            cfg = std::move(parsed);
+            return true;
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+
+private:
+    using Json = nlohmann::json;
+
+    static bool has_only_keys(const Json& object,
+                              std::initializer_list<const char*> allowed) {
+        for (auto it = object.begin(); it != object.end(); ++it) {
+            if (std::none_of(allowed.begin(), allowed.end(),
+                             [&](const char* key) { return it.key() == key; }))
+                return false;
+        }
+        return true;
+    }
+
+    static bool optional_string(const Json& object, const char* key,
+                                std::string* output) {
+        if (!object.contains(key)) return true;
+        if (!object[key].is_string()) return false;
+        if (output) *output = object[key].get<std::string>();
+        return true;
+    }
+
+    static bool valid_cidr(const std::string& value) {
+        if (value == "*" || value == "any") return true;
+        const auto slash = value.find('/');
+        if (slash != std::string::npos && value.find('/', slash + 1) != std::string::npos)
+            return false;
+        const std::string address = value.substr(0, slash);
+        if (address.empty()) return false;
+        if (ConfigParser::parse_ip(address) == 0 && address != "0.0.0.0") return false;
+        if (slash == std::string::npos) return true;
+
+        const std::string prefix_text = value.substr(slash + 1);
+        if (prefix_text.empty()) return false;
+        int prefix = -1;
+        const auto parsed = std::from_chars(prefix_text.data(),
+                                            prefix_text.data() + prefix_text.size(),
+                                            prefix);
+        return parsed.ec == std::errc{} &&
+               parsed.ptr == prefix_text.data() + prefix_text.size() &&
+               prefix >= 0 && prefix <= 32;
+    }
+
+    static bool parse_rule(const Json& value, Rule& rule) {
+        if (!value.is_object() ||
+            !has_only_keys(value, {"action", "proto", "src_ip", "dst_ip",
+                                   "dst_port", "description"}) ||
+            !value.contains("action") || !value["action"].is_string() ||
+            !value.contains("proto") || !value["proto"].is_string() ||
+            !value.contains("src_ip") || !value["src_ip"].is_string() ||
+            !value.contains("dst_ip") || !value["dst_ip"].is_string())
+            return false;
+
+        const auto action = value["action"].get<std::string>();
+        if (action == "ALLOW") rule.action = Action::ALLOW;
+        else if (action == "BLOCK") rule.action = Action::BLOCK;
+        else return false;
+
+        const auto proto = value["proto"].get<std::string>();
+        if (proto == "ANY") rule.proto = Proto::ANY;
+        else if (proto == "TCP") rule.proto = Proto::TCP;
+        else if (proto == "UDP") rule.proto = Proto::UDP;
+        else if (proto == "ICMP") rule.proto = Proto::ICMP;
+        else return false;
+
+        const auto source = value["src_ip"].get<std::string>();
+        const auto destination = value["dst_ip"].get<std::string>();
+        if (!valid_cidr(source) || !valid_cidr(destination)) return false;
+        ConfigParser::parse_ip_cidr(source, rule.src_ip, rule.src_ip_mask);
+        ConfigParser::parse_ip_cidr(destination, rule.dst_ip, rule.dst_ip_mask);
+
+        if (value.contains("dst_port")) {
+            const Json& port = value["dst_port"];
+            if (port.is_string() &&
+                (port.get<std::string>() == "*" || port.get<std::string>() == "any")) {
+                rule.dst_port_start = rule.dst_port_end = 0;
+            } else if (port.is_number_unsigned()) {
+                const auto number = port.get<std::uint64_t>();
+                if (number > 65535) return false;
+                rule.dst_port_start = rule.dst_port_end = static_cast<std::uint16_t>(number);
+            } else if (port.is_number_integer()) {
+                const auto number = port.get<std::int64_t>();
+                if (number < 0 || number > 65535) return false;
+                rule.dst_port_start = rule.dst_port_end = static_cast<std::uint16_t>(number);
+            } else {
+                return false;
+            }
+        }
+        return optional_string(value, "description", &rule.description);
+    }
+};
+
 // ─────────────────────────────────────────────────────────────
 //  ControlPlaneClient
 // ─────────────────────────────────────────────────────────────
 class ControlPlaneClient {
 public:
-    static constexpr std::size_t kMaxConfigBytes = 1024 * 1024;
+    static constexpr std::size_t kMaxConfigBytes = kMaxCloudConfigBytes;
     using OnSyncCallback = std::function<void(const CloudConfig&)>;
 
     explicit ControlPlaneClient(RuleEngine&     engine,
@@ -148,7 +353,7 @@ public:
         if (json.empty()) return false;
 
         CloudConfig cfg;
-        if (!parse_json(json, cfg)) return false;
+        if (!CloudConfigParser::parse(json, cfg)) return false;
 
         // Skip if identical to last applied config
         if (cfg.config_hash == last_hash_) return true;
@@ -253,143 +458,6 @@ private:
         if (!f || f.gcount() != static_cast<std::streamsize>(contents.size()))
             return "";
         return contents;
-    }
-
-    // ── Minimal JSON parser ───────────────────────────────────
-    // Hand-rolled to avoid external JSON dependencies.
-    static bool parse_json(const std::string& json, CloudConfig& cfg) {
-        if (json.empty()) return false;
-
-        // Compute fingerprint
-        cfg.config_hash = SHA256::to_hex(SHA256::hash(json));
-
-        auto get_str = [&](const std::string& key) -> std::string {
-            std::string search = "\"" + key + "\":\"";
-            auto pos = json.find(search);
-            if (pos == std::string::npos) return "";
-            pos += search.size();
-            auto end = json.find('"', pos);
-            return (end == std::string::npos) ? "" : json.substr(pos, end - pos);
-        };
-        auto get_int = [&](const std::string& key) -> int {
-            std::string search = "\"" + key + "\":";
-            auto pos = json.find(search);
-            if (pos == std::string::npos) return 0;
-            pos += search.size();
-            try { return std::stoi(json.substr(pos)); } catch (...) { return 0; }
-        };
-        auto get_bool = [&](const std::string& key) -> bool {
-            std::string search = "\"" + key + "\":";
-            auto pos = json.find(search);
-            if (pos == std::string::npos) return false;
-            pos += search.size();
-            while (pos < json.size() && std::isspace(json[pos])) ++pos;
-            return json.substr(pos, 4) == "true";
-        };
-
-        cfg.schema           = get_int("schema");
-        if (cfg.schema != 1) return false; // Strict schema validation
-
-        cfg.magic_hex        = get_str("magic_bytes");
-        cfg.rate_limit_pps   = static_cast<uint32_t>(get_int("rate_limit_pps"));
-        cfg.default_policy   = get_str("default_policy");
-        cfg.emergency_shutdown = get_bool("emergency_shutdown");
-
-        // Parse rules array
-        auto rules_start = json.find("\"rules\"");
-        if (rules_start != std::string::npos) {
-            auto arr_start = json.find('[', rules_start);
-            auto arr_end   = json.find(']', arr_start);
-            if (arr_start != std::string::npos && arr_end != std::string::npos) {
-                std::string arr = json.substr(arr_start+1, arr_end - arr_start - 1);
-                parse_rules_array(arr, cfg.rules);
-            }
-        }
-
-        // Parse geo_blocks array
-        auto geo_start = json.find("\"geo_blocks\"");
-        if (geo_start != std::string::npos) {
-            auto arr_start = json.find('[', geo_start);
-            auto arr_end   = json.find(']', arr_start);
-            if (arr_start != std::string::npos && arr_end != std::string::npos) {
-                std::string arr = json.substr(arr_start+1, arr_end - arr_start - 1);
-                parse_geo_array(arr, cfg.geo_blocks);
-            }
-        }
-
-        return true;
-    }
-
-    static void parse_rules_array(const std::string& arr,
-                                  std::vector<Rule>& out) {
-        // Find each {...} object in the array
-        size_t pos = 0;
-        while (pos < arr.size()) {
-            auto ob = arr.find('{', pos);
-            if (ob == std::string::npos) break;
-            auto oe = arr.find('}', ob);
-            if (oe == std::string::npos) break;
-            std::string obj = arr.substr(ob+1, oe - ob - 1);
-            pos = oe + 1;
-
-            auto gf = [&](const std::string& k) -> std::string {
-                std::string s = "\"" + k + "\":\"";
-                auto p = obj.find(s);
-                if (p == std::string::npos) return "";
-                p += s.size();
-                auto e = obj.find('"', p);
-                return (e == std::string::npos) ? "" : obj.substr(p, e-p);
-            };
-            auto gi = [&](const std::string& k) -> int {
-                std::string s = "\"" + k + "\":";
-                auto p = obj.find(s);
-                if (p == std::string::npos) return 0;
-                p += s.size();
-                if (p < obj.size() && obj[p] == '"') {
-                    p++;
-                    auto e = obj.find('"', p);
-                    if (e != std::string::npos && obj.substr(p, e-p) == "*") return 0;
-                }
-                try { return std::stoi(obj.substr(p)); } catch (...) { return 0; }
-            };
-
-            try {
-                Rule r;
-                r.action      = ConfigParser::parse_action(gf("action"));
-                r.proto       = ConfigParser::parse_proto(gf("proto"));
-                r.src_ip      = ConfigParser::parse_ip(gf("src_ip"));
-                r.dst_ip      = ConfigParser::parse_ip(gf("dst_ip"));
-                r.dst_port_start = static_cast<uint16_t>(gi("dst_port"));
-                r.dst_port_end   = r.dst_port_start;
-                r.description = gf("description");
-                out.push_back(std::move(r));
-            } catch (...) {}
-        }
-    }
-
-    static void parse_geo_array(const std::string& arr,
-                                std::vector<CloudConfig::GeoEntry>& out) {
-        size_t pos = 0;
-        while (pos < arr.size()) {
-            auto ob = arr.find('{', pos);
-            if (ob == std::string::npos) break;
-            auto oe = arr.find('}', ob);
-            if (oe == std::string::npos) break;
-            std::string obj = arr.substr(ob+1, oe - ob - 1);
-            pos = oe + 1;
-            auto gf = [&](const std::string& k) -> std::string {
-                std::string s = "\"" + k + "\":\"";
-                auto p = obj.find(s);
-                if (p == std::string::npos) return "";
-                p += s.size();
-                auto e = obj.find('"', p);
-                return (e == std::string::npos) ? "" : obj.substr(p, e-p);
-            };
-            CloudConfig::GeoEntry g;
-            g.cidr  = gf("cidr");
-            g.label = gf("label");
-            if (!g.cidr.empty()) out.push_back(std::move(g));
-        }
     }
 
     // ── Apply config to running RuleEngine ───────────────────
