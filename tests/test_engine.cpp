@@ -272,6 +272,24 @@ TEST_F(RuleEngineTest, BuiltInAnomalyRuleIsReportedDespiteZeroId) {
     EXPECT_FALSE(result.matched_rule_desc.empty());
 }
 
+TEST_F(RuleEngineTest, LoopbackTrafficIsNotMisclassifiedAsLandAttack) {
+    RuleEngine engine(Action::ALLOW);
+    PacketInfo packet{};
+    packet.proto = Proto::TCP;
+    packet.src_ip = make_ip(127, 0, 0, 1);
+    packet.dst_ip = packet.src_ip;
+    packet.src_port = 50000;
+    packet.dst_port = 443;
+    packet.tcp_flags = TCP_SYN;
+    packet.ttl = 64;
+
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::ALLOW);
+
+    packet.src_ip = make_ip(10, 0, 0, 5);
+    packet.dst_ip = packet.src_ip;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::BLOCK);
+}
+
 TEST_F(RuleEngineTest, ConcurrentRuleUpdatesAndEvaluation) {
     RuleEngine engine(Action::ALLOW);
     PacketInfo pkt;

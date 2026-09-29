@@ -150,8 +150,10 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     tstate.ban_expires = std::chrono::steady_clock::now() + std::chrono::hours(24);
   }
 
-  // Layer 3: Land attack (src IP == dst IP)
-  if (pkt.src_ip != 0 && pkt.src_ip == pkt.dst_ip) {
+  // Loopback sockets legitimately use the same source and destination IP.
+  // Keep the Land-attack check for equal non-loopback addresses only.
+  const bool is_loopback = (pkt.src_ip >> 24) == 127;
+  if (pkt.src_ip != 0 && pkt.src_ip == pkt.dst_ip && !is_loopback) {
     anomaly_land_.hit_count++;
     return {Action::BLOCK, &anomaly_land_};
   }
