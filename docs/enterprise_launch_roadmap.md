@@ -16,7 +16,7 @@ Source and documentation review found these launch risks:
 - The cloud control plane uses a hand-written JSON parser. It needs strict schema validation, authenticated configuration, atomic application, rollback, and replay protection.
 - Startup no longer launches the duplicate IPC server (which collided with the hardened Windows named pipe and was a no-op on Linux). The hardened Windows named pipe and REST API still run side by side; platform ownership, protocol consolidation, and Linux IPC access control remain open.
 - The README platform matrix and package/install flow still need a complete audit; advanced security and model claims need reproducible evidence before release or sales use.
-- The CMake test section registers only a subset of repository tests. Fuzzing, sanitizers, static analysis, dependency/license scanning, SBOM generation, and a green clean CI run remain outstanding.
+- The CMake test section now registers the ledger-recovery and traffic-shaper tests in addition to its prior targets, but still covers only a subset of repository tests. Fuzzing, sanitizers, static analysis, dependency/license scanning, SBOM generation, and a green clean CI run remain outstanding.
 - The systemd unit runs as root, lacks packaging automation and machine-readable readiness/alerting, and has not been validated through reboot, restart exhaustion, or host recovery tests.
 
 ## Product direction decision

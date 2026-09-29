@@ -251,6 +251,13 @@ if(BUILD_TESTING)
     target_link_libraries(test_ledger PRIVATE Threads::Threads GTest::gtest_main)
     add_test(NAME chain_ledger_recovery_test COMMAND test_ledger)
 
+    add_executable(test_traffic_shaper
+        tests/test_traffic_shaper.cpp
+        core/src/engine/traffic_shaper.cpp
+    )
+    target_link_libraries(test_traffic_shaper PRIVATE Threads::Threads GTest::gtest_main)
+    add_test(NAME traffic_shaper_test COMMAND test_traffic_shaper)
+
     add_executable(test_threat_detection
         tests/test_threat_detection.cpp
         src/diode_threat_engine.cpp
