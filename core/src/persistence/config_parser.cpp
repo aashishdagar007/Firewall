@@ -240,15 +240,22 @@ void ConfigParser::parse_port_range(const std::string& s, uint16_t &p_start, uin
         return;
     }
     auto dash = s.find('-');
+    const auto parse_port = [](const std::string& value) {
+        std::size_t consumed = 0;
+        const int port = std::stoi(value, &consumed);
+        if (consumed != value.size())
+            throw std::invalid_argument("port contains non-numeric characters");
+        return port;
+    };
     if (dash != std::string::npos) {
-        int start = std::stoi(s.substr(0, dash));
-        int end = std::stoi(s.substr(dash + 1));
+        int start = parse_port(s.substr(0, dash));
+        int end = parse_port(s.substr(dash + 1));
         if (start < 0 || start > 65535 || end < 0 || end > 65535 || start > end)
             throw std::out_of_range("bad port range");
         p_start = static_cast<uint16_t>(start);
         p_end = static_cast<uint16_t>(end);
     } else {
-        int p = std::stoi(s);
+        int p = parse_port(s);
         if (p < 0 || p > 65535) throw std::out_of_range("port out of range");
         p_start = p_end = static_cast<uint16_t>(p);
     }

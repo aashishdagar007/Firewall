@@ -272,14 +272,20 @@ Action DpiEngine::scan(const uint8_t *payload, uint16_t len,
 
   // ── Vulnerable Protocol Checks (SSLv3, TLS 1.0, TLS 1.1) ──
   // Check for TLS Handshake Record (Content Type 22)
-  if (len >= 11 && payload[0] == 0x16) {
+  if (payload[0] == 0x16 && len >= 5) {
+    // A TLS record that is too short or claims bytes beyond the capture is
+    // malformed; don't reinterpret its binary header as an unrelated payload
+    // signature.
+    if (len < 11)
+      return Action::ALLOW;
     const uint16_t record_len = (static_cast<uint16_t>(payload[3]) << 8) | payload[4];
     const uint8_t handshake_type = payload[5];
     
     // Check if it's a Client Hello (1) or Server Hello (2)
     const size_t captured_record_len = static_cast<size_t>(len) - 5;
-    if (record_len >= 6 && record_len <= captured_record_len &&
-        (handshake_type == 0x01 || handshake_type == 0x02)) {
+    if (record_len < 6 || record_len > captured_record_len)
+      return Action::ALLOW;
+    if (handshake_type == 0x01 || handshake_type == 0x02) {
       const uint32_t handshake_len = (static_cast<uint32_t>(payload[6]) << 16) |
                                      (static_cast<uint32_t>(payload[7]) << 8) |
                                       payload[8];

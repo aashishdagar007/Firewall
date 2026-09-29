@@ -153,6 +153,7 @@ public:
         std::uintmax_t json_size = 0;
         if (!existing_size(bin_path_, binary_size) ||
             !existing_size(json_path_, json_size)) {
+            failure_reason_ = "cannot inspect ledger storage files";
             return false;
         }
         bin_out_.open(bin_path_, std::ios::binary | std::ios::app);
@@ -160,6 +161,7 @@ public:
         if (!bin_out_.is_open() || !json_out_.is_open()) {
             if (bin_out_.is_open()) bin_out_.close();
             if (json_out_.is_open()) json_out_.close();
+            failure_reason_ = "cannot open ledger storage files";
             return false;
         }
 
@@ -168,6 +170,7 @@ public:
             if (json_size != 0) {
                 bin_out_.close();
                 json_out_.close();
+                failure_reason_ = "ledger JSON mirror exists without a binary chain";
                 return false;
             }
             LedgerBlock genesis;
@@ -194,6 +197,7 @@ public:
             if (!recovered.first) {
                 bin_out_.close();
                 json_out_.close();
+                failure_reason_ = recovered.second;
                 return false;
             }
             last_hash_ = recovered_hash;
