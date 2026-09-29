@@ -4,16 +4,26 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <atomic>
+#include <chrono>
+#include <cstdint>
 
 namespace {
+std::atomic<uint64_t> next_test_directory{0};
+
 struct LedgerFiles {
-    std::filesystem::path directory =
-        std::filesystem::temp_directory_path() / "aegisxii-ledger-recovery-test";
+    std::filesystem::path directory;
     std::filesystem::path binary = directory / "ledger.chain";
     std::filesystem::path json = directory / "ledger.json";
 
     LedgerFiles() {
-        std::filesystem::remove_all(directory);
+        const auto timestamp = std::chrono::steady_clock::now()
+                                   .time_since_epoch().count();
+        directory = std::filesystem::temp_directory_path() /
+            ("aegisxii-ledger-recovery-test-" + std::to_string(timestamp) +
+             "-" + std::to_string(next_test_directory.fetch_add(1)));
+        binary = directory / "ledger.chain";
+        json = directory / "ledger.json";
         std::filesystem::create_directories(directory);
     }
     ~LedgerFiles() { std::filesystem::remove_all(directory); }
