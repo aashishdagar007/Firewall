@@ -59,3 +59,11 @@ TEST(CloudConfigParserTest, RejectsWrongTypesAndUnsupportedSchema) {
         R"({"schema":1,"rules":[{"action":"BLOCK","proto":"SCTP","src_ip":"*","dst_ip":"*"}]})",
         config));
 }
+
+TEST(CloudConfigParserTest, RejectsGeoBlocksWithoutCidrPrefix) {
+    fw::CloudConfig config;
+    EXPECT_FALSE(fw::CloudConfigParser::parse(
+        R"({"schema":1,"geo_blocks":[{"cidr":"192.0.2.0"}]})", config));
+    EXPECT_FALSE(fw::CloudConfigParser::parse(
+        R"({"schema":1,"geo_blocks":[{"cidr":"*"}]})", config));
+}

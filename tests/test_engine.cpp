@@ -190,6 +190,39 @@ TEST_F(RuleEngineTest, RuleResultSurvivesRuleRemoval) {
     EXPECT_EQ(result.matched_rule->description, "Block HTTPS");
 }
 
+TEST_F(RuleEngineTest, CloudGeoBlocksReplaceWithoutRemovingLocalBlocks) {
+    RuleEngine engine(Action::ALLOW);
+    const auto local_ip = make_ip(198, 51, 100, 10);
+    const auto first_cloud_ip = make_ip(203, 0, 113, 10);
+    const auto next_cloud_ip = make_ip(192, 0, 2, 10);
+    engine.block_cidr(make_ip(198, 51, 100, 0), 0xffffff00u, "local range");
+
+    engine.replace_cloud_geo_blocks({{make_ip(203, 0, 113, 0), 0xffffff00u, "old cloud"}});
+    ASSERT_EQ(engine.get_geo_blocks().size(), 2u);
+    auto packet = PacketInfo{};
+    packet.proto = Proto::UDP;
+    packet.src_ip = first_cloud_ip;
+    packet.dst_ip = make_ip(8, 8, 8, 8);
+    packet.ttl = 64;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::BLOCK);
+
+    engine.replace_cloud_geo_blocks({{make_ip(192, 0, 2, 0), 0xffffff00u, "new cloud"}});
+    ASSERT_EQ(engine.get_geo_blocks().size(), 2u);
+    packet.src_ip = first_cloud_ip;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::ALLOW);
+    packet.src_ip = next_cloud_ip;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::BLOCK);
+    packet.src_ip = local_ip;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::BLOCK);
+
+    engine.replace_cloud_geo_blocks({});
+    ASSERT_EQ(engine.get_geo_blocks().size(), 1u);
+    packet.src_ip = next_cloud_ip;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::ALLOW);
+    packet.src_ip = local_ip;
+    EXPECT_EQ(engine.evaluate(packet).verdict, Action::BLOCK);
+}
+
 TEST_F(RuleEngineTest, CidrAndPortRangeRulesMatchTheirFullRanges) {
     RuleEngine engine(Action::ALLOW);
     Rule rule;

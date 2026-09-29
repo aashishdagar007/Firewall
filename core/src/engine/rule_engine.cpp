@@ -749,6 +749,10 @@ bool RuleEngine::is_geo_blocked(uint32_t ip) const {
     if ((ip & g.mask) == (g.network & g.mask))
       return true;
   }
+  for (const auto& g : cloud_geo_blocks_) {
+    if ((ip & g.mask) == (g.network & g.mask))
+      return true;
+  }
   return false;
 }
 
@@ -758,17 +762,28 @@ void RuleEngine::block_cidr(uint32_t network, uint32_t mask,
   geo_blocks_.push_back({network, mask, label});
 }
 
+void RuleEngine::replace_cloud_geo_blocks(std::vector<GeoEntry> blocks) {
+  std::lock_guard<std::mutex> lock(state_mtx_);
+  cloud_geo_blocks_.swap(blocks);
+}
+
 bool RuleEngine::unblock_cidr(size_t index) {
   std::lock_guard<std::mutex> lock(state_mtx_);
-  if (index >= geo_blocks_.size())
-    return false;
-  geo_blocks_.erase(geo_blocks_.begin() + static_cast<ptrdiff_t>(index));
+  if (index < geo_blocks_.size()) {
+    geo_blocks_.erase(geo_blocks_.begin() + static_cast<ptrdiff_t>(index));
+    return true;
+  }
+  index -= geo_blocks_.size();
+  if (index >= cloud_geo_blocks_.size()) return false;
+  cloud_geo_blocks_.erase(cloud_geo_blocks_.begin() + static_cast<ptrdiff_t>(index));
   return true;
 }
 
 std::vector<GeoEntry> RuleEngine::get_geo_blocks() const {
   std::lock_guard<std::mutex> lock(state_mtx_);
-  return geo_blocks_;
+  auto blocks = geo_blocks_;
+  blocks.insert(blocks.end(), cloud_geo_blocks_.begin(), cloud_geo_blocks_.end());
+  return blocks;
 }
 
 // ── Rate Limit ───────────────────────────────────────────────

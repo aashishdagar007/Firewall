@@ -179,6 +179,8 @@ namespace fw {
 
         // ── Geo-Blocking (CIDR) ───────────────────────────────────────────
         void block_cidr(uint32_t network, uint32_t mask, const std::string& label);
+        // Replace cloud-managed ranges as one snapshot, retaining local/API ranges.
+        void replace_cloud_geo_blocks(std::vector<GeoEntry> blocks);
         bool unblock_cidr(size_t index);         // remove by index
         std::vector<GeoEntry> get_geo_blocks() const;
 
@@ -232,6 +234,7 @@ namespace fw {
 
         // ── Geo-Block list (sorted for binary search) ─────────────────────
         std::vector<GeoEntry> geo_blocks_;
+        std::vector<GeoEntry> cloud_geo_blocks_;
         bool is_geo_blocked(uint32_t ip) const; // internal check
 
         // ── Configurable rate limit ───────────────────────────────────────

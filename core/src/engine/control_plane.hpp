@@ -56,6 +56,7 @@
 #include <limits>
 #include <mutex>
 #include <string>
+#include <stdexcept>
 #include <system_error>
 #include <thread>
 #include <unordered_set>
@@ -170,7 +171,9 @@ public:
                         return false;
                     CloudConfig::GeoEntry entry;
                     entry.cidr = value["cidr"].get<std::string>();
-                    if (!valid_cidr(entry.cidr) ||
+                    if (entry.cidr.find('/') == std::string::npos ||
+                        entry.cidr == "*" || entry.cidr == "any" ||
+                        !valid_cidr(entry.cidr) ||
                         !optional_string(value, "label", &entry.label))
                         return false;
                     parsed.geo_blocks.push_back(std::move(entry));
@@ -481,17 +484,24 @@ private:
         else if (cfg.default_policy == "BLOCK")
             engine_.set_default_policy(Action::BLOCK);
 
-        for (auto& g : cfg.geo_blocks) {
+        std::vector<GeoEntry> cloud_geo_blocks;
+        cloud_geo_blocks.reserve(cfg.geo_blocks.size());
+        for (const auto& g : cfg.geo_blocks) {
             auto slash = g.cidr.find('/');
-            if (slash == std::string::npos) continue;
-            try {
-                uint32_t net = ConfigParser::parse_ip(g.cidr.substr(0, slash));
-                int prefix   = std::stoi(g.cidr.substr(slash+1));
-                if (prefix < 0 || prefix > 32) continue;
-                uint32_t mask = (prefix == 0) ? 0u : (~0u << (32-prefix));
-                engine_.block_cidr(net, mask, g.label.empty() ? g.cidr : g.label);
-            } catch (...) {}
+            // The parser validates this input before policy application. Keep
+            // conversion strict here too: silently skipping a malformed range
+            // would leave a partially applied cloud policy.
+            if (slash == std::string::npos)
+                throw std::invalid_argument("cloud geo block must include a CIDR prefix");
+            const auto net = ConfigParser::parse_ip(g.cidr.substr(0, slash));
+            std::size_t consumed = 0;
+            const int prefix = std::stoi(g.cidr.substr(slash + 1), &consumed);
+            if (consumed != g.cidr.size() - slash - 1 || prefix < 0 || prefix > 32)
+                throw std::invalid_argument("invalid cloud geo block prefix");
+            const uint32_t mask = (prefix == 0) ? 0u : (~0u << (32-prefix));
+            cloud_geo_blocks.push_back({net, mask, g.label.empty() ? g.cidr : g.label});
         }
+        engine_.replace_cloud_geo_blocks(std::move(cloud_geo_blocks));
     }
 };
 
