@@ -309,6 +309,9 @@ if(BUILD_TESTING)
         target_link_libraries(test_threat_detection PRIVATE ws2_32)
         target_link_libraries(test_security PRIVATE ws2_32 advapi32 crypt32 winhttp iphlpapi psapi)
     endif()
+else()
+    find_package(OpenGL REQUIRED)
+    target_link_libraries(AegisXII PRIVATE OpenGL::GL)
 endif()
 
 # ── Summary ────────────────────────────────────────────────────────────────
