@@ -310,6 +310,22 @@ if(BUILD_TESTING)
     target_link_libraries(test_security PRIVATE Threads::Threads)
     add_test(NAME security_hardening_test COMMAND test_security)
 
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_executable(test_nfq_integration
+            tests/test_nfq_integration.cpp
+            ${ENGINE_TEST_SOURCES}
+            core/src/net/nfq_capture.cpp
+            core/src/engine/process_monitor.cpp
+            core/src/engine/correlation_engine.cpp
+            core/src/persistence/local_graph_store.cpp
+        )
+        target_include_directories(test_nfq_integration PRIVATE ${NFQ_INCLUDE_DIR})
+        target_compile_definitions(test_nfq_integration PRIVATE HAVE_NFQUEUE)
+        target_link_libraries(test_nfq_integration PRIVATE
+            Threads::Threads SQLite3 nlohmann_json::nlohmann_json ${NFQ_LIB}
+        )
+    endif()
+
     if(ENABLE_FUZZING)
         foreach(fuzz_target IN ITEMS packet_parser config_parser)
             add_executable(fuzz_${fuzz_target}

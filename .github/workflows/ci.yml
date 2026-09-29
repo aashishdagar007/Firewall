@@ -71,6 +71,15 @@ jobs:
       - name: Build application and test targets
         run: cmake --build build --parallel 2
 
+      - name: Verify live NFQUEUE allow and block decisions
+        run: |
+          sudo bash scripts/linux-nfq-guard.sh install
+          cleanup() {
+            sudo bash scripts/linux-nfq-guard.sh remove || true
+          }
+          trap cleanup EXIT
+          sudo ./build/test_nfq_integration
+
       - name: Verify systemd unit references and syntax
         run: |
           sudo install -D -m 0755 build/AegisXII /opt/aegisxii/AegisXII
