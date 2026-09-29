@@ -32,11 +32,31 @@ foreach ($required in @($dashboardIndex, $rules)) {
 if (-not $exe) { throw "CMake did not produce AegisXII.exe in $BuildDir or its configuration directory." }
 
 if (-not $InnoCompiler) {
-    $candidates = @(
-        "${env:ProgramFiles}\Inno Setup 7\ISCC.exe",
-        "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe"
+    $InnoCompiler = (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+}
+if (-not $InnoCompiler) {
+    $programRoots = @($env:ProgramW6432, ${env:ProgramFiles}, ${env:ProgramFiles(x86)}) |
+        Where-Object { $_ } | Select-Object -Unique
+    $installDirs = foreach ($root in $programRoots) {
+        Get-ChildItem -LiteralPath $root -Directory -Filter "Inno Setup 7*" -ErrorAction SilentlyContinue
+    }
+    $InnoCompiler = $installDirs |
+        ForEach-Object { Join-Path $_.FullName "ISCC.exe" } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        Select-Object -First 1
+}
+if (-not $InnoCompiler) {
+    $uninstallKeys = @(
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
     )
-    $InnoCompiler = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+    $installLocations = Get-ItemProperty $uninstallKeys -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like "Inno Setup 7*" -and $_.InstallLocation } |
+        Select-Object -ExpandProperty InstallLocation
+    $InnoCompiler = $installLocations |
+        ForEach-Object { Join-Path $_ "ISCC.exe" } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        Select-Object -First 1
 }
 if (-not $InnoCompiler -or -not (Test-Path -LiteralPath $InnoCompiler -PathType Leaf)) {
     throw "Inno Setup 7 ISCC.exe was not found. Install Inno Setup 7 or pass -InnoCompiler."
