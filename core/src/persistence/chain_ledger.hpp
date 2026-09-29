@@ -35,6 +35,7 @@
 #include <cstring>
 #include <fstream>
 #include <filesystem>
+#include <limits>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -113,6 +114,9 @@ struct LedgerBlock {
 // ─────────────────────────────────────────────────────────────
 class ChainLedger {
 public:
+    static constexpr std::size_t kMaxEventBytes =
+        std::numeric_limits<uint16_t>::max();
+
     explicit ChainLedger(const std::string& binary_path  = "logs/ledger.chain",
                          const std::string& json_path    = "logs/ledger.json")
         : bin_path_(binary_path), json_path_(json_path), running_(false)
@@ -127,6 +131,8 @@ public:
     bool open() {
         std::lock_guard<std::mutex> lk(mtx_);
         if (bin_out_.is_open() || json_out_.is_open()) return false;
+        healthy_.store(false);
+        failure_reason_.clear();
         {
             std::lock_guard<std::mutex> queue_lk(queue_mtx_);
             if (running_) return false;
@@ -149,7 +155,6 @@ public:
             !existing_size(json_path_, json_size)) {
             return false;
         }
-
         bin_out_.open(bin_path_, std::ios::binary | std::ios::app);
         json_out_.open(json_path_, std::ios::app);
         if (!bin_out_.is_open() || !json_out_.is_open()) {
@@ -172,8 +177,9 @@ public:
             genesis.event_data   = "AEGIS XII ledger genesis";
             genesis.prev_hash.fill(0);
             genesis.block_hash   = genesis.compute_hash();
-            write_block_direct(genesis);
-            if (!bin_out_ || !json_out_) {
+            if (!write_block_direct(genesis)) {
+                healthy_.store(false);
+                failure_reason_ = "failed to persist ledger genesis block";
                 bin_out_.close();
                 json_out_.close();
                 return false;
@@ -196,6 +202,7 @@ public:
         
         running_ = true;
         worker_thread_ = std::thread([this]{ worker_loop(); });
+        healthy_.store(true);
         return true;
     }
 
@@ -215,56 +222,75 @@ public:
     }
 
     // Commit a new event (Non-Blocking: pushes to async queue)
-    void commit(LedgerEventType type, const std::string& data) {
+    bool commit(LedgerEventType type, const std::string& data) {
+        if (data.size() > kMaxEventBytes) {
+            dropped_events_.fetch_add(1);
+            return false;
+        }
         PendingEvent ev{type, data};
         {
             std::lock_guard<std::mutex> lk(queue_mtx_);
+            if (!running_ || !healthy_.load()) {
+                dropped_events_.fetch_add(1);
+                return false;
+            }
             // Anti-DoS: drop events if queue gets absurdly huge
             if (event_queue_.size() < 100000) {
                 event_queue_.push(std::move(ev));
+            } else {
+                dropped_events_.fetch_add(1);
+                return false;
             }
         }
         cv_.notify_one();
+        return true;
+    }
+
+    bool healthy() const { return healthy_.load(); }
+    uint64_t dropped_events() const { return dropped_events_.load(); }
+    std::string failure_reason() const {
+        std::lock_guard<std::mutex> lk(mtx_);
+        return failure_reason_;
     }
 
     // Convenience overloads
-    void log_packet_blocked(const std::string& src_ip, uint16_t dst_port,
+    bool log_packet_blocked(const std::string& src_ip, uint16_t dst_port,
                             const std::string& rule_desc) {
-        commit(LedgerEventType::PACKET_BLOCKED,
+        return commit(LedgerEventType::PACKET_BLOCKED,
                src_ip + ":" + std::to_string(dst_port) + " blocked by: " + rule_desc);
     }
 
-    void log_threat_banned(const std::string& ip, const std::string& reason) {
-        commit(LedgerEventType::THREAT_BANNED, ip + " auto-banned: " + reason);
+    bool log_threat_banned(const std::string& ip, const std::string& reason) {
+        return commit(LedgerEventType::THREAT_BANNED, ip + " auto-banned: " + reason);
     }
 
-    void log_threat_unbanned(const std::string& ip) {
-        commit(LedgerEventType::THREAT_UNBANNED, ip + " unban");
+    bool log_threat_unbanned(const std::string& ip) {
+        return commit(LedgerEventType::THREAT_UNBANNED, ip + " unban");
     }
 
-    void log_dpi_match(const std::string& sig, const std::string& src_ip) {
-        commit(LedgerEventType::DPI_MATCH, "sig=" + sig + " src=" + src_ip);
+    bool log_dpi_match(const std::string& sig, const std::string& src_ip) {
+        return commit(LedgerEventType::DPI_MATCH, "sig=" + sig + " src=" + src_ip);
     }
 
-    void log_bvudp_batch(uint32_t batch_id, size_t bytes, bool ok) {
-        commit(ok ? LedgerEventType::BVUDP_BATCH_RX
-                  : LedgerEventType::BVUDP_BATCH_BAD,
+    bool log_bvudp_batch(uint32_t batch_id, size_t bytes, bool ok) {
+        return commit(ok ? LedgerEventType::BVUDP_BATCH_RX
+                         : LedgerEventType::BVUDP_BATCH_BAD,
                "batch=" + std::to_string(batch_id) +
                " bytes=" + std::to_string(bytes) +
                (ok ? " verified" : " REJECTED"));
     }
 
-    void log_cloud_sync(const std::string& endpoint, size_t rules_applied) {
-        commit(LedgerEventType::CLOUD_SYNC,
+    bool log_cloud_sync(const std::string& endpoint, size_t rules_applied) {
+        return commit(LedgerEventType::CLOUD_SYNC,
                endpoint + " rules=" + std::to_string(rules_applied));
     }
 
-    void log_firewall_start() {
-        commit(LedgerEventType::FIREWALL_START, "AEGIS XII daemon start");
+    bool log_firewall_start() {
+        return commit(LedgerEventType::FIREWALL_START, "AEGIS XII daemon start");
     }
 
-    void log_firewall_stop() {
-        commit(LedgerEventType::FIREWALL_STOP, "AEGIS XII daemon stop");
+    bool log_firewall_stop() {
+        return commit(LedgerEventType::FIREWALL_STOP, "AEGIS XII daemon stop");
     }
 
     // Verify the full chain from disk
@@ -304,6 +330,9 @@ private:
     std::queue<PendingEvent> event_queue_;
     std::thread             worker_thread_;
     bool                    running_;
+    std::atomic<bool>       healthy_{false};
+    std::atomic<uint64_t>   dropped_events_{0};
+    std::string             failure_reason_;
 
     static std::pair<bool, std::string> scan_chain(
         const std::string& path, SHA256::Digest& chain_tip,
@@ -359,23 +388,35 @@ private:
 
             // Process the batch (hashing + I/O)
             std::lock_guard<std::mutex> lk(mtx_);
-            for (auto& ev : batch) {
+            for (std::size_t i = 0; i < batch.size(); ++i) {
+                auto& ev = batch[i];
                 LedgerBlock blk;
-                blk.index        = next_index_++;
+                blk.index        = next_index_;
                 blk.timestamp_ms = now_ms();
                 blk.event_type   = ev.type;
                 blk.event_data   = std::move(ev.data);
                 blk.prev_hash    = last_hash_;
                 blk.block_hash   = blk.compute_hash();
-                last_hash_       = blk.block_hash;
-                write_block_direct(blk);
+                if (!write_block_direct(blk)) {
+                    healthy_.store(false);
+                    failure_reason_ = "failed to persist ledger block " +
+                                      std::to_string(blk.index);
+                    std::lock_guard<std::mutex> queue_lock(queue_mtx_);
+                    running_ = false;
+                    dropped_events_.fetch_add(batch.size() - i - 1 + event_queue_.size());
+                    while (!event_queue_.empty()) event_queue_.pop();
+                    break;
+                }
+                last_hash_ = blk.block_hash;
+                ++next_index_;
             }
             batch.clear();
         }
     }
 
-    void write_block_direct(const LedgerBlock& blk) {
-        if (!bin_out_.is_open()) return;
+    bool write_block_direct(const LedgerBlock& blk) {
+        if (!bin_out_.is_open() || !json_out_.is_open() ||
+            blk.event_data.size() > kMaxEventBytes) return false;
 
         // Binary record: fixed-size fields + variable event_data
         bin_out_.write(reinterpret_cast<const char*>(&blk.index),        8);
@@ -388,12 +429,12 @@ private:
         bin_out_.write(reinterpret_cast<const char*>(blk.prev_hash.data()),  32);
         bin_out_.write(reinterpret_cast<const char*>(blk.block_hash.data()), 32);
         bin_out_.flush();
+        if (!bin_out_) return false;
 
         // JSON mirror
-        if (json_out_.is_open()) {
-            json_out_ << blk.to_json() << "\n";
-            json_out_.flush();
-        }
+        json_out_ << blk.to_json() << "\n";
+        json_out_.flush();
+        return static_cast<bool>(json_out_);
     }
 
     static bool read_block(std::ifstream& in, LedgerBlock& blk) {

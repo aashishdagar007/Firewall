@@ -100,3 +100,29 @@ TEST(ChainLedgerTest, DetectsModifiedBlockOnOpen) {
     EXPECT_FALSE(verified.first);
     EXPECT_NE(verified.second.find("hash mismatch"), std::string::npos);
 }
+
+TEST(ChainLedgerTest, RejectsOversizedEventsWithoutCorruptingTheChain) {
+    LedgerFiles files;
+    fw::ChainLedger ledger(files.binary.string(), files.json.string());
+    ASSERT_TRUE(ledger.open());
+
+    EXPECT_FALSE(ledger.commit(fw::LedgerEventType::POLICY_CHANGE,
+                               std::string(fw::ChainLedger::kMaxEventBytes + 1, 'x')));
+    EXPECT_EQ(ledger.dropped_events(), 1u);
+    ledger.close();
+    EXPECT_EQ(ledger.block_count(), 1u);
+    EXPECT_TRUE(ledger.healthy());
+    EXPECT_TRUE(ledger.verify_chain().first);
+}
+
+#ifndef _WIN32
+TEST(ChainLedgerTest, ReportsStorageWriteFailureDuringInitialization) {
+    if (!std::filesystem::exists("/dev/full")) GTEST_SKIP();
+    LedgerFiles files;
+    fw::ChainLedger ledger("/dev/full", files.json.string());
+
+    EXPECT_FALSE(ledger.open());
+    EXPECT_FALSE(ledger.healthy());
+    EXPECT_FALSE(ledger.failure_reason().empty());
+}
+#endif
