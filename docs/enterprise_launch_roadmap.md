@@ -17,7 +17,7 @@ Source and documentation review found these launch risks:
 - Startup no longer launches the duplicate IPC server (which collided with the hardened Windows named pipe and was a no-op on Linux). The hardened Windows named pipe and REST API still run side by side; platform ownership, protocol consolidation, and Linux IPC access control remain open.
 - The README platform matrix and package/install flow still need a complete audit; advanced security and model claims need reproducible evidence before release or sales use.
 - The CMake test section now registers the ledger-recovery and traffic-shaper tests in addition to its prior targets, but still covers only a subset of repository tests. Fuzzing, sanitizers, static analysis, dependency/license scanning, SBOM generation, and a green clean CI run remain outstanding.
-- The systemd unit runs as root and lacks packaging automation and operational alerting. A loopback `/healthz` endpoint now reports ready only while the NFQUEUE loop is active, and stats uses the same runtime readiness value; reboot, restart exhaustion, alert delivery, and host recovery remain unqualified.
+- The systemd unit still runs as root but now enables `NoNewPrivileges`, a private temporary directory, read-only system paths, kernel/control-group protection, restricted setuid/setgid transitions, and a private umask. Packaging and operational alerting remain incomplete. A loopback `/healthz` endpoint reports ready only while the NFQUEUE loop is active, and stats uses the same runtime readiness value; reboot, restart exhaustion, alert delivery, and host recovery remain unqualified.
 
 ## Product direction decision
 

@@ -16,6 +16,14 @@ Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s
 KillSignal=SIGTERM
+# Keep the daemon's current /opt paths writable while isolating system files.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0077
 # Keep the Aegis nftables guard on stop/crash. Removing it would silently
 # restore unfiltered IPv6 and pass IPv4 while the enforcement daemon is down.
 
