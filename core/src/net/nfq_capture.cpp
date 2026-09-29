@@ -15,6 +15,7 @@
 #endif
 
 #include <chrono>
+#include <cstdio>
 #include <ctime>
 #include <iomanip>
 #include <iostream>
@@ -39,6 +40,49 @@
 namespace fw {
 
 static constexpr int BUFSIZE = 65535;
+
+#if defined(__linux__)
+static bool verify_managed_nft_guard() {
+  FILE* nft = popen("/usr/sbin/nft list table inet aegisxii 2>/dev/null", "r");
+  if (!nft) return false;
+
+  std::string rules;
+  char buffer[512];
+  while (std::fgets(buffer, sizeof(buffer), nft)) rules += buffer;
+  const int status = pclose(nft);
+  if (status != 0) return false;
+
+  const auto chain_has_guard = [&rules](const char* name) {
+    const std::string chain_marker = std::string("chain ") + name + " {";
+    const size_t start = rules.find(chain_marker);
+    if (start == std::string::npos) return false;
+    const size_t end = rules.find('}', start);
+    if (end == std::string::npos) return false;
+    const std::string chain = rules.substr(start, end - start);
+    if (chain.find(std::string("hook ") + name) == std::string::npos ||
+        chain.find("type filter") == std::string::npos) {
+      return false;
+    }
+    bool queues_ipv4 = false;
+    bool drops_ipv6 = false;
+    std::istringstream lines(chain);
+    std::string line;
+    while (std::getline(lines, line)) {
+      if (line.find("meta nfproto ipv4") != std::string::npos &&
+          line.find("queue num 0") != std::string::npos) {
+        queues_ipv4 = true;
+      }
+      if (line.find("meta nfproto ipv6") != std::string::npos &&
+          line.find("drop") != std::string::npos) {
+        drops_ipv6 = true;
+      }
+    }
+    return queues_ipv4 && drops_ipv6;
+  };
+
+  return chain_has_guard("prerouting") && chain_has_guard("output");
+}
+#endif
 
 NfqCapture::NfqCapture(RuleEngine& engine, LiveStats& stats,
                        RingBuffer<PacketRecord>& ring,
@@ -72,6 +116,13 @@ NfqCapture::~NfqCapture() {
 // ── open() ───────────────────────────────────────────────────
 bool NfqCapture::open() {
 #ifdef HAVE_NFQUEUE
+#ifdef __linux__
+  if (!verify_managed_nft_guard()) {
+    std::cerr << "[NFQ] Managed IPv4/IPv6 nftables guard is missing or incomplete; "
+                 "run scripts/linux-nfq-guard.sh install first\n";
+    return false;
+  }
+#endif
   // ── Linux NFQ path ────────────────────────────────────────
   const auto fail_nfq_open = [this]() {
     if (qh_) {

@@ -6,17 +6,18 @@ This roadmap describes the work required to turn the current Aegis XII codebase 
 
 ## Current readiness
 
-The repository is a feature-rich prototype, not yet an enterprise release candidate. The current checkout could not be compiled or tested in the available environment: its cached compiler points to a different user profile, no compiler is installed on PATH, and CTest has no current test executable. The existing binaries predate the current source and are not validation evidence.
+The repository remains a prototype, not an enterprise release candidate. The available Windows environment can syntax-check selected translation units, but CMake cannot discover its Visual Studio compiler and no full clean application build or CTest run has been verified locally. A GitHub Actions workflow now attempts a clean Ubuntu build, test run, nftables ruleset validation, and systemd unit verification; its successful execution has not yet been reviewed as qualification evidence. Existing binaries predate the current source and are not validation evidence.
 
 Source and documentation review found these launch risks:
 
-- Linux builds now require NFQUEUE and fail startup instead of silently degrading to observer-only mode; managed ruleset installation, IPv6 bypass prevention, and real-traffic qualification remain open. Windows remains observer-only unless its optional WinDivert integration is configured.
-- The API binds to `0.0.0.0`; TLS is optional, CORS permits every origin, and `/api/token` is exempt from bearer authentication. A token is written to a local file and printed. This needs a deliberate enterprise authentication and exposure model.
+- Linux builds require NFQUEUE and fail startup instead of silently degrading to observer-only mode. Startup also verifies that the managed nftables table queues IPv4 on prerouting/output and drops IPv6 on those hooks. The systemd unit installs that guard before launch and leaves it in place after daemon failure/stop. Real-traffic, overload, restart, reboot, and break-glass behavior remain unqualified. Windows remains observer-only unless its optional WinDivert integration is configured.
+- The management API binds to loopback, rejects non-loopback bind settings, grants no wildcard CORS, and no longer exposes an unauthenticated token endpoint. The Linux token file is owner-only and the dashboard asks the operator for the current token. A shared token still lacks administrator bootstrap, rotation/revocation, expiry, and role-based authorization; remote administration is disabled.
 - The hash-chain ledger documents that restart recovery does not restore the last index and hash. It must be corrected and tested before calling the ledger tamper-evident across restarts.
 - The cloud control plane uses a hand-written JSON parser. It needs strict schema validation, authenticated configuration, atomic application, rollback, and replay protection.
 - Startup creates more than one IPC server and keeps the REST API active. IPC ownership, protocols, access control, and intended platform behavior need to be consolidated.
-- The README platform matrix is stale in places, and several advanced security/model claims need reproducible evidence before release or sales use.
-- The repository has multiple test files, but the CMake test section registers only a subset. Current tests cannot be executed until a supported toolchain is restored.
+- The README platform matrix and package/install flow still need a complete audit; advanced security and model claims need reproducible evidence before release or sales use.
+- The CMake test section registers only a subset of repository tests. Fuzzing, sanitizers, static analysis, dependency/license scanning, SBOM generation, and a green clean CI run remain outstanding.
+- The systemd unit runs as root, lacks packaging automation and machine-readable readiness/alerting, and has not been validated through reboot, restart exhaustion, or host recovery tests.
 
 ## Product direction decision
 
@@ -137,4 +138,4 @@ Phases can overlap only when their interfaces and ownership are clear. Do not ov
 
 ## Current launch decision
 
-**Recommendation: do not begin a broad enterprise launch or promise cross-platform enforcement yet.** The planning baseline is Linux/NFQUEUE; restore a reproducible build/test environment and prove active packet blocking and its recovery behavior before pilot. The current repository is suitable for focused product hardening and a controlled lab pilot after those gates, not for an unqualified enterprise GA claim.
+**Recommendation: do not begin a broad enterprise launch or promise cross-platform enforcement yet.** The planning baseline is Linux/NFQUEUE; obtain a green clean CI run, complete API/IPC and ledger security work, and prove active packet blocking and recovery behavior on isolated Ubuntu 24.04 hosts before pilot. The current repository is suitable for focused product hardening, not for an unqualified enterprise GA claim.

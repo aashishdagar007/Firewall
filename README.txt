@@ -141,6 +141,10 @@ sudo ./firewall
 sudo bash ./scripts/linux-nfq-guard.sh remove
 ```
 
+The Linux daemon also verifies that the owned nftables table contains the IPv4
+queue and IPv6 drop rules. It refuses to start or report enforcement if the
+guard is absent or incomplete.
+
 The helper owns only the `inet aegisxii` nftables table and leaves unrelated
 firewall tables untouched. Do not run `remove` while relying on the appliance
 for IPv4 enforcement or IPv6 blocking. Automated packaging, a machine-readable
