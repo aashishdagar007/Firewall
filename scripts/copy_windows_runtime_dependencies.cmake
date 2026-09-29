@@ -14,8 +14,8 @@ file(GET_RUNTIME_DEPENDENCIES
     EXECUTABLES "${AEGIS_EXECUTABLE}"
     RESOLVED_DEPENDENCIES_VAR _resolved_dependencies
     UNRESOLVED_DEPENDENCIES_VAR _unresolved_dependencies
-    PRE_EXCLUDE_REGEXES "api-ms-win-.*" "ext-ms-win-.*"
-    POST_EXCLUDE_REGEXES ".*[Ww]indows[/\\\\](System32|WinSxS)[/\\\\].*"
+    PRE_EXCLUDE_REGEXES "api-ms-.*" "ext-ms-.*"
+    POST_EXCLUDE_REGEXES ".*[Ww]indows.*"
     DIRECTORIES ${_search_directories}
 )
 

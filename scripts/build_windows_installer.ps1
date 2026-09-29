@@ -81,9 +81,12 @@ try {
     }
 
     $opensslDllDirectory = $null
+    $opensslCandidates = [System.Collections.Generic.List[string]]::new()
+    foreach ($programRoot in @($env:ProgramW6432, ${env:ProgramFiles}, ${env:ProgramFiles(x86)}) | Where-Object { $_ } | Select-Object -Unique) {
+        $opensslCandidates.Add((Join-Path $programRoot "OpenSSL\bin"))
+    }
     $cacheFile = Join-Path $BuildDir "CMakeCache.txt"
     if (Test-Path -LiteralPath $cacheFile -PathType Leaf) {
-        $opensslCandidates = [System.Collections.Generic.List[string]]::new()
         foreach ($cacheLine in Get-Content -LiteralPath $cacheFile) {
             if ($cacheLine -match '^OPENSSL_ROOT_DIR:[^=]+=(.+)$' -and $Matches[1]) {
                 $opensslCandidates.Add((Join-Path $Matches[1] "bin"))
@@ -111,6 +114,7 @@ try {
         "-DAEGIS_DESTINATION=$payloadDir"
     )
     if ($opensslDllDirectory) {
+        Write-Host "Using OpenSSL runtime DLL directory: $opensslDllDirectory"
         $dependencyArguments += "-DAEGIS_DLL_DIRECTORY=$opensslDllDirectory"
     }
     & cmake @dependencyArguments -P $dependencyScript
