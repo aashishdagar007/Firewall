@@ -1929,11 +1929,29 @@
 
     // ── Bootstrap ───────────────────────────────────────────────
     async function init() {
+      authToken = sessionStorage.getItem('aegisApiToken') || '';
+      while (!authToken) {
+        const entered = window.prompt(
+          'Enter the local API token. On the appliance, read it with: sudo cat /opt/aegisxii/logs/api.token'
+        );
+        if (entered === null) {
+          setStatus(false, false);
+          return;
+        }
+        authToken = entered.trim();
+      }
+
       try {
-        const r = await fetch(API + '/api/token');
-        if (!r.ok) throw new Error('no token');
-        const d = await r.json();
-        authToken = d.token;
+        const r = await apiFetch('/api/stats');
+        if (r.status === 401) {
+          authToken = '';
+          sessionStorage.removeItem('aegisApiToken');
+          window.alert('The API token is invalid or has rotated. Reload the dashboard to enter the current token.');
+          setStatus(false, false);
+          return;
+        }
+        if (!r.ok) throw new Error('API unavailable');
+        sessionStorage.setItem('aegisApiToken', authToken);
         showToast('✓ Connected to Aegis XII', 'var(--accent-green)');
       } catch(e) {
         setStatus(false, false);
