@@ -570,7 +570,7 @@ std::string ApiServer::handle_add_rule(const std::string &body) {
     r.dst_ip = ConfigParser::parse_ip(dst_ip_s);
     ConfigParser::parse_port_range(dst_port_s, r.dst_port_start, r.dst_port_end);
     r.description = desc.length() > 256 ? desc.substr(0, 256) : desc;
-  } catch (const std::exception &e) {
+  } catch (const std::exception &) {
     return "{\"ok\":false,\"error\":\"Invalid rule format\"}";
   }
 

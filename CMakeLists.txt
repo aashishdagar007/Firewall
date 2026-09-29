@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MSVC)
-    add_compile_options(/W4 /WX /utf-8 /permissive- /wd4996 /wd4267 /wd4244)
+    # C4324 is expected for the cache-line-aligned shared ring buffer.
+    add_compile_options(/W4 /WX /utf-8 /permissive- /wd4996 /wd4267 /wd4244 /wd4324)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -fstack-protector-strong)
     add_compile_definitions(_FORTIFY_SOURCE=2)

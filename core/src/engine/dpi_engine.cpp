@@ -292,7 +292,7 @@ Action DpiEngine::scan(const uint8_t *payload, uint16_t len,
       if (handshake_len >= 2 && handshake_len <= record_len - 4) {
         const uint16_t handshake_version =
             (static_cast<uint16_t>(payload[9]) << 8) | payload[10];
-        if (handshake_version <= 0x0302) {
+        if (handshake_version <= static_cast<uint16_t>(0x0302)) {
           threat_name = "DPI Threat: Vulnerable TLS Version (SSLv3/TLS1.0/TLS1.1)";
           return Action::BLOCK;
         }

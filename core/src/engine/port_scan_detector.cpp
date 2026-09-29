@@ -123,41 +123,35 @@ std::optional<ScanEvent> PortScanDetector::record(const PacketInfo& pkt) {
     // Already reported in this burst — suppress duplicates
     if (st.already_reported) return std::nullopt;
 
-    ScanType detected_type;
+    std::optional<ScanType> detected_type;
     uint32_t detected_ports = 0;
-    bool     scan_detected  = false;
 
     if (is_stealth_scan && tcp_ports > PORT_THRESHOLD) {
         detected_type  = ScanType::STEALTH_PROBE;
         detected_ports = tcp_ports;
-        scan_detected  = true;
     } else if (tcp_ports > PORT_THRESHOLD && udp_ports <= 3) {
         detected_type  = ScanType::SYN_SWEEP;
         detected_ports = tcp_ports;
-        scan_detected  = true;
     } else if (udp_ports > PORT_THRESHOLD && tcp_ports <= 3) {
         detected_type  = ScanType::UDP_SWEEP;
         detected_ports = udp_ports;
-        scan_detected  = true;
     } else if (total_ports > PORT_THRESHOLD) {
         detected_type  = ScanType::MIXED_SWEEP;
         detected_ports = total_ports;
-        scan_detected  = true;
     } else if (!st.icmp_hits.empty()) {
         if (static_cast<uint32_t>(st.icmp_unique.size()) > PORT_THRESHOLD) {
             detected_type  = ScanType::ICMP_SWEEP;
             detected_ports = static_cast<uint32_t>(st.icmp_unique.size());
-            scan_detected  = true;
         }
     }
 
-    if (!scan_detected) return std::nullopt;
+    if (!detected_type) return std::nullopt;
 
     // Mark as reported so we don't spam for the same burst
     st.already_reported = true;
 
     // Store the event before releasing the lock.
-    emit_event(pkt.src_ip, detected_type, detected_ports, /*banned=*/true);
+    emit_event(pkt.src_ip, *detected_type, detected_ports, /*banned=*/true);
 
     // Copy event and callback while protected, then invoke user code unlocked.
     const ScanEvent event = recent_events_.back();
