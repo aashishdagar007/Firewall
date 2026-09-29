@@ -80,6 +80,42 @@ try {
         }
     }
 
+    $opensslDllDirectory = $null
+    $cacheFile = Join-Path $BuildDir "CMakeCache.txt"
+    if (Test-Path -LiteralPath $cacheFile -PathType Leaf) {
+        $opensslCandidates = [System.Collections.Generic.List[string]]::new()
+        foreach ($cacheLine in Get-Content -LiteralPath $cacheFile) {
+            if ($cacheLine -match '^OPENSSL_ROOT_DIR:[^=]+=(.+)$' -and $Matches[1]) {
+                $opensslCandidates.Add((Join-Path $Matches[1] "bin"))
+            } elseif ($cacheLine -match '^OPENSSL_(?:SSL|CRYPTO)_LIBRARY:[^=]+=(.+)$' -and $Matches[1]) {
+                $candidate = Split-Path -Parent $Matches[1]
+                for ($i = 0; $i -lt 6 -and $candidate; $i++) {
+                    $opensslCandidates.Add((Join-Path $candidate "bin"))
+                    $candidate = Split-Path -Parent $candidate
+                }
+            }
+        }
+        foreach ($candidate in ($opensslCandidates | Select-Object -Unique)) {
+            if ((Test-Path -LiteralPath $candidate -PathType Container) -and
+                (Get-ChildItem -LiteralPath $candidate -Filter "libssl*.dll" -File -ErrorAction SilentlyContinue | Select-Object -First 1) -and
+                (Get-ChildItem -LiteralPath $candidate -Filter "libcrypto*.dll" -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+                $opensslDllDirectory = $candidate
+                break
+            }
+        }
+    }
+
+    $dependencyScript = Join-Path $sourceRoot "scripts\copy_windows_runtime_dependencies.cmake"
+    $dependencyArguments = @(
+        "-DAEGIS_EXECUTABLE=$exe",
+        "-DAEGIS_DESTINATION=$payloadDir"
+    )
+    if ($opensslDllDirectory) {
+        $dependencyArguments += "-DAEGIS_DLL_DIRECTORY=$opensslDllDirectory"
+    }
+    & cmake @dependencyArguments -P $dependencyScript
+    if ($LASTEXITCODE -ne 0) { throw "Windows runtime dependency staging failed with exit code $LASTEXITCODE" }
+
     $winDivertDll = Join-Path (Split-Path $exe -Parent) "WinDivert.dll"
     if (Test-Path -LiteralPath $winDivertDll -PathType Leaf) {
         Copy-Item -LiteralPath $winDivertDll -Destination $payloadDir

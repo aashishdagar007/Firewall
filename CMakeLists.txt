@@ -238,15 +238,7 @@ endif()
 if(WIN32)
     # Build the Windows setup from an install tree containing the executable,
     # its non-system DLL dependencies, runtime files, and frontend assets.
-    install(TARGETS AegisXII
-        RUNTIME_DEPENDENCY_SET aegisxii_runtime
-        RUNTIME DESTINATION .
-    )
-    install(RUNTIME_DEPENDENCY_SET aegisxii_runtime
-        RUNTIME DESTINATION .
-        PRE_EXCLUDE_REGEXES "api-ms-win-.*" "ext-ms-win-.*"
-        POST_EXCLUDE_REGEXES ".*[Ww]indows[/\\\\](System32|WinSxS)[/\\\\].*"
-    )
+    install(TARGETS AegisXII RUNTIME DESTINATION .)
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/config/" DESTINATION config)
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/dashboard/" DESTINATION dashboard)
 
