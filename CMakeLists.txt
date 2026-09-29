@@ -247,6 +247,10 @@ if(BUILD_TESTING)
     target_link_libraries(test_packet PRIVATE GTest::gtest_main)
     add_test(NAME packet_parser_test COMMAND test_packet)
 
+    add_executable(test_ledger tests/test_chain_ledger.cpp)
+    target_link_libraries(test_ledger PRIVATE Threads::Threads GTest::gtest_main)
+    add_test(NAME chain_ledger_recovery_test COMMAND test_ledger)
+
     add_executable(test_threat_detection
         tests/test_threat_detection.cpp
         src/diode_threat_engine.cpp

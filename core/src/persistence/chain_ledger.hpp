@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -125,12 +126,45 @@ public:
     // Initialize: open files, write genesis if new, and start async thread
     bool open() {
         std::lock_guard<std::mutex> lk(mtx_);
+        if (bin_out_.is_open() || json_out_.is_open()) return false;
+        {
+            std::lock_guard<std::mutex> queue_lk(queue_mtx_);
+            if (running_) return false;
+        }
+
+        const auto existing_size = [](const std::string& path,
+                                       std::uintmax_t& size) {
+            std::error_code ec;
+            if (!std::filesystem::exists(path, ec)) {
+                if (ec) return false;
+                size = 0;
+                return true;
+            }
+            size = std::filesystem::file_size(path, ec);
+            return !ec;
+        };
+        std::uintmax_t binary_size = 0;
+        std::uintmax_t json_size = 0;
+        if (!existing_size(bin_path_, binary_size) ||
+            !existing_size(json_path_, json_size)) {
+            return false;
+        }
+
         bin_out_.open(bin_path_, std::ios::binary | std::ios::app);
         json_out_.open(json_path_, std::ios::app);
-        if (!bin_out_.is_open() || !json_out_.is_open()) return false;
+        if (!bin_out_.is_open() || !json_out_.is_open()) {
+            if (bin_out_.is_open()) bin_out_.close();
+            if (json_out_.is_open()) json_out_.close();
+            return false;
+        }
 
         // If the file is empty, write the genesis block immediately
-        if (bin_out_.tellp() == 0) {
+        if (binary_size == 0) {
+            if (json_size != 0) {
+                bin_out_.close();
+                json_out_.close();
+                return false;
+            }
             LedgerBlock genesis;
             genesis.index        = 0;
             genesis.timestamp_ms = now_ms();
@@ -138,12 +172,26 @@ public:
             genesis.event_data   = "AEGIS XII ledger genesis";
             genesis.prev_hash.fill(0);
             genesis.block_hash   = genesis.compute_hash();
+            write_block_direct(genesis);
+            if (!bin_out_ || !json_out_) {
+                bin_out_.close();
+                json_out_.close();
+                return false;
+            }
             last_hash_   = genesis.block_hash;
             next_index_  = 1;
-            write_block_direct(genesis);
         } else {
-            // In a real system, we'd read the last block from disk to restore last_hash_ and next_index_.
-            // For simplicity, we assume we append from 0 if restarted, or we need a restore phase.
+            SHA256::Digest recovered_hash{};
+            uint64_t recovered_next_index = 0;
+            const auto recovered = scan_chain(bin_path_, recovered_hash,
+                                              recovered_next_index);
+            if (!recovered.first) {
+                bin_out_.close();
+                json_out_.close();
+                return false;
+            }
+            last_hash_ = recovered_hash;
+            next_index_ = recovered_next_index;
         }
         
         running_ = true;
@@ -222,28 +270,10 @@ public:
     // Verify the full chain from disk
     // Returns {true, ""} if intact; {false, "reason"} if tampered
     std::pair<bool, std::string> verify_chain() {
-        std::ifstream in(bin_path_, std::ios::binary);
-        if (!in.is_open()) return {false, "cannot open ledger"};
-
-        SHA256::Digest expected_prev; expected_prev.fill(0);
-        uint64_t expected_index = 0;
-
-        while (in.peek() != EOF) {
-            LedgerBlock blk;
-            if (!read_block(in, blk))
-                return {false, "corrupt block at index " + std::to_string(expected_index)};
-
-            if (blk.index != expected_index)
-                return {false, "index gap at " + std::to_string(blk.index)};
-            if (blk.prev_hash != expected_prev)
-                return {false, "chain break at index " + std::to_string(blk.index)};
-            if (!blk.verify())
-                return {false, "hash mismatch at index " + std::to_string(blk.index)};
-
-            expected_prev  = blk.block_hash;
-            expected_index = blk.index + 1;
-        }
-        return {true, ""};
+        std::lock_guard<std::mutex> lk(mtx_);
+        SHA256::Digest ignored_tip{};
+        uint64_t ignored_next_index = 0;
+        return scan_chain(bin_path_, ignored_tip, ignored_next_index);
     }
 
     uint64_t block_count() const {
@@ -274,6 +304,35 @@ private:
     std::queue<PendingEvent> event_queue_;
     std::thread             worker_thread_;
     bool                    running_;
+
+    static std::pair<bool, std::string> scan_chain(
+        const std::string& path, SHA256::Digest& chain_tip,
+        uint64_t& next_index) {
+        std::ifstream in(path, std::ios::binary);
+        if (!in.is_open()) return {false, "cannot open ledger"};
+
+        SHA256::Digest expected_prev; expected_prev.fill(0);
+        uint64_t expected_index = 0;
+
+        while (in.peek() != EOF) {
+            LedgerBlock blk;
+            if (!read_block(in, blk))
+                return {false, "corrupt block at index " + std::to_string(expected_index)};
+
+            if (blk.index != expected_index)
+                return {false, "index gap at " + std::to_string(blk.index)};
+            if (blk.prev_hash != expected_prev)
+                return {false, "chain break at index " + std::to_string(blk.index)};
+            if (!blk.verify())
+                return {false, "hash mismatch at index " + std::to_string(blk.index)};
+
+            expected_prev  = blk.block_hash;
+            expected_index = blk.index + 1;
+        }
+        chain_tip = expected_prev;
+        next_index = expected_index;
+        return {true, ""};
+    }
 
     static uint64_t now_ms() {
         return static_cast<uint64_t>(
