@@ -156,7 +156,14 @@ int main() {
     ::close(blocked_listener.fd);
 
     if (!allowed_connected) {
-        std::cerr << "Default-ALLOW TCP traffic did not pass through NFQUEUE\n";
+        std::cerr << "Default-ALLOW TCP traffic did not pass through NFQUEUE; packets="
+                  << stats.total.load() << " allowed=" << stats.allowed.load()
+                  << " blocked=" << stats.blocked.load() << "\n";
+        for (const auto& record : ring.tail(8)) {
+            std::cerr << "  " << record.info.src_port << " -> " << record.info.dst_port
+                      << " verdict=" << static_cast<int>(record.result.verdict)
+                      << " rule=" << record.result.matched_rule_desc << "\n";
+        }
         return 1;
     }
     if (blocked_connected) {
