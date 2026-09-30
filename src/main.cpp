@@ -515,8 +515,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR /* lpCmdLine */, int) {
     std::vector<std::string> args;
     for (int i = 0; i < argc; ++i) {
         int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
-        std::string s(len, '\0');
+        std::string s(static_cast<size_t>(len), '\0');
         WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
+        if (!s.empty()) s.pop_back(); // Drop the terminator included by the -1 input length.
         args.push_back(s);
     }
     LocalFree(wargv);
