@@ -432,7 +432,9 @@ static int run_service_install() {
         if (message_length > 0) log << ": " << message;
         log << '\n';
     }
-    return 1;
+    return g_service_install_error == ERROR_SUCCESS
+        ? ERROR_GEN_FAILURE
+        : static_cast<int>(g_service_install_error);
 }
 #endif
 
