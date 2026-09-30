@@ -231,9 +231,12 @@ if ($RunInstallSmokeTest) {
             $backendLogPath = Join-Path $testInstallDir "logs\aegix.log"
             $backendLog = Get-Content -LiteralPath $backendLogPath -Tail 40 -ErrorAction SilentlyContinue
             $backendLogSummary = if ($backendLog) { $backendLog -join " | " } else { "no backend log was produced" }
+            $serviceInstallLogPath = Join-Path $testInstallDir "logs\service-install.log"
+            $serviceInstallLog = Get-Content -LiteralPath $serviceInstallLogPath -Tail 20 -ErrorAction SilentlyContinue
+            $serviceInstallSummary = if ($serviceInstallLog) { $serviceInstallLog -join " | " } else { "no service registration error log was produced" }
             $setupLog = Get-Content -LiteralPath $setupLogPath -Tail 60 -ErrorAction SilentlyContinue
             $setupLogSummary = if ($setupLog) { $setupLog -join " | " } else { "no setup log was produced" }
-            throw "Windows installer smoke test did not start the AegisXII service. SCM: $serviceStateSummary Backend: $backendLogSummary Setup: $setupLogSummary"
+            throw "Windows installer smoke test did not start the AegisXII service. SCM: $serviceStateSummary Registration: $serviceInstallSummary Backend: $backendLogSummary Setup: $setupLogSummary"
         }
 
         $clientProcess = Start-Process -FilePath $installedExe -ArgumentList "--ipc-client-smoke-test" -WorkingDirectory $testInstallDir -PassThru -WindowStyle Hidden

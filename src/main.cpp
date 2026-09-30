@@ -379,12 +379,22 @@ void WINAPI ServiceMain(DWORD /* argc */, LPTSTR* /* argv */) {
     SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
 }
 
+DWORD g_service_install_error = ERROR_SUCCESS;
+
 bool InstallService() {
     SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!hSCManager) return false;
+    if (!hSCManager) {
+        g_service_install_error = GetLastError();
+        return false;
+    }
 
-    char path[MAX_PATH];
-    GetModuleFileNameA(NULL, path, MAX_PATH);
+    char path[MAX_PATH] = {};
+    const DWORD path_length = GetModuleFileNameA(NULL, path, MAX_PATH);
+    if (path_length == 0 || path_length >= MAX_PATH) {
+        g_service_install_error = path_length == 0 ? GetLastError() : ERROR_INSUFFICIENT_BUFFER;
+        CloseServiceHandle(hSCManager);
+        return false;
+    }
     std::string binPath = std::string("\"") + path + "\" --service";
 
     SC_HANDLE hService = CreateServiceA(
@@ -399,8 +409,25 @@ bool InstallService() {
         CloseServiceHandle(hSCManager);
         return true;
     }
+    g_service_install_error = GetLastError();
     CloseServiceHandle(hSCManager);
     return false;
+}
+
+static int run_service_install() {
+    if (InstallService()) return 0;
+
+    char message[512] = {};
+    const DWORD message_length = FormatMessageA(
+        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, g_service_install_error, 0, message,
+        static_cast<DWORD>(sizeof(message)), nullptr);
+    std::ofstream log("logs/service-install.log", std::ios::trunc);
+    log << "Windows service registration failed. Win32 error "
+        << g_service_install_error;
+    if (message_length > 0) log << ": " << message;
+    log << '\n';
+    return 1;
 }
 #endif
 
@@ -509,7 +536,7 @@ int main(int argc, char* argv[]) {
             return run_ipc_client_smoke_test();
         }
         if (args[1] == "--install") {
-            return InstallService() ? 0 : 1;
+            return run_service_install();
         }
 #endif
     }
