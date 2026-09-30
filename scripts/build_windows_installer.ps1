@@ -198,8 +198,12 @@ if ($RunInstallSmokeTest) {
         }
 
         $serviceReady = $false
+        $serviceStateSummary = "service state was not available"
         for ($attempt = 0; $attempt -lt 30; $attempt++) {
             $serviceState = & $serviceControl query AegisXII 2>$null
+            if ($serviceState) {
+                $serviceStateSummary = ($serviceState -join " ").Trim()
+            }
             if ($LASTEXITCODE -eq 0 -and ($serviceState -match "RUNNING")) {
                 $serviceReady = $true
                 break
@@ -207,7 +211,10 @@ if ($RunInstallSmokeTest) {
             Start-Sleep -Seconds 1
         }
         if (-not $serviceReady) {
-            throw "Windows installer smoke test did not start the AegisXII service."
+            $backendLogPath = Join-Path $testInstallDir "logs\aegix.log"
+            $backendLog = Get-Content -LiteralPath $backendLogPath -Tail 40 -ErrorAction SilentlyContinue
+            $backendLogSummary = if ($backendLog) { $backendLog -join " | " } else { "no backend log was produced" }
+            throw "Windows installer smoke test did not start the AegisXII service. SCM: $serviceStateSummary Backend: $backendLogSummary"
         }
 
         $clientProcess = Start-Process -FilePath $installedExe -ArgumentList "--ipc-client-smoke-test" -WorkingDirectory $testInstallDir -PassThru -WindowStyle Hidden
