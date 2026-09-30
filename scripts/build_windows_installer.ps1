@@ -38,12 +38,15 @@ if ($InnoCompiler) {
 } else {
     $programRoots = @($env:ProgramW6432, ${env:ProgramFiles}, ${env:ProgramFiles(x86)}) |
         Where-Object { $_ } | Select-Object -Unique
-    $installDirs = foreach ($root in $programRoots) {
+    $installRoots = @($programRoots, (Join-Path $env:LOCALAPPDATA "Programs")) |
+        Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -Unique
+    $installDirs = foreach ($root in $installRoots) {
         Get-ChildItem -LiteralPath $root -Directory -Filter "Inno Setup 7*" -ErrorAction SilentlyContinue
     }
     $uninstallKeys = @(
         "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
     )
     $installLocations = Get-ItemProperty $uninstallKeys -ErrorAction SilentlyContinue |
         Where-Object { $_.DisplayName -like "Inno Setup 7*" -and $_.InstallLocation } |
