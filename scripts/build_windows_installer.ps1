@@ -293,3 +293,7 @@ if ($RunInstallSmokeTest) {
 } else {
     Write-Host "Installer lifecycle smoke test skipped; pass -RunInstallSmokeTest to enable it."
 }
+
+# The expected post-uninstall `sc.exe` checks leave a non-zero native exit
+# code behind. Return success explicitly after every validation completes.
+exit 0
