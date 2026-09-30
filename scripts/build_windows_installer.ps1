@@ -231,7 +231,7 @@ if ($RunInstallSmokeTest) {
             $backendLogPath = Join-Path $testInstallDir "logs\aegix.log"
             $backendLog = Get-Content -LiteralPath $backendLogPath -Tail 40 -ErrorAction SilentlyContinue
             $backendLogSummary = if ($backendLog) { $backendLog -join " | " } else { "no backend log was produced" }
-            $serviceInstallLogPath = Join-Path $testInstallDir "logs\service-install.log"
+            $serviceInstallLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "AegisXII-service-install.log"
             $serviceInstallLog = Get-Content -LiteralPath $serviceInstallLogPath -Tail 20 -ErrorAction SilentlyContinue
             $serviceInstallSummary = if ($serviceInstallLog) { $serviceInstallLog -join " | " } else { "no service registration error log was produced" }
             $setupLog = Get-Content -LiteralPath $setupLogPath -Tail 60 -ErrorAction SilentlyContinue
@@ -287,6 +287,8 @@ if ($RunInstallSmokeTest) {
             }
             Remove-Item -LiteralPath $resolvedInstallDir -Recurse -Force
         }
+        $serviceInstallLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "AegisXII-service-install.log"
+        Remove-Item -LiteralPath $serviceInstallLogPath -Force -ErrorAction SilentlyContinue
     }
 } else {
     Write-Host "Installer lifecycle smoke test skipped; pass -RunInstallSmokeTest to enable it."

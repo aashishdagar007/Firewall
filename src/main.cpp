@@ -422,11 +422,16 @@ static int run_service_install() {
         FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         nullptr, g_service_install_error, 0, message,
         static_cast<DWORD>(sizeof(message)), nullptr);
-    std::ofstream log("logs/service-install.log", std::ios::trunc);
-    log << "Windows service registration failed. Win32 error "
-        << g_service_install_error;
-    if (message_length > 0) log << ": " << message;
-    log << '\n';
+    char temp_path[MAX_PATH] = {};
+    const DWORD temp_path_length = GetTempPathA(
+        static_cast<DWORD>(sizeof(temp_path)), temp_path);
+    if (temp_path_length > 0 && temp_path_length < sizeof(temp_path)) {
+        std::ofstream log(std::string(temp_path) + "AegisXII-service-install.log", std::ios::trunc);
+        log << "Windows service registration failed. Win32 error "
+            << g_service_install_error;
+        if (message_length > 0) log << ": " << message;
+        log << '\n';
+    }
     return 1;
 }
 #endif
