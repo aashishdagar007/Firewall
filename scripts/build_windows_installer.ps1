@@ -33,9 +33,6 @@ foreach ($required in @($dashboardIndex, $rules)) {
 if (-not $exe) { throw "CMake did not produce AegisXII.exe in $BuildDir or its configuration directory." }
 
 if (-not $InnoCompiler) {
-    $InnoCompiler = (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).Source
-}
-if (-not $InnoCompiler) {
     $programRoots = @($env:ProgramW6432, ${env:ProgramFiles}, ${env:ProgramFiles(x86)}) |
         Where-Object { $_ } | Select-Object -Unique
     $installDirs = foreach ($root in $programRoots) {
@@ -62,6 +59,12 @@ if (-not $InnoCompiler) {
 if (-not $InnoCompiler -or -not (Test-Path -LiteralPath $InnoCompiler -PathType Leaf)) {
     throw "Inno Setup 7 ISCC.exe was not found. Install Inno Setup 7 or pass -InnoCompiler."
 }
+
+$compilerVersionOutput = & $InnoCompiler --version 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0 -or $compilerVersionOutput -notmatch '^7\.') {
+    throw "The selected compiler is not Inno Setup 7: $InnoCompiler`n$compilerVersionOutput"
+}
+Write-Host "Using Inno Setup 7 compiler: $InnoCompiler"
 
 $outputDir = Join-Path $sourceRoot "dist\windows"
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
@@ -181,7 +184,8 @@ if ($RunInstallSmokeTest) {
     $testInstallDir = Join-Path ([System.IO.Path]::GetTempPath()) ("aegisxii-install-smoke-" + [guid]::NewGuid().ToString("N"))
     $serviceMayExist = $false
     try {
-        $setupArguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=`"$testInstallDir`""
+        $setupLogPath = Join-Path ([System.IO.Path]::GetTempPath()) ("aegisxii-setup-" + [guid]::NewGuid().ToString("N") + ".log")
+        $setupArguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=`"$setupLogPath`" /DIR=`"$testInstallDir`""
         $serviceMayExist = $true
         $testInstallerProcess = Start-Process -FilePath $installer -ArgumentList $setupArguments -WorkingDirectory $outputDir -PassThru -WindowStyle Hidden
         if (-not $testInstallerProcess.WaitForExit(120000)) {
@@ -214,7 +218,9 @@ if ($RunInstallSmokeTest) {
             $backendLogPath = Join-Path $testInstallDir "logs\aegix.log"
             $backendLog = Get-Content -LiteralPath $backendLogPath -Tail 40 -ErrorAction SilentlyContinue
             $backendLogSummary = if ($backendLog) { $backendLog -join " | " } else { "no backend log was produced" }
-            throw "Windows installer smoke test did not start the AegisXII service. SCM: $serviceStateSummary Backend: $backendLogSummary"
+            $setupLog = Get-Content -LiteralPath $setupLogPath -Tail 60 -ErrorAction SilentlyContinue
+            $setupLogSummary = if ($setupLog) { $setupLog -join " | " } else { "no setup log was produced" }
+            throw "Windows installer smoke test did not start the AegisXII service. SCM: $serviceStateSummary Backend: $backendLogSummary Setup: $setupLogSummary"
         }
 
         $clientProcess = Start-Process -FilePath $installedExe -ArgumentList "--ipc-client-smoke-test" -WorkingDirectory $testInstallDir -PassThru -WindowStyle Hidden
