@@ -32,18 +32,15 @@ foreach ($required in @($dashboardIndex, $rules)) {
 }
 if (-not $exe) { throw "CMake did not produce AegisXII.exe in $BuildDir or its configuration directory." }
 
-if (-not $InnoCompiler) {
+$innoCandidates = [System.Collections.Generic.List[string]]::new()
+if ($InnoCompiler) {
+    $innoCandidates.Add($InnoCompiler)
+} else {
     $programRoots = @($env:ProgramW6432, ${env:ProgramFiles}, ${env:ProgramFiles(x86)}) |
         Where-Object { $_ } | Select-Object -Unique
     $installDirs = foreach ($root in $programRoots) {
         Get-ChildItem -LiteralPath $root -Directory -Filter "Inno Setup 7*" -ErrorAction SilentlyContinue
     }
-    $InnoCompiler = $installDirs |
-        ForEach-Object { Join-Path $_.FullName "ISCC.exe" } |
-        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-        Select-Object -First 1
-}
-if (-not $InnoCompiler) {
     $uninstallKeys = @(
         "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
         "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
@@ -51,19 +48,32 @@ if (-not $InnoCompiler) {
     $installLocations = Get-ItemProperty $uninstallKeys -ErrorAction SilentlyContinue |
         Where-Object { $_.DisplayName -like "Inno Setup 7*" -and $_.InstallLocation } |
         Select-Object -ExpandProperty InstallLocation
-    $InnoCompiler = $installLocations |
-        ForEach-Object { Join-Path $_ "ISCC.exe" } |
-        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-        Select-Object -First 1
+    foreach ($directory in $installDirs) {
+        $innoCandidates.Add((Join-Path $directory.FullName "ISCC.exe"))
+    }
+    foreach ($location in $installLocations) {
+        $innoCandidates.Add((Join-Path $location "ISCC.exe"))
+    }
+    foreach ($command in (Get-Command "ISCC.exe" -All -ErrorAction SilentlyContinue)) {
+        if ($command.Source) { $innoCandidates.Add($command.Source) }
+    }
 }
-if (-not $InnoCompiler -or -not (Test-Path -LiteralPath $InnoCompiler -PathType Leaf)) {
-    throw "Inno Setup 7 ISCC.exe was not found. Install Inno Setup 7 or pass -InnoCompiler."
+$compilerDiagnostics = [System.Collections.Generic.List[string]]::new()
+$selectedInnoCompiler = $null
+foreach ($candidate in ($innoCandidates | Select-Object -Unique)) {
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
+    $candidateVersion = (& $candidate --version 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -eq 0 -and $candidateVersion -match '^7\.') {
+        $selectedInnoCompiler = $candidate
+        break
+    }
+    $compilerDiagnostics.Add("$candidate ($candidateVersion)")
 }
-
-$compilerVersionOutput = & $InnoCompiler --version 2>&1 | Out-String
-if ($LASTEXITCODE -ne 0 -or $compilerVersionOutput -notmatch '^7\.') {
-    throw "The selected compiler is not Inno Setup 7: $InnoCompiler`n$compilerVersionOutput"
+if (-not $selectedInnoCompiler) {
+    $available = if ($compilerDiagnostics.Count) { $compilerDiagnostics -join "; " } else { "no ISCC.exe candidates found" }
+    throw "Inno Setup 7 ISCC.exe was not found. Install Inno Setup 7 or pass -InnoCompiler. Candidates: $available"
 }
+$InnoCompiler = $selectedInnoCompiler
 Write-Host "Using Inno Setup 7 compiler: $InnoCompiler"
 
 $outputDir = Join-Path $sourceRoot "dist\windows"
