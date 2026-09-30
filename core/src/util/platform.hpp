@@ -124,6 +124,16 @@ inline bool apply_strict_file_security(const std::string& path) {
     std::wstring wpath(wlen, L'\0');
     MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, &wpath[0], wlen);
 
+    // A first service start has no log file yet. Create it before applying the
+    // protected DACL so the clean-install verifier does not fail on ENOENT.
+    HANDLE file = CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        LocalFree(pSD);
+        return false;
+    }
+    CloseHandle(file);
+
     DWORD res = SetNamedSecurityInfoW(
         const_cast<LPWSTR>(wpath.c_str()),
         SE_FILE_OBJECT,
@@ -132,6 +142,47 @@ inline bool apply_strict_file_security(const std::string& path) {
 
     LocalFree(pSD);
     return res == ERROR_SUCCESS;
+}
+
+// Protect the installation tree before registering a LocalSystem service.
+// This also makes custom install locations safe when their parent (for
+// example, the user's temporary directory) is writable by ordinary users.
+inline DWORD apply_strict_install_directory_security(
+        const std::string& path, bool private_to_admins = false) {
+    PSECURITY_DESCRIPTOR pSD = nullptr;
+    ULONG sdSize = 0;
+    const wchar_t* sddl = private_to_admins
+        ? L"D:P(A;OICI;GA;;;SY)(A;OICI;GA;;;BA)"
+        : L"D:P(A;OICI;GA;;;SY)(A;OICI;GA;;;BA)(A;OICI;GRGX;;;BU)";
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl, SDDL_REVISION_1, &pSD, &sdSize)) {
+        return GetLastError();
+    }
+
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+    if (wlen <= 0) {
+        const DWORD error = GetLastError();
+        LocalFree(pSD);
+        return error;
+    }
+    std::wstring wpath(static_cast<size_t>(wlen), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, &wpath[0], wlen);
+
+    PACL pDacl = nullptr;
+    BOOL daclPresent = FALSE;
+    BOOL daclDefaulted = FALSE;
+    if (!GetSecurityDescriptorDacl(pSD, &daclPresent, &pDacl, &daclDefaulted) || !daclPresent || !pDacl) {
+        const DWORD error = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_SECURITY_DESCR : GetLastError();
+        LocalFree(pSD);
+        return error;
+    }
+
+    const DWORD result = SetNamedSecurityInfoW(
+        const_cast<LPWSTR>(wpath.c_str()), SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+        nullptr, nullptr, pDacl, nullptr);
+    LocalFree(pSD);
+    return result;
 }
 
 // Verify that file DACL has not been weakened to permit non-admin write access
@@ -295,6 +346,13 @@ inline bool drop_thread_privileges() {
 inline bool apply_strict_file_security(const std::string& path) {
   (void)path;
   return true;
+}
+
+inline uint32_t apply_strict_install_directory_security(
+        const std::string& path, bool private_to_admins = false) {
+  (void)path;
+  (void)private_to_admins;
+  return 0;
 }
 
 inline bool verify_file_security(const std::string& path) {

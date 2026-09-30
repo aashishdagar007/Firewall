@@ -400,7 +400,26 @@ bool InstallService() {
     }
     std::string binPath = std::string("\"") + path + "\" --service";
 
-    g_service_install_stage = 3; // CreateService
+    g_service_install_stage = 3; // Protect the service binary, config, and data directory.
+    std::string install_directory(path);
+    const size_t separator = install_directory.find_last_of("\\/");
+    if (separator != std::string::npos) install_directory.resize(separator);
+    const DWORD directory_security_error =
+        apply_strict_install_directory_security(install_directory);
+    if (directory_security_error != ERROR_SUCCESS) {
+        g_service_install_error = directory_security_error;
+        CloseServiceHandle(hSCManager);
+        return false;
+    }
+    const DWORD log_directory_security_error =
+        apply_strict_install_directory_security(install_directory + "\\logs", true);
+    if (log_directory_security_error != ERROR_SUCCESS) {
+        g_service_install_error = log_directory_security_error;
+        CloseServiceHandle(hSCManager);
+        return false;
+    }
+
+    g_service_install_stage = 4; // CreateService
     SC_HANDLE hService = CreateServiceA(
         hSCManager, "AegisXII", "Aegis XII Firewall Service",
         SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
