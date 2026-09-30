@@ -59,11 +59,30 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; Register and start the backend before offering the GUI, so its named-pipe endpoint exists.
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--install"; Flags: runhidden waituntilterminated
-Filename: "{sys}\sc.exe"; Parameters: "start AegisXII"; Flags: runhidden waituntilterminated
+; Service registration and startup are performed with checked exit codes below.
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{sys}\sc.exe"; Parameters: "stop AegisXII"; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "delete AegisXII"; Flags: runhidden
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if not Exec(ExpandConstant('{app}\{#MyAppExeName}'), '--install',
+      ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      RaiseException('Could not launch the AEGIS XII service installer.');
+    if ResultCode <> 0 then
+      RaiseException(Format('AEGIS XII service registration failed with exit code %d.', [ResultCode]));
+
+    if not Exec(ExpandConstant('{sys}\sc.exe'), 'start AegisXII',
+      ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      RaiseException('Could not launch the Windows Service Control Manager.');
+    if ResultCode <> 0 then
+      RaiseException(Format('AEGIS XII service start failed with exit code %d.', [ResultCode]));
+  end;
+end;
