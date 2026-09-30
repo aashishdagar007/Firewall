@@ -380,14 +380,17 @@ void WINAPI ServiceMain(DWORD /* argc */, LPTSTR* /* argv */) {
 }
 
 DWORD g_service_install_error = ERROR_SUCCESS;
+DWORD g_service_install_stage = 0;
 
 bool InstallService() {
+    g_service_install_stage = 1; // OpenSCManager
     SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
     if (!hSCManager) {
         g_service_install_error = GetLastError();
         return false;
     }
 
+    g_service_install_stage = 2; // Resolve the installed executable path
     char path[MAX_PATH] = {};
     const DWORD path_length = GetModuleFileNameA(NULL, path, MAX_PATH);
     if (path_length == 0 || path_length >= MAX_PATH) {
@@ -397,6 +400,7 @@ bool InstallService() {
     }
     std::string binPath = std::string("\"") + path + "\" --service";
 
+    g_service_install_stage = 3; // CreateService
     SC_HANDLE hService = CreateServiceA(
         hSCManager, "AegisXII", "Aegis XII Firewall Service",
         SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
@@ -434,7 +438,7 @@ static int run_service_install() {
     }
     return g_service_install_error == ERROR_SUCCESS
         ? ERROR_GEN_FAILURE
-        : static_cast<int>(g_service_install_error);
+        : static_cast<int>(g_service_install_stage * 1000 + g_service_install_error);
 }
 #endif
 
