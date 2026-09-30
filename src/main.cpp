@@ -451,6 +451,20 @@ static int run_ipc_smoke_test() {
     write_result(result);
     return handshake_ok ? 0 : 1;
 }
+
+static int run_ipc_client_smoke_test() {
+    fw::gui::IpcClient client;
+    bool connected = false;
+    for (int attempt = 0; attempt < 200 && !connected; ++attempt) {
+        connected = client.connect();
+        if (!connected) std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    }
+
+    fw::ipc::StatsPayload snapshot{};
+    const bool handshake_ok = connected && client.get_stats(snapshot) && client.ping();
+    client.disconnect();
+    return handshake_ok ? 0 : 1;
+}
 #endif
 
 // ──────────────────────────────────────────────────────────────
@@ -491,10 +505,11 @@ int main(int argc, char* argv[]) {
         if (args[1] == "--ipc-smoke-test") {
             return run_ipc_smoke_test();
         }
+        if (args[1] == "--ipc-client-smoke-test") {
+            return run_ipc_client_smoke_test();
+        }
         if (args[1] == "--install") {
-            if (InstallService()) MessageBoxA(NULL, "Service Installed Successfully", "Aegis XII", MB_OK);
-            else MessageBoxA(NULL, "Failed to Install Service (Run as Admin)", "Aegis XII", MB_ICONERROR);
-            return 0;
+            return InstallService() ? 0 : 1;
         }
 #endif
     }

@@ -2,7 +2,8 @@
 param(
     [string] $BuildDir = (Join-Path $PSScriptRoot "..\cmake-build-release"),
     [string] $Configuration = "Release",
-    [string] $InnoCompiler
+    [string] $InnoCompiler,
+    [switch] $RunInstallSmokeTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -168,3 +169,96 @@ if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
     throw "Inno Setup reported success but did not create $installer"
 }
 Write-Host "Installer created: $installer"
+
+if ($RunInstallSmokeTest) {
+    $serviceControl = Join-Path $env:SystemRoot "System32\sc.exe"
+    & $serviceControl query AegisXII 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        throw "Refusing installer lifecycle smoke test because an AegisXII service already exists."
+    }
+
+    Write-Host "Verifying clean install, service startup, GUI IPC, and uninstall"
+    $testInstallDir = Join-Path ([System.IO.Path]::GetTempPath()) ("aegisxii-install-smoke-" + [guid]::NewGuid().ToString("N"))
+    $serviceMayExist = $false
+    try {
+        $setupArguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=`"$testInstallDir`""
+        $serviceMayExist = $true
+        $testInstallerProcess = Start-Process -FilePath $installer -ArgumentList $setupArguments -WorkingDirectory $outputDir -PassThru -WindowStyle Hidden
+        if (-not $testInstallerProcess.WaitForExit(120000)) {
+            $testInstallerProcess.Kill()
+            throw "Windows installer smoke test timed out during install."
+        }
+        if ($testInstallerProcess.ExitCode -ne 0) {
+            throw "Windows installer smoke test failed during install with exit code $($testInstallerProcess.ExitCode)."
+        }
+
+        $installedExe = Join-Path $testInstallDir "AegisXII.exe"
+        if (-not (Test-Path -LiteralPath $installedExe -PathType Leaf)) {
+            throw "Windows installer smoke test did not install AegisXII.exe."
+        }
+
+        $serviceReady = $false
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            $serviceState = & $serviceControl query AegisXII 2>$null
+            if ($LASTEXITCODE -eq 0 -and ($serviceState -match "RUNNING")) {
+                $serviceReady = $true
+                break
+            }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $serviceReady) {
+            throw "Windows installer smoke test did not start the AegisXII service."
+        }
+
+        $clientProcess = Start-Process -FilePath $installedExe -ArgumentList "--ipc-client-smoke-test" -WorkingDirectory $testInstallDir -PassThru -WindowStyle Hidden
+        if (-not $clientProcess.WaitForExit(30000)) {
+            $clientProcess.Kill()
+            throw "Installed GUI-to-service IPC check timed out."
+        }
+        if ($clientProcess.ExitCode -ne 0) {
+            throw "Installed GUI-to-service IPC check failed with exit code $($clientProcess.ExitCode)."
+        }
+
+        $uninstaller = Join-Path $testInstallDir "unins000.exe"
+        if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
+            throw "Windows installer smoke test did not create its uninstaller."
+        }
+        $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -WorkingDirectory $testInstallDir -PassThru -WindowStyle Hidden
+        if (-not $uninstallProcess.WaitForExit(60000)) {
+            $uninstallProcess.Kill()
+            throw "Windows installer smoke test timed out during uninstall."
+        }
+        if ($uninstallProcess.ExitCode -ne 0) {
+            throw "Windows installer smoke test failed during uninstall with exit code $($uninstallProcess.ExitCode)."
+        }
+
+        $serviceRemoved = $false
+        for ($attempt = 0; $attempt -lt 15; $attempt++) {
+            & $serviceControl query AegisXII 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                $serviceRemoved = $true
+                break
+            }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $serviceRemoved) {
+            throw "Windows installer smoke test left the AegisXII service registered."
+        }
+        Write-Host "Clean install, service startup, GUI IPC, and uninstall passed."
+    } finally {
+        if ($serviceMayExist) {
+            & $serviceControl stop AegisXII 2>$null | Out-Null
+            & $serviceControl delete AegisXII 2>$null | Out-Null
+        }
+        if (Test-Path -LiteralPath $testInstallDir -PathType Container) {
+            $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+            $resolvedInstallDir = [System.IO.Path]::GetFullPath($testInstallDir)
+            if (-not $resolvedInstallDir.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "Refusing to remove installer smoke-test directory outside the temporary root: $resolvedInstallDir"
+            }
+            Remove-Item -LiteralPath $resolvedInstallDir -Recurse -Force
+        }
+    }
+} else {
+    Write-Host "Installer lifecycle smoke test skipped; pass -RunInstallSmokeTest to enable it."
+}
