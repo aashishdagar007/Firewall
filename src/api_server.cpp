@@ -10,10 +10,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <random>
 #include <sstream>
 #include <stdexcept>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <bcrypt.h>
+#else
 #include <cerrno>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -65,6 +66,28 @@ bool write_api_token(const std::string& token) {
   if (ok && ::fsync(fd) != 0) ok = false;
   if (::close(fd) != 0) ok = false;
   return ok;
+#endif
+}
+
+bool fill_secure_random(unsigned char* buffer, size_t length) {
+#ifdef _WIN32
+  return BCryptGenRandom(nullptr, buffer, static_cast<ULONG>(length),
+                         BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0;
+#else
+  const int fd = ::open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+  if (fd < 0) return false;
+
+  size_t offset = 0;
+  while (offset < length) {
+    const ssize_t read_count = ::read(fd, buffer + offset, length - offset);
+    if (read_count < 0 && errno == EINTR) continue;
+    if (read_count <= 0) {
+      ::close(fd);
+      return false;
+    }
+    offset += static_cast<size_t>(read_count);
+  }
+  return ::close(fd) == 0;
 #endif
 }
 }
@@ -470,13 +493,18 @@ void ApiServer::setup_routes() {
 // ── Handler implementations ───────────────────────────────────
 
 std::string ApiServer::generate_token() {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dis(0, 15);
-  const char *hex = "0123456789abcdef";
+  unsigned char random_bytes[16];
+  if (!fill_secure_random(random_bytes, sizeof(random_bytes))) {
+    throw std::runtime_error("could not obtain secure random bytes for API token");
+  }
+
+  static constexpr char hex[] = "0123456789abcdef";
   std::string token;
-  for (int i = 0; i < 32; ++i)
-    token += hex[dis(gen)];
+  token.reserve(sizeof(random_bytes) * 2);
+  for (const unsigned char byte : random_bytes) {
+    token += hex[byte >> 4];
+    token += hex[byte & 0x0f];
+  }
   return token;
 }
 
