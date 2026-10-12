@@ -150,9 +150,17 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     tstate.ban_expires = std::chrono::steady_clock::now() + std::chrono::hours(24);
   }
 
+  // A loopback source is valid only when it arrived through the loopback
+  // interface.  An external packet can forge a 127/8 source and otherwise
+  // match a permissive localhost rule before the default policy is reached.
+  const bool is_loopback = (pkt.src_ip >> 24) == 127;
+  if (is_loopback && pkt.ingress_interface != "lo") {
+    anomaly_bogon_.hit_count++;
+    return {Action::BLOCK, &anomaly_bogon_};
+  }
+
   // Loopback sockets legitimately use the same source and destination IP.
   // Keep the Land-attack check for equal non-loopback addresses only.
-  const bool is_loopback = (pkt.src_ip >> 24) == 127;
   if (pkt.src_ip != 0 && pkt.src_ip == pkt.dst_ip && !is_loopback) {
     anomaly_land_.hit_count++;
     return {Action::BLOCK, &anomaly_land_};
@@ -171,7 +179,7 @@ EvalResult RuleEngine::evaluate(const PacketInfo &pkt) {
     uint8_t b1 = (pkt.src_ip >> 24) & 0xFF;
     bool is_bogon = false;
     // 0.0.0.0/8, 224.0.0.0/4 (Multicast), 240.0.0.0/4 (Reserved)
-    // 127.0.0.0/8 (Loopback) is allowed for local inter-process communication
+    // 127.0.0.0/8 was validated above against the NFQUEUE ingress interface.
     if (b1 == 0 || b1 == 224 || b1 == 240)
       is_bogon = true;
 
@@ -657,6 +665,11 @@ bool RuleEngine::matches(const Rule &rule, const PacketInfo &pkt) {
 
   // Process Name (empty = wildcard)
   if (!rule.process_name.empty() && rule.process_name != pkt.process_name)
+    return false;
+
+  // Incoming interface (empty = wildcard)
+  if (!rule.ingress_interface.empty() &&
+      rule.ingress_interface != pkt.ingress_interface)
     return false;
 
   // Direction

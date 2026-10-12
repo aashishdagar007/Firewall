@@ -11,7 +11,7 @@
 //  config_parser.cpp
 //
 //  Rule line format (whitespace-delimited):
-//    ACTION  PROTO  SRC_IP[/MASK]  DST_IP[/MASK]  DST_PORT[-END]  "description"
+//    ACTION  PROTO  SRC_IP[/MASK]  DST_IP[/MASK]  DST_PORT[-END]  [INIFACE=<name>]  "description"
 //
 //  Examples:
 //    BLOCK  TCP   192.168.1.0/24  *          *      "Block subnet"
@@ -93,7 +93,7 @@ bool ConfigParser::save(const std::string &path, const std::vector<Rule> &rules)
     if (!file.is_open()) return false;
 
     file << "# Firewall Rules Configuration\n";
-    file << "# ACTION  PROTO  SRC_IP[/MASK]  DST_IP[/MASK]  DST_PORT[-END]  \"description\"\n\n";
+    file << "# ACTION  PROTO  SRC_IP[/MASK]  DST_IP[/MASK]  DST_PORT[-END]  [INIFACE=<name>]  \"description\"\n\n";
 
     for (const auto& r : rules) {
         if (r.action == Action::BLOCK && !r.process_name.empty() && r.src_ip == 0 && r.dst_ip == 0 && r.dst_port_start == 0) {
@@ -137,6 +137,9 @@ bool ConfigParser::save(const std::string &path, const std::vector<Rule> &rules)
             file << r.dst_port_start << "-" << r.dst_port_end << " ";
         }
 
+        if (!r.ingress_interface.empty())
+            file << "INIFACE=" << r.ingress_interface << " ";
+
         file << "\"" << r.description << "\"\n";
     }
 
@@ -144,6 +147,7 @@ bool ConfigParser::save(const std::string &path, const std::vector<Rule> &rules)
 }
 
 bool ConfigParser::parse_line(const std::string& line, Rule& out) {
+    out.ingress_interface.clear();
     std::istringstream ss(line);
     std::string action_s;
     if (!(ss >> action_s)) return false;
@@ -177,7 +181,25 @@ bool ConfigParser::parse_line(const std::string& line, Rule& out) {
     if (!(ss >> proto_s >> src_ip_s >> dst_ip_s >> dst_port_s))
         return false;
 
-    std::getline(ss, desc);
+    std::string maybe_interface;
+    if (ss >> maybe_interface) {
+        constexpr const char* prefix = "INIFACE=";
+        if (maybe_interface.rfind(prefix, 0) == 0) {
+            const std::string interface_name = maybe_interface.substr(std::char_traits<char>::length(prefix));
+            static const std::regex valid_interface("^[A-Za-z0-9_.:-]+$");
+            if (interface_name.empty() || !std::regex_match(interface_name, valid_interface))
+                return false;
+            out.ingress_interface = interface_name;
+        } else {
+            desc = maybe_interface;
+        }
+    }
+    std::string remaining;
+    std::getline(ss, remaining);
+    if (!remaining.empty()) {
+        if (!desc.empty()) desc += " ";
+        desc += remaining;
+    }
     size_t start = desc.find_first_not_of(" \t\"");
     size_t end   = desc.find_last_not_of(" \t\"");
     if (start != std::string::npos)

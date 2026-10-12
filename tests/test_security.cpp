@@ -67,6 +67,12 @@ int main() {
 
         bool ok7 = fw::ConfigParser::parse_line("ALLOW TCP 10.0.0.0/24abc * 80 \"Bad CIDR suffix\"", r);
         TEST_ASSERT(!ok7, "ConfigParser rejected trailing characters in CIDR prefix");
+
+        bool ok8 = fw::ConfigParser::parse_line("ALLOW ANY 127.0.0.1 * * INIFACE=lo \"Localhost only\"", r);
+        TEST_ASSERT(ok8 && r.ingress_interface == "lo", "ConfigParser parsed an incoming-interface rule scope");
+
+        bool ok9 = fw::ConfigParser::parse_line("ALLOW ANY 127.0.0.1 * * INIFACE=bad/interface \"Invalid interface\"", r);
+        TEST_ASSERT(!ok9, "ConfigParser rejected an unsafe interface name");
     }
 
     // ── Test 3: Fail-Secure Default & Configurable Toggle ───────────────

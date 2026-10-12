@@ -93,6 +93,11 @@ struct PacketInfo {
 
   // Raw byte count (for logging/stats)
   int size = 0;
+
+  // NFQUEUE ingress metadata.  It is empty when the capture backend cannot
+  // provide an incoming interface.
+  uint32_t ingress_ifindex = 0;
+  std::string ingress_interface;
 };
 
 // ── Firewall rule ────────────────────────────────────────────
@@ -116,6 +121,7 @@ struct Rule {
   std::array<uint8_t, 6> dst_mac = {0};
 
   std::string process_name; // empty = wildcard
+  std::string ingress_interface; // empty = wildcard
   std::string description;
 
   // Stats
@@ -129,7 +135,8 @@ struct Rule {
         src_port_start(o.src_port_start), src_port_end(o.src_port_end),
         dst_port_start(o.dst_port_start), dst_port_end(o.dst_port_end),
         src_mac(o.src_mac), dst_mac(o.dst_mac),
-        process_name(o.process_name), description(o.description), hit_count(o.hit_count.load()) {}
+        process_name(o.process_name), ingress_interface(o.ingress_interface),
+        description(o.description), hit_count(o.hit_count.load()) {}
   Rule(Rule &&o) noexcept
       : id(o.id), action(o.action), proto(o.proto), direction(o.direction),
         src_ip(o.src_ip), src_ip_mask(o.src_ip_mask),
@@ -138,6 +145,7 @@ struct Rule {
         dst_port_start(o.dst_port_start), dst_port_end(o.dst_port_end),
         src_mac(o.src_mac), dst_mac(o.dst_mac),
         process_name(std::move(o.process_name)),
+        ingress_interface(std::move(o.ingress_interface)),
         description(std::move(o.description)), hit_count(o.hit_count.load()) {}
   Rule &operator=(const Rule &o) {
     if (this != &o) {
@@ -156,6 +164,7 @@ struct Rule {
       src_mac = o.src_mac;
       dst_mac = o.dst_mac;
       process_name = o.process_name;
+      ingress_interface = o.ingress_interface;
       description = o.description;
       hit_count.store(o.hit_count.load());
     }
@@ -178,6 +187,7 @@ struct Rule {
       src_mac = o.src_mac;
       dst_mac = o.dst_mac;
       process_name = std::move(o.process_name);
+      ingress_interface = std::move(o.ingress_interface);
       description = std::move(o.description);
       hit_count.store(o.hit_count.load());
     }

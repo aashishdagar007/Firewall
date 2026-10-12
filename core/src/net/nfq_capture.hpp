@@ -122,7 +122,9 @@ private:
                              nfq_data* nfa, void* data);
 #endif
 
-    void process_packet(const uint8_t* buf, int len, uint32_t pkt_id);
+    void process_packet(const uint8_t* buf, int len, uint32_t pkt_id,
+                        uint32_t ingress_ifindex = 0,
+                        std::string ingress_interface = {});
     void run_raw_fallback();
     void receive_one_raw(sock_t sock);
 

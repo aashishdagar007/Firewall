@@ -25,6 +25,7 @@
 #ifdef HAVE_NFQUEUE
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <linux/netfilter.h>
+#include <net/if.h>
 #endif
 
 // ──────────────────────────────────────────────────────────────
@@ -52,7 +53,8 @@ static bool verify_managed_nft_guard() {
   const int status = pclose(nft);
   if (status != 0) return false;
 
-  const auto chain_has_guard = [&rules](const char* name) {
+  const auto chain_has_guard = [&rules](const char* name,
+                                        const char* loopback_selector) {
     const std::string chain_marker = std::string("chain ") + name + " {";
     const size_t start = rules.find(chain_marker);
     if (start == std::string::npos) return false;
@@ -65,6 +67,7 @@ static bool verify_managed_nft_guard() {
     }
     bool queues_ipv4 = false;
     bool drops_ipv6 = false;
+    bool accepts_loopback = false;
     std::istringstream lines(chain);
     std::string line;
     while (std::getline(lines, line)) {
@@ -77,11 +80,16 @@ static bool verify_managed_nft_guard() {
           line.find("drop") != std::string::npos) {
         drops_ipv6 = true;
       }
+      if (line.find(loopback_selector) != std::string::npos &&
+          line.find("accept") != std::string::npos) {
+        accepts_loopback = true;
+      }
     }
-    return queues_ipv4 && drops_ipv6;
+    return queues_ipv4 && drops_ipv6 && accepts_loopback;
   };
 
-  return chain_has_guard("prerouting") && chain_has_guard("output");
+  return chain_has_guard("prerouting", "iifname \"lo\"") &&
+         chain_has_guard("output", "oifname \"lo\"");
 }
 #endif
 
@@ -344,13 +352,23 @@ int NfqCapture::nfq_callback(nfq_q_handle *qh, nfgenmsg * /*nfmsg*/,
     self->stats_.blocked++;
     return nfq_set_verdict(qh, pkt_id, NF_DROP, 0, nullptr);
   }
-  self->process_packet(payload, len, pkt_id);
+  const uint32_t ingress_ifindex = nfq_get_indev(nfa);
+  std::string ingress_interface;
+  if (ingress_ifindex != 0) {
+    char interface_name[IF_NAMESIZE] = {};
+    if (if_indextoname(ingress_ifindex, interface_name) != nullptr)
+      ingress_interface = interface_name;
+  }
+  self->process_packet(payload, len, pkt_id, ingress_ifindex,
+                       std::move(ingress_interface));
   return 0;
 }
 #endif
 
 // ── process_packet ────────────────────────────────────────────
-void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
+void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id,
+                                uint32_t ingress_ifindex,
+                                std::string ingress_interface) {
   // pkt_id is only used when HAVE_NFQUEUE is defined (Linux kernel verdicts)
 #ifndef HAVE_NFQUEUE
   (void)pkt_id;
@@ -380,6 +398,9 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
   }
 
   // ── Process attribution (lookup before evaluation) ────────────
+  pkt.ingress_ifindex = ingress_ifindex;
+  pkt.ingress_interface = std::move(ingress_interface);
+
   if (proc_mon_) {
     // Try src_port first (outbound), then dst_port (inbound service)
     uint16_t probe_port = pkt.src_port ? pkt.src_port : pkt.dst_port;
@@ -397,7 +418,6 @@ void NfqCapture::process_packet(const uint8_t *buf, int len, uint32_t pkt_id) {
     result.matched_rule_desc =
         "Unsupported IPv4 protocol or fragmented traffic (blocked by v1 policy)";
   }
-
   PacketRecord rec;
   rec.info      = pkt;
   rec.result    = result;

@@ -8,7 +8,7 @@
 //
 //  Rule file syntax (one rule per line):
 //
-//    <action> <proto> <src_ip>[/mask] <dst_ip>[/mask] <dst_port>[-end] "<description>"
+//    <action> <proto> <src_ip>[/mask] <dst_ip>[/mask] <dst_port>[-end] [INIFACE=<name>] "<description>"
 //
 //  Fields:
 //    action      : ALLOW | BLOCK
@@ -16,6 +16,8 @@
 //    src_ip      : dotted-quad or *  (wildcard), optional /CIDR
 //    dst_ip      : dotted-quad or *, optional /CIDR
 //    dst_port    : 0-65535 or * or start-end range
+//    INIFACE     : optional incoming interface name; the rule only matches
+//                  packets received on that interface
 //    description : quoted string
 //
 //  Lines beginning with # are comments.

@@ -190,6 +190,39 @@ TEST_F(RuleEngineTest, RuleResultSurvivesRuleRemoval) {
     EXPECT_EQ(result.matched_rule->description, "Block HTTPS");
 }
 
+TEST_F(RuleEngineTest, BlocksSpoofedLoopbackOutsideLoopbackInterface) {
+    RuleEngine engine(Action::ALLOW);
+
+    Rule loopback_rule;
+    loopback_rule.action = Action::ALLOW;
+    loopback_rule.src_ip = make_ip(127, 0, 0, 1);
+    loopback_rule.ingress_interface = "lo";
+    loopback_rule.description = "Allow localhost only on lo";
+    engine.add_rule(loopback_rule);
+
+    PacketInfo pkt;
+    pkt.proto = Proto::TCP;
+    pkt.src_ip = make_ip(127, 42, 0, 1);
+    pkt.dst_ip = make_ip(198, 51, 100, 10);
+    pkt.src_port = 50000;
+    pkt.dst_port = 443;
+    pkt.tcp_flags = TCP_SYN;
+    pkt.ttl = 64;
+    pkt.ingress_interface = "eth0";
+
+    const EvalResult spoofed = engine.evaluate(pkt);
+    EXPECT_EQ(spoofed.verdict, Action::BLOCK);
+    ASSERT_NE(spoofed.matched_rule, nullptr);
+    EXPECT_EQ(spoofed.matched_rule->description, "Anomaly: Spoofed/Bogon Source IP");
+
+    pkt.src_ip = make_ip(127, 0, 0, 1);
+    pkt.ingress_interface = "lo";
+    const EvalResult local = engine.evaluate(pkt);
+    EXPECT_EQ(local.verdict, Action::ALLOW);
+    ASSERT_NE(local.matched_rule, nullptr);
+    EXPECT_EQ(local.matched_rule->description, "Allow localhost only on lo");
+}
+
 TEST_F(RuleEngineTest, CloudGeoBlocksReplaceWithoutRemovingLocalBlocks) {
     RuleEngine engine(Action::ALLOW);
     const auto local_ip = make_ip(9, 9, 9, 10);
