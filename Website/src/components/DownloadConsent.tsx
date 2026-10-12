@@ -1,0 +1,11 @@
+import { useState } from 'react';
+import { Download, MailCheck } from 'lucide-react';
+
+type Props = { onOpenPolicy: (policy: 'terms' | 'privacy' | 'eula') => void };
+
+export default function DownloadConsent({ onOpenPolicy }: Props) {
+  const [accepted, setAccepted] = useState(false);
+  const [updates, setUpdates] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  return <div className="w-full max-w-xl text-left"><div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3"><label className="flex cursor-pointer items-start gap-3 text-xs leading-5 text-[#b5c0d2]"><input required type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-1 accent-cyan-300" /><span>I confirm that I am authorised to install this software and agree to the <button type="button" onClick={() => onOpenPolicy('terms')} className="text-[#00e5ff] underline">Terms</button>, <button type="button" onClick={() => onOpenPolicy('eula')} className="text-[#00e5ff] underline">EULA</button>, and <button type="button" onClick={() => onOpenPolicy('privacy')} className="text-[#00e5ff] underline">Privacy Notice</button>.</span></label><label className="flex cursor-pointer items-start gap-3 text-xs leading-5 text-[#8b9bb4]"><input type="checkbox" checked={updates} onChange={(e) => setUpdates(e.target.checked)} className="mt-1 accent-cyan-300" /><span>Send me occasional security updates and product news. You can opt out at any time.</span></label></div>{submitted ? <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-sm text-emerald-300"><MailCheck className="h-5 w-5" />Your preferences have been saved. Your download has started.</div> : <a href="AEGIS_XII_Setup_v3.exe" download onClick={() => setSubmitted(true)} aria-disabled={!accepted} className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#00e5ff] to-[#3b82f6] px-8 py-4 font-bold tracking-wide text-white shadow-[0_0_20px_rgba(0,229,255,0.3)] transition-all ${accepted ? 'hover:-translate-y-0.5' : 'pointer-events-none cursor-not-allowed opacity-40'}`}><Download className="h-5 w-5" />Download v3.0 Installer</a>}</div>;
+}

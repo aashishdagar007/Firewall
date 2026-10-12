@@ -1,0 +1,16 @@
+import { useEffect, useState } from 'react';
+import { Check, Cookie, Settings2 } from 'lucide-react';
+
+type Props = { onOpenPolicy: () => void };
+type Preferences = { analytics: boolean; preferences: boolean };
+const storageKey = 'aegis-cookie-preferences';
+
+export default function CookieConsent({ onOpenPolicy }: Props) {
+  const [visible, setVisible] = useState(false);
+  const [customising, setCustomising] = useState(false);
+  const [preferences, setPreferences] = useState<Preferences>({ analytics: false, preferences: false });
+  useEffect(() => { const saved = localStorage.getItem(storageKey); if (!saved) setVisible(true); else setPreferences(JSON.parse(saved)); }, []);
+  const save = (next: Preferences) => { localStorage.setItem(storageKey, JSON.stringify(next)); setPreferences(next); setVisible(false); setCustomising(false); };
+  if (!visible) return <button onClick={() => setVisible(true)} className="fixed bottom-4 left-4 z-40 rounded-full border border-white/10 bg-[#101722] p-3 text-[#00e5ff] shadow-xl hover:bg-[#17212f]" aria-label="Cookie preferences"><Cookie className="h-5 w-5" /></button>;
+  return <aside className="fixed bottom-0 left-0 right-0 z-[90] border-t border-cyan-300/20 bg-[#080d15]/95 px-5 py-5 shadow-2xl backdrop-blur-xl"><div className="mx-auto flex max-w-6xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex max-w-3xl gap-4"><div className="hidden rounded-xl bg-cyan-300/10 p-3 text-[#00e5ff] sm:block"><Cookie /></div><div><h2 className="font-bold text-white">Your privacy choices</h2><p className="mt-1 text-sm leading-6 text-[#a8b5c9]">We use essential storage to keep this site secure and remember your consent. Optional cookies help us improve the experience.</p><button onClick={onOpenPolicy} className="mt-2 text-xs font-semibold text-[#00e5ff] hover:underline">Read the Cookie Notice</button></div></div>{customising && <div className="flex flex-wrap gap-4 text-sm text-[#d7e0ec]"><label className="flex items-center gap-2"><input type="checkbox" checked={preferences.preferences} onChange={(e) => setPreferences({ ...preferences, preferences: e.target.checked })} /> Preferences</label><label className="flex items-center gap-2"><input type="checkbox" checked={preferences.analytics} onChange={(e) => setPreferences({ ...preferences, analytics: e.target.checked })} /> Analytics</label></div>}<div className="flex flex-wrap gap-2"><button onClick={() => save({ analytics: false, preferences: false })} className="rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/5">Reject optional</button><button onClick={() => customising ? save(preferences) : setCustomising(true)} className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/30 px-4 py-2.5 text-sm font-semibold text-[#00e5ff] hover:bg-cyan-300/10"><Settings2 className="h-4 w-4" />{customising ? 'Save choices' : 'Customise'}</button><button onClick={() => save({ analytics: true, preferences: true })} className="inline-flex items-center gap-2 rounded-lg bg-[#00e5ff] px-4 py-2.5 text-sm font-bold text-[#031018] hover:bg-[#66efff]"><Check className="h-4 w-4" />Accept all</button></div></div></aside>;
+}
