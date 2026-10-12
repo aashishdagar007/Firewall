@@ -201,11 +201,39 @@ void ApiServer::setup_routes() {
     if (req.path.find("/api/") == 0) {
       auto it = req.headers.find("Authorization");
       const std::string expected = "Bearer " + api_token_;
-      if (it == req.headers.end() || !constant_time_equal(expected, it->second)) {
+      const std::string_view supplied =
+          it == req.headers.end() ? std::string_view{} : std::string_view(it->second);
+      const bool token_valid = constant_time_equal(expected, supplied);
+
+      bool locked_out = false;
+      {
+        std::lock_guard<std::mutex> lock(auth_mtx_);
+        const auto now = std::chrono::steady_clock::now();
+        if (now < auth_lockout_until_) {
+          locked_out = true;
+        } else if (auth_lockout_until_ != std::chrono::steady_clock::time_point{}) {
+          failed_auth_attempts_ = 0;
+          auth_lockout_until_ = {};
+        }
+
+        if (!locked_out && token_valid) {
+          failed_auth_attempts_ = 0;
+        } else if (!locked_out) {
+          ++failed_auth_attempts_;
+          if (failed_auth_attempts_ >= 5) {
+            auth_lockout_until_ = now + std::chrono::seconds(60);
+            failed_auth_attempts_ = 0;
+            locked_out = true;
+          }
+        }
+      }
+
+      if (locked_out || !token_valid) {
         cors(res);
-        res.status = 401;
+        res.status = locked_out ? 429 : 401;
         res.set_content(
-            "{\"error\":\"Unauthorized - Invalid or missing Bearer token\"}",
+            locked_out ? "{\"error\":\"Too many failed authentication attempts\"}"
+                       : "{\"error\":\"Unauthorized - Invalid or missing Bearer token\"}",
             "application/json");
         return httplib::Server::HandlerResponse::Handled;
       }

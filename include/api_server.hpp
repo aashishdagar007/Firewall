@@ -98,6 +98,9 @@ private:
 
     std::string                      api_token_;
     bool                             token_file_ready_ = false;
+    mutable std::mutex               auth_mtx_;
+    unsigned int                     failed_auth_attempts_ = 0;
+    std::chrono::steady_clock::time_point auth_lockout_until_{};
     std::string                      generate_token();
 
     void setup_routes();
