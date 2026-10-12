@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #ifdef _WIN32
 #include <bcrypt.h>
 #else
@@ -37,6 +38,16 @@ namespace {
 bool is_loopback_address(const std::string& address) {
   return address == "127.0.0.1" || address == "::1" ||
          address == "localhost" || address == "::ffff:127.0.0.1";
+}
+
+bool constant_time_equal(std::string_view expected, std::string_view supplied) {
+  size_t difference = expected.size() ^ supplied.size();
+  for (size_t i = 0; i < expected.size(); ++i) {
+    const unsigned char supplied_byte =
+        i < supplied.size() ? static_cast<unsigned char>(supplied[i]) : 0;
+    difference |= static_cast<unsigned char>(expected[i]) ^ supplied_byte;
+  }
+  return difference == 0;
 }
 
 bool write_api_token(const std::string& token) {
@@ -189,7 +200,8 @@ void ApiServer::setup_routes() {
     // Every API route, including authentication helpers, requires a token.
     if (req.path.find("/api/") == 0) {
       auto it = req.headers.find("Authorization");
-      if (it == req.headers.end() || it->second != "Bearer " + api_token_) {
+      const std::string expected = "Bearer " + api_token_;
+      if (it == req.headers.end() || !constant_time_equal(expected, it->second)) {
         cors(res);
         res.status = 401;
         res.set_content(
