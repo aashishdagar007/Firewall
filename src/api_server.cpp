@@ -12,7 +12,6 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <string_view>
 #ifdef _WIN32
 #include <bcrypt.h>
 #else
@@ -38,16 +37,6 @@ namespace {
 bool is_loopback_address(const std::string& address) {
   return address == "127.0.0.1" || address == "::1" ||
          address == "localhost" || address == "::ffff:127.0.0.1";
-}
-
-bool constant_time_equal(std::string_view expected, std::string_view supplied) {
-  size_t difference = expected.size() ^ supplied.size();
-  for (size_t i = 0; i < expected.size(); ++i) {
-    const unsigned char supplied_byte =
-        i < supplied.size() ? static_cast<unsigned char>(supplied[i]) : 0;
-    difference |= static_cast<unsigned char>(expected[i]) ^ supplied_byte;
-  }
-  return difference == 0;
 }
 
 bool write_api_token(const std::string& token) {
@@ -203,32 +192,10 @@ void ApiServer::setup_routes() {
       const std::string expected = "Bearer " + api_token_;
       const std::string_view supplied =
           it == req.headers.end() ? std::string_view{} : std::string_view(it->second);
-      const bool token_valid = constant_time_equal(expected, supplied);
+      const auto auth_result = auth_guard_.authorize(expected, supplied);
+      const bool locked_out = auth_result == ApiAuthenticationGuard::Result::LockedOut;
 
-      bool locked_out = false;
-      {
-        std::lock_guard<std::mutex> lock(auth_mtx_);
-        const auto now = std::chrono::steady_clock::now();
-        if (now < auth_lockout_until_) {
-          locked_out = true;
-        } else if (auth_lockout_until_ != std::chrono::steady_clock::time_point{}) {
-          failed_auth_attempts_ = 0;
-          auth_lockout_until_ = {};
-        }
-
-        if (!locked_out && token_valid) {
-          failed_auth_attempts_ = 0;
-        } else if (!locked_out) {
-          ++failed_auth_attempts_;
-          if (failed_auth_attempts_ >= 5) {
-            auth_lockout_until_ = now + std::chrono::seconds(60);
-            failed_auth_attempts_ = 0;
-            locked_out = true;
-          }
-        }
-      }
-
-      if (locked_out || !token_valid) {
+      if (auth_result != ApiAuthenticationGuard::Result::Authorized) {
         cors(res);
         res.status = locked_out ? 429 : 401;
         res.set_content(

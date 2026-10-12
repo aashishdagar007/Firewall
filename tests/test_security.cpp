@@ -1,4 +1,5 @@
 #include "platform.hpp"
+#include "api_auth.hpp"
 #include "nfq_capture.hpp"
 #include "config_parser.hpp"
 #include "rate_limiter.hpp"
@@ -147,6 +148,36 @@ int main() {
         // When env var not set and no DPAPI blob, returns empty string (no hardcoded secret)
         std::string cred = fw::Updater::get_secure_credential("NON_EXISTENT_AEGIS_TEST_KEY");
         TEST_ASSERT(cred.empty(), "Updater never falls back to a hardcoded key");
+    }
+
+    // API token comparison and failed-auth lockout.
+    {
+        constexpr std::string_view token = "Bearer 0123456789abcdef0123456789abcdef";
+        TEST_ASSERT(fw::constant_time_equal(token, token),
+                    "API token comparator accepts an exact token");
+        TEST_ASSERT(!fw::constant_time_equal(token, "Bearer invalid"),
+                    "API token comparator rejects a mismatched token");
+
+        fw::ApiAuthenticationGuard guard;
+        for (int i = 0; i < 4; ++i) {
+            TEST_ASSERT(guard.authorize(token, "Bearer invalid") ==
+                            fw::ApiAuthenticationGuard::Result::Unauthorized,
+                        "API auth allows retry before lockout");
+        }
+        TEST_ASSERT(guard.authorize(token, token) ==
+                        fw::ApiAuthenticationGuard::Result::Authorized,
+                    "A valid API token resets failed-auth attempts");
+        for (int i = 0; i < 4; ++i) {
+            TEST_ASSERT(guard.authorize(token, "Bearer invalid") ==
+                            fw::ApiAuthenticationGuard::Result::Unauthorized,
+                        "API auth count is reset after valid authentication");
+        }
+        TEST_ASSERT(guard.authorize(token, "Bearer invalid") ==
+                        fw::ApiAuthenticationGuard::Result::LockedOut,
+                    "API authentication locks after five failed attempts");
+        TEST_ASSERT(guard.authorize(token, token) ==
+                        fw::ApiAuthenticationGuard::Result::LockedOut,
+                    "API authentication rejects valid tokens during lockout");
     }
 
     std::cout << "\n========================================\n";

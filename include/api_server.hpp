@@ -1,5 +1,6 @@
 #pragma once
 #include "types.hpp"
+#include "api_auth.hpp"
 #include "rule_engine.hpp"
 #include "ring_buffer.hpp"
 #include "nfq_capture.hpp"
@@ -98,9 +99,7 @@ private:
 
     std::string                      api_token_;
     bool                             token_file_ready_ = false;
-    mutable std::mutex               auth_mtx_;
-    unsigned int                     failed_auth_attempts_ = 0;
-    std::chrono::steady_clock::time_point auth_lockout_until_{};
+    ApiAuthenticationGuard           auth_guard_;
     std::string                      generate_token();
 
     void setup_routes();
