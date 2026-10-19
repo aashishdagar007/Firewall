@@ -8,6 +8,7 @@
 #include "ring_buffer.hpp"
 #include "process_monitor.hpp"
 #include "window.hpp"
+#include "launch_coordinator.hpp"
 #include "engine/correlation_engine.hpp"
 #include "engine/dns_firewall.hpp"
 #include "engine/failsafe_manager.hpp"
@@ -576,8 +577,19 @@ int main(int argc, char* argv[]) {
     if (std::getenv("AEGISXII_IPC_SMOKE_TEST")) {
         return run_ipc_smoke_test();
     }
+
+    const fw::gui::LaunchResult launch =
+        fw::gui::LaunchCoordinator().ensure_service_ready();
+    if (!launch.ready()) {
+        const std::string message = std::string(fw::gui::launch_status_message(launch.status)) +
+            "\n\n" + launch.detail;
+        MessageBoxA(nullptr, message.c_str(), "Aegis XII needs attention",
+                    MB_OK | MB_ICONERROR);
+        return 1;
+    }
 #endif
 
-    // Default mode: Un-elevated GUI Client
+    // --ui and the default mode start the un-elevated GUI only after the
+    // Windows service has passed its authenticated readiness check.
     return fw::gui::run_gui();
 }
