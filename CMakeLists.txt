@@ -276,6 +276,14 @@ if(BUILD_TESTING)
     target_link_libraries(test_packet PRIVATE GTest::gtest_main)
     add_test(NAME packet_parser_test COMMAND test_packet)
 
+    add_executable(test_launch_coordinator
+        tests/test_launch_coordinator.cpp
+        gui/src/launch_coordinator.cpp
+        gui/src/ipc_client/ipc_client.cpp
+    )
+    target_link_libraries(test_launch_coordinator PRIVATE GTest::gtest_main)
+    add_test(NAME launch_coordinator_test COMMAND test_launch_coordinator)
+
     add_executable(test_ledger tests/test_chain_ledger.cpp)
     target_link_libraries(test_ledger PRIVATE Threads::Threads GTest::gtest_main)
     add_test(NAME chain_ledger_recovery_test COMMAND test_ledger)
