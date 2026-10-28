@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\0b70b7ff9b974c9c85fcbf05031db887\update_mappings.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\src\mappings.h.in">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\CMake\GenerateMappings.cmake" />
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-build\src\CMakeFiles\update_mappings" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{5FA5ED20-B59F-30DC-866D-9FA75AF3B6B2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{849C8C0B-E6BA-3C8E-96DA-0EF1C650FAD7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

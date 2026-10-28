@@ -1,0 +1,464 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{4F63CF74-959E-36A7-9F43-9CECE2CF49A3}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>AegisXII</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AegisXII.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AegisXII</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AegisXII.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AegisXII</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">AegisXII.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">AegisXII</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">AegisXII.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">AegisXII</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4996;4267;4244;4324</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level4</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>_deps\sqlite3-build\Debug\sqlite3d.lib;_deps\glfw-build\src\Debug\glfw3.lib;ws2_32.lib;iphlpapi.lib;psapi.lib;shell32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;ws2_32.lib;advapi32.lib;crypt32.lib;winhttp.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;advapi32.lib;crypt32.lib;winhttp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/Debug/AegisXII.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/Debug/AegisXII.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
+      <DisableSpecificWarnings>4996;4267;4244;4324</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <StringPooling>true</StringPooling>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level4</WarningLevel>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>_deps\sqlite3-build\Release\sqlite3.lib;_deps\glfw-build\src\Release\glfw3.lib;ws2_32.lib;iphlpapi.lib;psapi.lib;shell32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;ws2_32.lib;advapi32.lib;crypt32.lib;winhttp.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;advapi32.lib;crypt32.lib;winhttp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64 /GUARD:CF</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/Release/AegisXII.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <OptimizeReferences>true</OptimizeReferences>
+      <ProgramDataBaseFile>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/Release/AegisXII.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4996;4267;4244;4324</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level4</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>_deps\sqlite3-build\MinSizeRel\sqlite3.lib;_deps\glfw-build\src\MinSizeRel\glfw3.lib;ws2_32.lib;iphlpapi.lib;psapi.lib;shell32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;ws2_32.lib;advapi32.lib;crypt32.lib;winhttp.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;advapi32.lib;crypt32.lib;winhttp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/MinSizeRel/AegisXII.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/MinSizeRel/AegisXII.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <BufferSecurityCheck></BufferSecurityCheck>
+      <CallingConvention></CallingConvention>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4996;4267;4244;4324</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <FloatingPointModel></FloatingPointModel>
+      <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <SupportJustMyCode></SupportJustMyCode>
+      <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level4</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0A00;_CRT_SECURE_NO_WARNINGS;NOMINMAX;SQLITE_ENABLE_MATH_FUNCTIONS;SQLITE_OMIT_DECLTYPE;SQLITE_DEFAULT_MEMSTATUS=0;SQLITE_DEFAULT_WAL_SYNCHRONOUS=1;SQLITE_DQS=0;SQLITE_LIKE_DOESNT_MATCH_BLOBS;SQLITE_MAX_EXPR_DEPTH=0;SQLITE_OMIT_DEPRECATED;SQLITE_OMIT_PROGRESS_CALLBACK;SQLITE_OMIT_SHARED_CACHE;SQLITE_USE_ALLOCA;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\AASHISH\Projects\Firewall;D:\AASHISH\Projects\Firewall\include;D:\AASHISH\Projects\Firewall\core\src;D:\AASHISH\Projects\Firewall\core\src\net;D:\AASHISH\Projects\Firewall\core\src\engine;D:\AASHISH\Projects\Firewall\core\src\util;D:\AASHISH\Projects\Firewall\core\src\persistence;D:\AASHISH\Projects\Firewall\core\src\ipc;D:\AASHISH\Projects\Firewall\core\src\kernel;D:\AASHISH\Projects\Firewall\gui\src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\include;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>_deps\sqlite3-build\RelWithDebInfo\sqlite3.lib;_deps\glfw-build\src\RelWithDebInfo\glfw3.lib;ws2_32.lib;iphlpapi.lib;psapi.lib;shell32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;ws2_32.lib;advapi32.lib;crypt32.lib;winhttp.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;opengl32.lib;wintrust.lib;bcrypt.lib;advapi32.lib;crypt32.lib;winhttp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <DataExecutionPrevention></DataExecutionPrevention>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers></ImageHasSafeExceptionHandlers>
+      <ImportLibrary>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/RelWithDebInfo/AegisXII.lib</ImportLibrary>
+      <LinkErrorReporting></LinkErrorReporting>
+      <ProgramDataBaseFile>D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/RelWithDebInfo/AegisXII.pdb</ProgramDataBaseFile>
+      <RandomizedBaseAddress></RandomizedBaseAddress>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule D:/AASHISH/Projects/Firewall/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall -BD:/AASHISH/Projects/Firewall/cmake-build-release-hardened --check-stamp-file D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTest.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTestUseLaunchers.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckCSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckIncludeFile.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\ExternalProject\shared_internal_commands.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent\CMakeLists.cmake.in;C:\Program Files\CMake\share\cmake-4.4\Modules\FindGit.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindOpenSSL.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\InstallRequiredSystemLibraries.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\WindowsPaths.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\SelectLibraryConfigurations.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCXXCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeRCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeSystem.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule D:/AASHISH/Projects/Firewall/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall -BD:/AASHISH/Projects/Firewall/cmake-build-release-hardened --check-stamp-file D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTest.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTestUseLaunchers.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckCSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckIncludeFile.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\ExternalProject\shared_internal_commands.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent\CMakeLists.cmake.in;C:\Program Files\CMake\share\cmake-4.4\Modules\FindGit.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindOpenSSL.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\InstallRequiredSystemLibraries.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\WindowsPaths.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\SelectLibraryConfigurations.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCXXCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeRCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeSystem.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule D:/AASHISH/Projects/Firewall/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall -BD:/AASHISH/Projects/Firewall/cmake-build-release-hardened --check-stamp-file D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTest.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTestUseLaunchers.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckCSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckIncludeFile.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\ExternalProject\shared_internal_commands.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent\CMakeLists.cmake.in;C:\Program Files\CMake\share\cmake-4.4\Modules\FindGit.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindOpenSSL.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\InstallRequiredSystemLibraries.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\WindowsPaths.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\SelectLibraryConfigurations.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCXXCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeRCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeSystem.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule D:/AASHISH/Projects/Firewall/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall -BD:/AASHISH/Projects/Firewall/cmake-build-release-hardened --check-stamp-file D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCXXInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeCommonLanguageInclude.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeLanguageInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeRCInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTest.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CTestUseLaunchers.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckCSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckIncludeFile.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Compiler\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\ExternalProject\shared_internal_commands.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FetchContent\CMakeLists.cmake.in;C:\Program Files\CMake\share\cmake-4.4\Modules\FindGit.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindOpenSSL.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\InstallRequiredSystemLibraries.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCXXLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Internal\CMakeCommonLinkerInformation.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Linker\MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Linker\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-C.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows-MSVC.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\Platform\WindowsPaths.cmake;C:\Program Files\CMake\share\cmake-4.4\Modules\SelectLibraryConfigurations.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeCXXCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeRCCompiler.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\4.4.3\CMakeSystem.cmake;D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\cmake.verify_globs;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\src\main.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\src\api_server.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\src\ipc_server.cpp">
+      <ObjectFileName>$(IntDir)src/ipc_server.cpp.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\src\updater.cpp">
+      <ObjectFileName>$(IntDir)src/updater.cpp.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\src\diode_threat_engine.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\src\diode_streamer.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\app_trust.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\correlation_engine.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\dns_firewall.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\dpi_engine.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\failsafe_manager.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\hardware_monitor.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\ip_dodger.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\mac_watchdog.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\nat_engine.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\port_scan_detector.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\process_monitor.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\rule_engine.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\traffic_shaper.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\engine\vpn_manager.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\ipc\ipc_server.cpp">
+      <ObjectFileName>$(IntDir)core/src/ipc/ipc_server.cpp.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\kernel\driver_comm.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\net\nfq_capture.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\net\packet.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\persistence\config_parser.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\persistence\local_graph_store.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\persistence\updater.cpp">
+      <ObjectFileName>$(IntDir)core/src/persistence/updater.cpp.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\core\src\util\logger.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\gui\src\ipc_client\ipc_client.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\gui\src\launch_coordinator.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\gui\src\window.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\imgui.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\imgui_demo.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\imgui_draw.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\imgui_tables.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\imgui_widgets.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-src\backends\imgui_impl_opengl3.cpp" />
+    <ResourceCompile Include="D:\AASHISH\Projects\Firewall\src\aegisxii.rc" />
+    <Natvis Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-src\nlohmann_json.natvis">
+    </Natvis>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\ZERO_CHECK.vcxproj">
+      <Project>{DCD75CB0-E6C9-38BB-996D-6981CD4F78C5}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\sqlite3-build\SQLite3.vcxproj">
+      <Project>{8CF32045-69F2-3EF3-AC04-4E25B3CFC7ED}</Project>
+      <Name>SQLite3</Name>
+    </ProjectReference>
+    <ProjectReference Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-build\src\glfw.vcxproj">
+      <Project>{CFFAA410-B24B-38BF-93AF-52DFA3325830}</Project>
+      <Name>glfw</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

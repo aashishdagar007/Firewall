@@ -1,0 +1,15 @@
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/AegisXII.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/INSTALL.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/ALL_BUILD.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/CMakeFiles/ZERO_CHECK.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/nlohmann_json-build/CMakeFiles/INSTALL.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/nlohmann_json-build/CMakeFiles/ALL_BUILD.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-build/CMakeFiles/SQLite3.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-build/CMakeFiles/INSTALL.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-build/CMakeFiles/ALL_BUILD.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-build/CMakeFiles/uninstall.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-build/CMakeFiles/INSTALL.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-build/CMakeFiles/ALL_BUILD.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-build/src/CMakeFiles/glfw.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-build/src/CMakeFiles/update_mappings.dir
+D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-build/src/CMakeFiles/INSTALL.dir

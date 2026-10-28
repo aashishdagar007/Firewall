@@ -1,0 +1,10 @@
+^D:\AASHISH\PROJECTS\FIREWALL\CMAKE-BUILD-RELEASE-HARDENED\CMAKEFILES\9B9F5D29FA945FB170BBF91C036A2086\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall -BD:/AASHISH/Projects/Firewall/cmake-build-release-hardened --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/AegisXII.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

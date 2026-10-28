@@ -1,0 +1,39 @@
+#include <winver.h>
+
+// ── Application Icon ──────────────────────────────────────────────────────────
+// IDI_ICON1 ICON "aegisxii.ico"
+
+// ── Version Information ───────────────────────────────────────────────────────
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION     3,0,0,0
+    PRODUCTVERSION  3,0,0,0
+    FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+    FILEFLAGS       0
+    FILEOS          VOS__WINDOWS32
+    FILETYPE        VFT_APP
+    FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "ASD Solutions\0"
+            VALUE "FileDescription",  "Aegis XII Firewall - Enterprise Network Security\0"
+            VALUE "FileVersion",      "3.0.0.0\0"
+            VALUE "InternalName",     "AegisXII\0"
+            VALUE "LegalCopyright",   "Copyright (C) 2026 ASD Solutions. All rights reserved.\0"
+            VALUE "OriginalFilename", "AegisXII.exe\0"
+            VALUE "ProductName",      "Aegis XII Firewall\0"
+            VALUE "ProductVersion",   "3.0.0.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
+
+// ── Require Administrator Privileges ──────────────────────────────────────────
+// The manifest is embedded via the linker; this ensures Windows UAC prompts
+// for elevation when the exe is launched directly.
+1 RT_MANIFEST "aegisxii.manifest"

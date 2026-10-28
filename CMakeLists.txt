@@ -6,8 +6,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MSVC)
+    # Static runtime /MT for Release, /MTd for Debug (ensures standalone portability)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     # C4324 is expected for the cache-line-aligned shared ring buffer.
     add_compile_options(/W4 /WX /utf-8 /permissive- /wd4996 /wd4267 /wd4244 /wd4324)
+    # Anti-Reverse-Engineering & Hardening (Release):
+    # /GL - Whole Program Optimization (inlines across compilation units)
+    # /guard:cf - Control Flow Guard (compiler side)
+    # /Gy - Function-level linking (enables folding and stripping)
+    # /GF - String pooling
+    # /GS - Buffer security checks (stack canaries)
+    add_compile_options("$<$<CONFIG:Release>:/GL;/guard:cf;/Gy;/GF;/GS>")
+    # Linker hardening:
+    # /LTCG - Link-Time Code Generation (flattens and obfuscates decompiled control flow)
+    # /GUARD:CF - Linker Control Flow Guard enforcement
+    # /OPT:REF - Strip unreferenced functions and data
+    # /OPT:ICF - Fold identical COMDATs (confuses disassemblers)
+    # /INCREMENTAL:NO - Non-incremental link
+    add_link_options("$<$<CONFIG:Release>:/LTCG;/GUARD:CF;/OPT:REF;/OPT:ICF;/INCREMENTAL:NO>")
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -fstack-protector-strong)
     add_compile_definitions(_FORTIFY_SOURCE=2)
@@ -109,7 +125,8 @@ set(SOURCES
 if(WIN32)
     # Using WINDOWS subsystem hides the console window. 
     # For AegisXII, we might want it hidden when run normally (GUI pops up).
-    add_executable(AegisXII WIN32 ${SOURCES})
+    enable_language(RC)
+    add_executable(AegisXII WIN32 ${SOURCES} "${CMAKE_SOURCE_DIR}/src/aegisxii.rc")
 else()
     add_executable(AegisXII ${SOURCES})
 endif()
@@ -123,7 +140,7 @@ if(WIN32)
         target_link_options(AegisXII PRIVATE -static -static-libgcc -static-libstdc++)
     endif()
     target_link_libraries(AegisXII PRIVATE ws2_32 iphlpapi psapi shell32 opengl32 wintrust bcrypt)
-    target_compile_definitions(AegisXII PRIVATE _WIN32_WINNT=0x0A00 _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(AegisXII PRIVATE _WIN32_WINNT=0x0A00 _CRT_SECURE_NO_WARNINGS NOMINMAX)
 
     if(DEFINED WINDIVERT_DIR)
         target_include_directories(AegisXII PRIVATE "${WINDIVERT_DIR}/include")

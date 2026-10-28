@@ -1,0 +1,10 @@
+{
+  "_comment": "AEGIS XII Cloud Control Plane — local bootstrap config (Phase 3)",
+  "schema": 1,
+  "magic_bytes": "ae61571c70b2d4f8",
+  "rate_limit_pps": 1000,
+  "default_policy": "BLOCK",
+  "rules": [],
+  "geo_blocks": [],
+  "emergency_shutdown": false
+}

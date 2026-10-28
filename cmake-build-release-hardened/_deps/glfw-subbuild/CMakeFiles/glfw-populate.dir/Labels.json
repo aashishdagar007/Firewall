@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/glfw-populate"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/367e2358ccc13cc2dd8a4aa44908370f/glfw-populate.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/5d5a91b6f09c111e3de20e85f16610c2/glfw-populate-complete.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-build.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-configure.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-download.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-install.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-patch.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-test.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/530779957d26ad02067ffca6688c4f78/glfw-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"glfw-populate"
+		],
+		"name" : "glfw-populate"
+	}
+}

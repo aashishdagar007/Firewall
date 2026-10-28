@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\CMakeFiles\963d382e01d9f0fee3d08221b6d943e5\uninstall.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\glfw-build\CMakeFiles\uninstall" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{5FA5ED20-B59F-30DC-866D-9FA75AF3B6B2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

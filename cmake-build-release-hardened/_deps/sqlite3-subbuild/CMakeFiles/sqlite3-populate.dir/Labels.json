@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/sqlite3-populate"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/d6c0c75404b3dbd8804ed2ffb3f78579/sqlite3-populate.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/10458b638dee204878423fd293789b84/sqlite3-populate-complete.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-build.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-configure.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-download.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-install.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-patch.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-test.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/sqlite3-subbuild/CMakeFiles/e671710a185103d2bf2b4d1835c6da88/sqlite3-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"sqlite3-populate"
+		],
+		"name" : "sqlite3-populate"
+	}
+}

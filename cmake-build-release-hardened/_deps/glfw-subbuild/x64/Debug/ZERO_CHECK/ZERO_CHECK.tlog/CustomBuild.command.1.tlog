@@ -1,0 +1,10 @@
+^D:\AASHISH\PROJECTS\FIREWALL\CMAKE-BUILD-RELEASE-HARDENED\_DEPS\GLFW-SUBBUILD\CMAKEFILES\367E2358CCC13CC2DD8A4AA44908370F\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild -BD:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/glfw-populate.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\a7bbc97237c4bd528d8bb6686c5bf24e\imgui-populate-test.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\0f8ec8a70a4478e68ac153a372f8302f\imgui-populate-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\24e9cc2dbd88c9daec6d2ab13ac45a56\imgui-populate.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\imgui-subbuild\CMakeFiles\imgui-populate" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{BE1CA90F-7D08-31D6-85BE-E45FDF8FC251}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

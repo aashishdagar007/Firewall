@@ -1,0 +1,10 @@
+^D:\AASHISH\PROJECTS\FIREWALL\CMAKE-BUILD-RELEASE-HARDENED\_DEPS\GLFW-SUBBUILD\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild -BD:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild --check-stamp-file D:/AASHISH/Projects/Firewall/cmake-build-release-hardened/_deps/glfw-subbuild/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

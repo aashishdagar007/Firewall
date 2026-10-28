@@ -38,7 +38,7 @@ bool service_is_running(SC_HANDLE service, DWORD& error) {
 }  // namespace
 
 LaunchCoordinator::LaunchCoordinator(std::chrono::milliseconds timeout)
-    : timeout_(std::max(timeout, std::chrono::milliseconds(1))) {}
+    : timeout_((std::max)(timeout, std::chrono::milliseconds(1))) {}
 
 LaunchResult LaunchCoordinator::ensure_service_ready() const {
 #ifdef _WIN32

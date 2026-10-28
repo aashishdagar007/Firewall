@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\ad20b403d017bca735921c1bfcbafe4d\nlohmann_json-populate-test.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\6d1918ac6dc161da16074ecca44703de\nlohmann_json-populate-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\04ef68856b5b1175952260aa4d374985\nlohmann_json-populate.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-release-hardened\_deps\nlohmann_json-subbuild\CMakeFiles\nlohmann_json-populate" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{37D1DB06-48FA-3A4B-AF9D-5F4DA680E558}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
