@@ -1,0 +1,18 @@
+[ req ]
+distinguished_name = req_distinguished_name
+prompt = no
+
+[ req_distinguished_name ]
+C = US
+ST = California
+L = San Francisco
+O = ASD Solutions
+OU = Release Engineering
+CN = ASD Solutions
+
+[ v3_codesign ]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, codeSigning, 1.3.6.1.4.1.311.2.1.21, 1.3.6.1.4.1.311.2.1.22
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer

@@ -220,6 +220,19 @@ if (-not $SkipInstaller) {
     }
 }
 
+# -- 7. Digital Code Signing ---------------------------------------------------
+$signScript = Join-Path $sourceRoot "scripts\sign_binaries.ps1"
+$pfxFile = Join-Path $sourceRoot "certs\codesign.pfx"
+if ((Test-Path $signScript) -and (Test-Path $pfxFile)) {
+    Write-Host ""
+    Write-Host "Signing release binaries with Authenticode certificate..." -ForegroundColor Yellow
+    try {
+        & $signScript
+    } catch {
+        Write-Warning "Digital code signing encountered an issue: $_"
+    }
+}
+
 Write-Host ""
 Write-Host "==============================================================" -ForegroundColor Green
 Write-Host "  AEGIS XII RELEASE BUILD COMPLETE" -ForegroundColor Green
