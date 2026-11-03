@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/imgui-populate"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/16be18b1c4a27444c66d676ad1f0cb5d/imgui-populate.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/0bb6845a1c829271a372325223857eea/imgui-populate-complete.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-build.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-configure.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-download.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-install.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-patch.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-test.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/imgui-subbuild/CMakeFiles/ea5da86c402be8f81ae37bb950419c6a/imgui-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"imgui-populate"
+		],
+		"name" : "imgui-populate"
+	}
+}

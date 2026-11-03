@@ -61,7 +61,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameter
 
 [Run]
 ; Service registration and startup are performed with checked exit codes below.
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--ui"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--ui"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent shellexec runasoriginaluser
 
 [UninstallRun]
 Filename: "{sys}\sc.exe"; Parameters: "stop AegisXII"; Flags: runhidden
@@ -74,7 +74,7 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
-    if not Exec(ExpandConstant('{app}\{#MyAppExeName}'), '--install',
+    if not ShellExec('open', ExpandConstant('{app}\{#MyAppExeName}'), '--install',
       ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       RaiseException('Could not launch the AEGIS XII service installer.');
     if ResultCode <> 0 then
@@ -86,4 +86,22 @@ begin
     if ResultCode <> 0 then
       RaiseException(Format('AEGIS XII service start failed with exit code %d.', [ResultCode]));
   end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  Result := '';
+  if Exec(ExpandConstant('{sys}\sc.exe'), 'stop AegisXII', '',
+    SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    { 1060 = service not installed; 1062 = service already stopped. }
+    if (ResultCode <> 0) and (ResultCode <> 1060) and (ResultCode <> 1062) then
+      Result := Format('Could not stop the existing AEGIS XII service (error %d).', [ResultCode])
+    else if ResultCode = 0 then
+      Sleep(2500);
+  end
+  else
+    Result := 'Could not launch the Windows Service Control Manager.';
 end;

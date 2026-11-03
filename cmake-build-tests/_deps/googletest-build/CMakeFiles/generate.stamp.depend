@@ -1,0 +1,5 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.4/Modules/CMakeDependentOption.cmake
+C:/Program Files/CMake/share/cmake-4.4/Modules/GNUInstallDirs.cmake
+D:/AASHISH/Projects/Firewall/cmake-build-tests/CMakeFiles/cmake.verify_globs
+D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-src/CMakeLists.txt

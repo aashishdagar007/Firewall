@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\19ae519a12db6e1aec896aa0b06fd478\glfw-populate-test.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\31ae957d4f157467e9830544274fd6ad\glfw-populate-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\96726d64fb69958813eff5c62f1d0adc\glfw-populate.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\glfw-subbuild\CMakeFiles\glfw-populate" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{C395C049-85D2-3260-A5FD-C5960D466A8B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

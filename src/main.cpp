@@ -415,7 +415,8 @@ DWORD g_service_install_stage = 0;
 
 bool InstallService() {
     g_service_install_stage = 1; // OpenSCManager
-    SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
+    SC_HANDLE hSCManager = OpenSCManager(NULL, NULL,
+                                         SC_MANAGER_CREATE_SERVICE | SC_MANAGER_CONNECT);
     if (!hSCManager) {
         g_service_install_error = GetLastError();
         return false;
@@ -457,6 +458,29 @@ bool InstallService() {
         SERVICE_AUTO_START, SERVICE_ERROR_NORMAL,
         binPath.c_str(), NULL, NULL, NULL, NULL, NULL
     );
+
+    // Installer upgrades can encounter the service created by an earlier
+    // installation. Point that service at this installation instead of
+    // reporting ERROR_SERVICE_EXISTS as a fatal registration failure.
+    if (!hService && GetLastError() == ERROR_SERVICE_EXISTS) {
+        g_service_install_stage = 5; // Open and update an existing service.
+        hService = OpenServiceA(hSCManager, "AegisXII",
+                                SERVICE_CHANGE_CONFIG | SERVICE_QUERY_STATUS);
+        if (!hService) {
+            g_service_install_error = GetLastError();
+            CloseServiceHandle(hSCManager);
+            return false;
+        }
+        if (!ChangeServiceConfigA(hService, SERVICE_NO_CHANGE,
+                                  SERVICE_AUTO_START, SERVICE_NO_CHANGE,
+                                  binPath.c_str(), NULL, NULL, NULL, NULL,
+                                  NULL, "Aegis XII Firewall Service")) {
+            g_service_install_error = GetLastError();
+            CloseServiceHandle(hService);
+            CloseServiceHandle(hSCManager);
+            return false;
+        }
+    }
 
     if (hService) {
         CloseServiceHandle(hService);

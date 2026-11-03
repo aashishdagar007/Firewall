@@ -1,0 +1,10 @@
+^D:\AASHISH\PROJECTS\FIREWALL\CMAKE-BUILD-TESTS\_DEPS\SQLITE3-SUBBUILD\CMAKEFILES\6714D46D4E250065E79D222A3684C37C\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/sqlite3-subbuild -BD:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/sqlite3-subbuild --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/sqlite3-subbuild/sqlite3-populate.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

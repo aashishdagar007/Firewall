@@ -1,0 +1,10 @@
+^D:\AASHISH\PROJECTS\FIREWALL\CMAKE-BUILD-TESTS\_DEPS\NLOHMANN_JSON-SUBBUILD\CMAKEFILES\C31B781E8A1956BCE6259F2BEF51177D\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/nlohmann_json-subbuild -BD:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/nlohmann_json-subbuild --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/nlohmann_json-subbuild/nlohmann_json-populate.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

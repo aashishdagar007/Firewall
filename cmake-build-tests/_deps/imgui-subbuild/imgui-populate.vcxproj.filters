@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\ea5da86c402be8f81ae37bb950419c6a\imgui-populate-test.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\0bb6845a1c829271a372325223857eea\imgui-populate-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\16be18b1c4a27444c66d676ad1f0cb5d\imgui-populate.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\imgui-subbuild\CMakeFiles\imgui-populate" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{543DEFCC-65F3-3801-BFD7-6236CCFF146D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

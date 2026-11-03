@@ -1,0 +1,14 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/cmake_install.cmake",
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/nlohmann_json-build/cmake_install.cmake",
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/sqlite3-build/cmake_install.cmake",
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/glfw-build/cmake_install.cmake",
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/glfw-build/src/cmake_install.cmake",
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-build/cmake_install.cmake",
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-build/googlemock/cmake_install.cmake",
+		"D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-build/googletest/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

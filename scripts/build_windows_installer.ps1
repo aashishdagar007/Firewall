@@ -149,6 +149,13 @@ try {
 
     Write-Host "Checking the staged GUI-to-service IPC handshake"
     $payloadExe = Join-Path $payloadDir "AegisXII.exe"
+    $signScript = Join-Path $sourceRoot "scripts\sign_binaries.ps1"
+    $pfxFile = Join-Path $sourceRoot "certs\codesign.pfx"
+    if ((Test-Path -LiteralPath $signScript) -and (Test-Path -LiteralPath $pfxFile)) {
+        Write-Host "Signing staged executable before runtime verification and packaging"
+        & $signScript -Files @($payloadExe)
+        if ($LASTEXITCODE -ne 0) { throw "Staged executable signing failed with exit code $LASTEXITCODE" }
+    }
     try {
         $previousSmokeFlag = $env:AEGISXII_IPC_SMOKE_TEST
         $env:AEGISXII_IPC_SMOKE_TEST = "1"
@@ -191,6 +198,16 @@ if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
     throw "Inno Setup reported success but did not create $installer"
 }
 Write-Host "Installer created: $installer"
+
+# Sign the generated setup before the optional lifecycle smoke test. On systems
+# with application control, an unsigned setup may be blocked before testing.
+$signScript = Join-Path $sourceRoot "scripts\sign_binaries.ps1"
+$pfxFile = Join-Path $sourceRoot "certs\codesign.pfx"
+if ((Test-Path -LiteralPath $signScript) -and (Test-Path -LiteralPath $pfxFile)) {
+    Write-Host "Signing release binaries before installer verification"
+    & $signScript
+    if ($LASTEXITCODE -ne 0) { throw "Binary signing failed with exit code $LASTEXITCODE" }
+}
 
 if ($RunInstallSmokeTest) {
     $serviceControl = Join-Path $env:SystemRoot "System32\sc.exe"

@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/googletest-populate"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/68a0a81257a323944a45cbf19450e9cd/googletest-populate.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/67997e6156ebfdff3a76c09f8174b389/googletest-populate-complete.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-build.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-configure.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-download.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-install.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-mkdir.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-patch.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-test.rule"
+		},
+		{
+			"file" : "D:/AASHISH/Projects/Firewall/cmake-build-tests/_deps/googletest-subbuild/CMakeFiles/53fadf4fda6753b971fe0328d646e49c/googletest-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"googletest-populate"
+		],
+		"name" : "googletest-populate"
+	}
+}

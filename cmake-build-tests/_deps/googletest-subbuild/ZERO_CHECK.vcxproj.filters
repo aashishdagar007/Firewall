@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\AASHISH\Projects\Firewall\cmake-build-tests\_deps\googletest-subbuild\CMakeFiles\68a0a81257a323944a45cbf19450e9cd\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{22C1ECAF-54F3-390A-B7AF-42CB83577A76}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
