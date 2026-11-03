@@ -86,20 +86,24 @@ function Sign-SingleFile {
             Write-Host "  Attempting timestamp via $server ..." -ForegroundColor Gray
             $args = @(
                 "sign",
-                "/f", $pfxFile,
-                "/p", $PfxPassword,
+                "/f", "`"$pfxFile`"",
+                "/p", "`"$PfxPassword`"",
                 "/fd", "SHA256",
-                "/tr", $server,
+                "/tr", "`"$server`"",
                 "/td", "SHA256",
-                "/d", "Aegis XII Firewall",
-                "/du", "https://asdsolutions.com",
-                $targetFile
+                "/d", "`"AegisXII`"",
+                "/du", "`"https://asdsolutions.com`"",
+                "`"$targetFile`""
             )
-            & $signtool @args *>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "  [+] Signed & timestamped successfully ($server)" -ForegroundColor Green
-                $signedSuccessfully = $true
-                break
+            try {
+                $process = Start-Process -FilePath $signtool -ArgumentList $args -NoNewWindow -Wait -PassThru
+                if ($process.ExitCode -eq 0) {
+                    Write-Host "  [+] Signed & timestamped successfully ($server)" -ForegroundColor Green
+                    $signedSuccessfully = $true
+                    break
+                }
+            } catch {
+                # Try next server
             }
         }
     }
@@ -113,7 +117,7 @@ function Sign-SingleFile {
             "/f", $pfxFile,
             "/p", $PfxPassword,
             "/fd", "SHA256",
-            "/d", "Aegis XII Firewall",
+            "/d", "AegisXII",
             "/du", "https://asdsolutions.com",
             $targetFile
         )

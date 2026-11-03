@@ -34,6 +34,6 @@ BEGIN
 END
 
 // ── Require Administrator Privileges ──────────────────────────────────────────
-// The manifest is embedded via the linker; this ensures Windows UAC prompts
-// for elevation when the exe is launched directly.
-1 RT_MANIFEST "aegisxii.manifest"
+// The manifest is embedded via the linker (/MANIFESTUAC:level='requireAdministrator')
+// to avoid duplicate manifest conflicts in MSVC.
+// 1 RT_MANIFEST "aegisxii.manifest"

@@ -571,6 +571,32 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR /* lpCmdLine */, int) {
         args.push_back(s);
     }
     LocalFree(wargv);
+    // If not running as service or smoke test, ensure elevated privileges (self-elevate via UAC if needed)
+    if (args.size() <= 1 || (args[1] != "--service" && args[1] != "--ipc-smoke-test")) {
+        if (!check_is_elevated_admin()) {
+            char self_path[MAX_PATH] = {};
+            if (GetModuleFileNameA(nullptr, self_path, MAX_PATH) > 0) {
+                std::string params;
+                for (size_t i = 1; i < args.size(); ++i) {
+                    if (i > 1) params += " ";
+                    params += "\"" + args[i] + "\"";
+                }
+                SHELLEXECUTEINFOA sei = { sizeof(sei) };
+                sei.lpVerb = "runas";
+                sei.lpFile = self_path;
+                sei.lpParameters = params.empty() ? nullptr : params.c_str();
+                sei.nShow = SW_SHOWNORMAL;
+                if (ShellExecuteExA(&sei)) {
+                    return 0; // successfully launched elevated process, exit un-elevated stub
+                }
+            }
+            MessageBoxA(nullptr,
+                "Aegis XII Firewall requires Administrator privileges to monitor network traffic and apply security rules.\n\nPlease run as Administrator.",
+                "Administrator Privileges Required",
+                MB_OK | MB_ICONWARNING);
+            return 5;
+        }
+    }
 #else
 int main(int argc, char* argv[]) {
     std::vector<std::string> args;
