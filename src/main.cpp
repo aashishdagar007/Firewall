@@ -94,13 +94,43 @@ int run_firewall(int argc, char* argv[]) {
         return 1;
     }
 
-    const std::string config_path    = (argc > 1) ? argv[1] : "config/rules.conf";
-    const std::string log_path       = (argc > 2) ? argv[2] : "logs/aegix.log";
-    const std::string dashboard_root = (argc > 3) ? argv[3] : "dashboard/";
-    int               api_port       = 8080;
+    std::string config_path    = (argc > 1) ? argv[1] : "config/rules.conf";
+    std::string log_path       = (argc > 2) ? argv[2] : "logs/aegix.log";
+    std::string dashboard_root = (argc > 3) ? argv[3] : "dashboard/";
+    int         api_port       = 8080;
     if (argc > 4) {
         try { api_port = std::stoi(argv[4]); } catch (...) {}
     }
+
+#ifdef _WIN32
+    char exe_buf[MAX_PATH] = {};
+    if (GetModuleFileNameA(nullptr, exe_buf, MAX_PATH) > 0) {
+        std::string s(exe_buf);
+        size_t sep = s.find_last_of("\\/");
+        if (sep != std::string::npos) {
+            std::string exe_dir = s.substr(0, sep);
+            if (argc <= 1) {
+                std::ifstream f1(config_path);
+                if (!f1.good()) {
+                    std::string alt = exe_dir + "\\config\\rules.conf";
+                    std::ifstream f2(alt);
+                    if (f2.good()) config_path = alt;
+                }
+            }
+            if (argc <= 2) {
+                std::ifstream f1(log_path);
+                if (!f1.good()) {
+                    log_path = exe_dir + "\\logs\\aegix.log";
+                }
+            }
+            if (argc <= 3) {
+                dashboard_root = exe_dir + "\\dashboard\\";
+            }
+            CreateDirectoryA((exe_dir + "\\logs").c_str(), nullptr);
+        }
+    }
+    CreateDirectoryA("logs", nullptr);
+#endif
 
     // ── Phase 1.1: Mandatory Privilege Enforcement (Fail-Closed) ──
     if (!check_is_elevated_admin()) {
@@ -578,18 +608,48 @@ int main(int argc, char* argv[]) {
         return run_ipc_smoke_test();
     }
 
+    std::thread in_process_service;
     const fw::gui::LaunchResult launch =
         fw::gui::LaunchCoordinator().ensure_service_ready();
     if (!launch.ready()) {
-        const std::string message = std::string(fw::gui::launch_status_message(launch.status)) +
-            "\n\n" + launch.detail;
-        MessageBoxA(nullptr, message.c_str(), "Aegis XII needs attention",
-                    MB_OK | MB_ICONERROR);
-        return 1;
+        if (launch.status == fw::gui::LaunchStatus::ServiceNotInstalled) {
+            // Standalone unified mode: start core firewall engine in-process
+            g_service_running = true;
+            in_process_service = std::thread([]() {
+                run_core_service();
+            });
+
+            // Wait for in-process IPC pipe to become ready
+            fw::gui::IpcClient test_client;
+            bool connected = false;
+            for (int i = 0; i < 60 && !connected; ++i) {
+                connected = test_client.connect() && test_client.ping();
+                test_client.disconnect();
+                if (!connected) std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            if (!connected) {
+                MessageBoxA(nullptr, "Could not initialize in-process firewall engine.", "Aegis XII", MB_OK | MB_ICONERROR);
+                return 1;
+            }
+        } else {
+            const std::string message = std::string(fw::gui::launch_status_message(launch.status)) +
+                "\n\n" + launch.detail;
+            MessageBoxA(nullptr, message.c_str(), "Aegis XII needs attention",
+                        MB_OK | MB_ICONERROR);
+            return 1;
+        }
     }
 #endif
 
-    // --ui and the default mode start the un-elevated GUI only after the
-    // Windows service has passed its authenticated readiness check.
-    return fw::gui::run_gui();
+    // Run the UI
+    int ret = fw::gui::run_gui();
+
+#ifdef _WIN32
+    if (in_process_service.joinable()) {
+        if (g_capture) g_capture->stop();
+        g_service_running = false;
+        in_process_service.join();
+    }
+#endif
+    return ret;
 }
